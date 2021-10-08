@@ -25,12 +25,14 @@ def test_scan_filesystem_no_excludes(tmpdir) -> None:
 
     root, paths_skipped = scan_filesystem(tmpdir, ())
 
+    MODIFY_TIME_TOLERANCE = 5       # Seconds
+
     assert not paths_skipped
 
     assert root.name == ''
     assert len(root.files) == 1 and len(root.subdirectories) == 3
     file = root.files[0]
-    assert file.name == 'file.txt' and abs((file.last_modified - time).seconds) < 5
+    assert file.name == 'file.txt' and abs((file.last_modified - time).seconds) < MODIFY_TIME_TOLERANCE
     a = next(d for d in root.subdirectories if d.name == 'a')
     assert a.files == [] and len(a.subdirectories) == 2
     aa = next(d for d in a.subdirectories if d.name == 'aA')
@@ -42,9 +44,9 @@ def test_scan_filesystem_no_excludes(tmpdir) -> None:
     ba = next(d for d in b.subdirectories if d.name == 'ba')
     assert len(ba.files) == 2 and ba.subdirectories == []
     file_ba_1 = next(f for f in ba.files if f.name == 'file_ba_1.jpg')
-    assert abs((file_ba_1.last_modified - time).seconds) < 5
+    assert abs((file_ba_1.last_modified - time).seconds) < MODIFY_TIME_TOLERANCE
     file_ba_2 = next(f for f in ba.files if f.name == 'FILE_ba_2.txt')
-    assert abs((file_ba_2.last_modified - time).seconds) < 5
+    assert abs((file_ba_2.last_modified - time).seconds) < MODIFY_TIME_TOLERANCE
     bb = next(d for d in b.subdirectories if d.name == 'bb')
     assert bb.files == [] and len(bb.subdirectories) == 1
     bba = next(d for d in bb.subdirectories if d.name == 'bba')
@@ -52,7 +54,7 @@ def test_scan_filesystem_no_excludes(tmpdir) -> None:
     bbaa = next(d for d in bba.subdirectories if d.name == 'bbaa')
     assert len(bbaa.files) == 1 and bbaa.subdirectories == []
     file_bbaa = bbaa.files[0]
-    assert file_bbaa.name == 'file\u4569_bbaa' and abs((file_bbaa.last_modified - time).seconds) < 5
+    assert file_bbaa.name == 'file\u4569_bbaa' and abs((file_bbaa.last_modified - time).seconds) < MODIFY_TIME_TOLERANCE
     c = next(d for d in root.subdirectories if d.name == 'C')
     assert c.files == [] and c.subdirectories == []
 
@@ -65,28 +67,49 @@ def test_scan_filesystem_some_excludes(tmpdir) -> None:
 
     time = datetime.now(timezone.utc)
     (tmpdir / 'un\xEFi\uC9F6c\u91F5ode.txt').touch()
-    (tmpdir / 'foo.txt').touch()
+    (tmpdir / 'foo.jpg').touch()
     (tmpdir / 'temp').mkdir(parents=True)
     (tmpdir / 'temp' / 'a_file').touch()
     (tmpdir / 'temp' / 'a_dir').mkdir(parents=True)
     (tmpdir / 'temp' / 'a_dir' / 'b_dir').mkdir(parents=True)
     (tmpdir / 'Code' / 'project').mkdir(parents=True)
+    (tmpdir / 'Code' / 'project' / 'README').touch()
     (tmpdir / 'Code' / 'project' / 'src').mkdir(parents=True)
     (tmpdir / 'Code' / 'project' / 'src' / 'main.cpp').touch()
     (tmpdir / 'Code' / 'project' / 'bin').mkdir(parents=True)
     (tmpdir / 'Code' / 'project' / 'bin' / 'artifact.bin').touch()
-    (tmpdir / 'Code' / 'project' / 'bin' / 'program.exe').touch()
+    (tmpdir / 'Code' / 'project' / 'bin' / 'Program.exe').touch()
     (tmpdir / 'Code' / 'project' / '.git').mkdir(parents=True)
     (tmpdir / 'Code' / 'project' / '.git' / 'somefile').touch()
     (tmpdir / 'empty').mkdir(parents=True)
 
     root, paths_skipped = scan_filesystem(tmpdir, exclude_patterns)
 
+    MODIFY_TIME_TOLERANCE = 5       # Seconds
+
     assert not paths_skipped
 
     # TODO
     assert root.name == ''
     assert len(root.files) == 1 and len(root.subdirectories) == 2
+    foo_jpg = next(f for f in root.files if f.name == 'foo.jpg')
+    assert abs((foo_jpg.last_modified - time).seconds) < MODIFY_TIME_TOLERANCE
+    code = next(d for d in root.subdirectories if d.name == 'Code')
+    assert len(code.files) == 0 and len(code.subdirectories) == 1
+    project = next(d for d in code.subdirectories if d.name == 'project')
+    assert len(project.files) == 1 and len(project.subdirectories) == 2
+    readme = next(f for f in project.files if f.name == 'README')
+    assert abs((readme.last_modified - time).seconds) < MODIFY_TIME_TOLERANCE
+    src = next(d for d in project.subdirectories if d.name == 'src')
+    assert len(src.files) == 1 and len(src.subdirectories) == 0
+    main_cpp = next(f for f in src.files if f.name == 'main.cpp')
+    assert abs((main_cpp.last_modified - time).seconds) < MODIFY_TIME_TOLERANCE
+    bin_ = next(d for d in project.subdirectories if d.name == 'bin')
+    assert len(bin_.files) == 1 and len(bin_.subdirectories) == 0
+    program_exe = next(f for f in bin_.files if f.name == 'Program.exe')
+    assert abs((program_exe.last_modified - time).seconds) < MODIFY_TIME_TOLERANCE
+    empty = next(d for d in root.subdirectories if d.name == 'empty')
+    assert len(empty.files) == 0 and len(empty.subdirectories) == 0
 
 
 def test_compute_backup_plan() -> None:

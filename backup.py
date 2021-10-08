@@ -112,12 +112,13 @@ def scan_filesystem(path: Path, exclude_patterns: Iterable[re.Pattern]) -> Tuple
             else:
                 raise AssertionError(f'Unexpected search node {repr(search_node)}')
         else:
-            if not is_root:
+            if is_root:
+                directory_path = '/'
+            else:
                 path_segments.append(os.path.normcase(search_node.name))
                 search_stack.append('pop_path_segment')
+                directory_path = '/' + '/'.join(path_segments) + '/'
 
-            # TODO: fix this, wrong for files in root
-            directory_path = '/' + '/'.join(path_segments) + '/'
             directory_excluded = is_path_excluded(directory_path, exclude_patterns)
 
             # TODO: user feedback for excluded path
