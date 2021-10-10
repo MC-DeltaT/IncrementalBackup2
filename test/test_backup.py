@@ -3,6 +3,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from backup import compile_exclude_pattern, is_path_excluded, scan_filesystem
+from backup_manifest import BackupManifest
+from backup_metadata import BackupMetadata
+from backup_start_info import BackupStartInfo
+from backup_sum import BackupSum
 
 
 def test_scan_filesystem_no_excludes(tmpdir) -> None:
@@ -89,7 +93,6 @@ def test_scan_filesystem_some_excludes(tmpdir) -> None:
 
     assert not paths_skipped
 
-    # TODO
     assert root.name == ''
     assert len(root.files) == 1 and len(root.subdirectories) == 2
     foo_jpg = next(f for f in root.files if f.name == 'foo.jpg')
@@ -113,7 +116,21 @@ def test_scan_filesystem_some_excludes(tmpdir) -> None:
 
 
 def test_compute_backup_plan() -> None:
-    """TODO"""
+    backup1 = BackupMetadata('324t9uagfkjhds', BackupStartInfo(datetime(2010, 5, 8, 12, 34, 22)), BackupManifest())
+    backup2 = BackupMetadata('h3f4078394fgh', BackupStartInfo(datetime(2010, 6, 1, 23, 4, 2)), BackupManifest())
+    backup3 = BackupMetadata('45gserwafdagwaeiu', BackupStartInfo(datetime(2010, 10, 1, 4, 6, 32)), BackupManifest())
+    backup_sum = BackupSum(BackupSum.Directory('',
+        files=[BackupSum.File('file_x.pdf', backup1), BackupSum.File('file_y', backup3)],
+        subdirectories=[
+            BackupSum.Directory('dir_a',
+                files=[BackupSum.File('file_a_a.txt', backup1), BackupSum.File('file_a_b.png', backup2),
+                       BackupSum.File('file_a_c.exe', backup3)]),
+            BackupSum.Directory('dir_b', files=[BackupSum.File('foo', backup2)]),
+            BackupSum.Directory('dir_c', files=[BackupSum.File('bar.lnk', backup1)], subdirectories=[
+                BackupSum.Directory('dir_c_a', files=[BackupSum.File('file_c_a_qux.a', backup1)])
+            ])
+        ]
+    ))
 
 
 def test_compile_exclude_pattern() -> None:

@@ -29,7 +29,7 @@ def backup_command(args) -> None:
         print_config(source_path, target_path, exclude_patterns)
 
         previous_backups = read_previous_backups(target_path)
-        backup_sum = BackupSum(previous_backups)
+        backup_sum = BackupSum.from_backups(previous_backups)
 
         backup_path = create_backup_directory(target_path)
         data_path = create_data_directory(backup_path)

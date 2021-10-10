@@ -11,6 +11,7 @@ __all__ = [
 ]
 
 
+@dataclass
 class BackupSum:
     """Represents the result of applying a sequence of backups.
         That is, reconstructs the state of the source directory given backup data.
@@ -29,18 +30,10 @@ class BackupSum:
         files: List['BackupSum.File'] = field(default_factory=list)
         subdirectories: List['BackupSum.Directory'] = field(default_factory=list)
 
-    def __init__(self, backups: Iterable[BackupMetadata]) -> None:
-        """
-            :param backups: 0 or more backups to sum. Should all be for the same source directory, or the results will
-                be meaningless.
-        """
-
-        self.root = self._construct_tree(backups)
-        """The root of the reconstructed file/directory structure.
-            This object represents the backup source directory.
-        """
-
-        self._prune_tree(self.root)
+    root: Directory
+    """The root of the reconstructed file/directory structure.
+        This object represents the backup source directory.
+    """
 
     def find_directory(self, path: Iterable[str]) -> Optional[Directory]:
         """Finds a directory within the backup sum by path.
@@ -56,6 +49,18 @@ class BackupSum:
             if directory is None:
                 break
         return directory
+
+    @classmethod
+    def from_backups(cls, backups: Iterable[BackupMetadata]) -> 'BackupSum':
+        """Constructs a backup sum from previous backup metadata.
+
+            :param backups: 0 or more backups to sum. Should all be for the same source directory, or the results will
+                be meaningless.
+        """
+
+        root = cls._construct_tree(backups)
+        cls._prune_tree(root)
+        return cls(root)
 
     @staticmethod
     def _construct_tree(backups: Iterable[BackupMetadata]) -> Directory:

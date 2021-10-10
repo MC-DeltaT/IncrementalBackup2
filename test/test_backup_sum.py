@@ -7,16 +7,16 @@ from backup_sum import BackupSum
 
 
 def test_backup_sum_empty() -> None:
-    backup_sum = BackupSum(())
-    assert backup_sum.root == BackupSum.Directory('', [], [])
+    backup_sum = BackupSum.from_backups(())
+    assert backup_sum == BackupSum(BackupSum.Directory('', [], []))
 
-    backup_sum = BackupSum((
+    backup_sum = BackupSum.from_backups((
         BackupMetadata('aergfkhj45', BackupStartInfo(datetime.now(timezone.utc)), BackupManifest()),
         BackupMetadata('08594ghwe984', BackupStartInfo(datetime.now(timezone.utc)), BackupManifest()),
         BackupMetadata('2534698h', BackupStartInfo(datetime.now(timezone.utc)), BackupManifest()),
     ))
-    expected_root = BackupSum.Directory('')
-    assert backup_sum.root == expected_root
+    expected = BackupSum(BackupSum.Directory('', [], []))
+    assert backup_sum == expected
 
 
 def test_backup_sum_one_backup() -> None:
@@ -36,18 +36,18 @@ def test_backup_sum_one_backup() -> None:
         ])
     ))
 
-    backup_sum = BackupSum((metadata,))
+    backup_sum = BackupSum.from_backups((metadata,))
 
-    expected_root = BackupSum.Directory('', files=[BackupSum.File('a', metadata)], subdirectories=[
+    expected = BackupSum(BackupSum.Directory('', files=[BackupSum.File('a', metadata)], subdirectories=[
         BackupSum.Directory('c', files=[BackupSum.File('ca', metadata)]),
         BackupSum.Directory('d', subdirectories=[
             BackupSum.Directory('da', subdirectories=[
                 BackupSum.Directory('daa', files=[BackupSum.File('daaa', metadata)])
             ])
         ])
-    ])
+    ]))
 
-    assert backup_sum.root == expected_root
+    assert backup_sum == expected
 
 
 def test_backup_sum_multiple_backups() -> None:
@@ -82,9 +82,9 @@ def test_backup_sum_multiple_backups() -> None:
         ])
     ))
 
-    backup_sum = BackupSum((metadata2, metadata1, metadata3))
+    backup_sum = BackupSum.from_backups((metadata2, metadata1, metadata3))
 
-    expected_root = BackupSum.Directory('',
+    expected = BackupSum(BackupSum.Directory('',
         files=[BackupSum.File('bar', metadata2), BackupSum.File('qux', metadata2)],
         subdirectories=[
             BackupSum.Directory('a', files=[BackupSum.File('a_file1', metadata1)], subdirectories=[
@@ -96,6 +96,6 @@ def test_backup_sum_multiple_backups() -> None:
                 ])
             ]),
             BackupSum.Directory('b', files=[BackupSum.File('b_file2', metadata3)]),
-        ])
+        ]))
 
-    assert backup_sum.root == expected_root
+    assert backup_sum == expected
