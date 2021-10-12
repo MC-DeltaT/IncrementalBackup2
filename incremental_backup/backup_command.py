@@ -4,7 +4,7 @@ import re
 import sys
 from typing import Iterable, List, Sequence
 
-from .backup import compile_exclude_pattern
+from .backup import BackupResults, compile_exclude_pattern, do_backup
 from .backup_meta import BackupCompleteInfo, BackupDirectoryCreationError, BackupManifest, BackupManifestParseError, \
     BackupMetadata, BackupStartInfo, BackupStartInfoParseError, BackupSum, COMPLETE_INFO_FILENAME, \
     create_new_backup_directory, DATA_DIRECTORY_NAME, MANIFEST_FILENAME, read_backup_metadata, START_INFO_FILENAME, \
@@ -32,12 +32,12 @@ def backup_command(args) -> None:
         data_path = create_data_directory(backup_path)
         create_start_info(backup_path)
 
-        # TODO: do backup
-        manifest = BackupManifest()
-        paths_skipped = True
+        results, manifest = do_backup(source_path, data_path, exclude_patterns, backup_sum)
 
         save_manifest(backup_path, manifest)
-        create_complete_info(backup_path, paths_skipped)
+        create_complete_info(backup_path, results.paths_skipped)
+
+        print_results(results)
 
         sys.exit(EXIT_CODE_SUCCESS)
     except FatalError as e:
@@ -133,6 +133,10 @@ def create_complete_info(backup_path: Path, paths_skipped: bool) -> None:
     except OSError as e:
         # Not fatal since the completion info isn't currently used by the software.
         warning(f'Failed to write backup completion information file: {e}')
+
+
+def print_results(results: BackupResults) -> None:
+    """TODO"""
 
 
 def warning(message: str) -> None:
