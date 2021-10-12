@@ -4,14 +4,11 @@ import re
 import sys
 from typing import Iterable, List, Sequence
 
-from backup import compile_exclude_pattern
-from backup_complete_info import BackupCompleteInfo, write_backup_complete_info
-from backup_manifest import BackupManifest, BackupManifestParseError, write_backup_manifest
-from backup_meta import BackupDirectoryCreationError, COMPLETE_INFO_FILENAME, create_new_backup_directory, \
-    DATA_DIRECTORY_NAME, MANIFEST_FILENAME, read_backup_metadata, START_INFO_FILENAME
-from backup_metadata import BackupMetadata
-from backup_start_info import BackupStartInfo, BackupStartInfoParseError, write_backup_start_info
-from backup_sum import BackupSum
+from .backup import compile_exclude_pattern
+from .backup_meta import BackupCompleteInfo, BackupDirectoryCreationError, BackupManifest, BackupManifestParseError, \
+    BackupMetadata, BackupStartInfo, BackupStartInfoParseError, BackupSum, COMPLETE_INFO_FILENAME, \
+    create_new_backup_directory, DATA_DIRECTORY_NAME, MANIFEST_FILENAME, read_backup_metadata, START_INFO_FILENAME, \
+    write_backup_complete_info, write_backup_manifest, write_backup_start_info
 
 
 __all__ = [

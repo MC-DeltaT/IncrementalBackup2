@@ -2,12 +2,12 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from backup import compile_exclude_pattern, compute_backup_plan, is_path_excluded, scan_filesystem
-from backup_manifest import BackupManifest
-from backup_metadata import BackupMetadata
-from backup_start_info import BackupStartInfo
-from backup_sum import BackupSum
-import filesystem
+from incremental_backup import filesystem
+from incremental_backup.backup import compile_exclude_pattern, compute_backup_plan, is_path_excluded, scan_filesystem
+from incremental_backup.backup_meta.manifest import BackupManifest
+from incremental_backup.backup_meta.metadata import BackupMetadata
+from incremental_backup.backup_meta.start_info import BackupStartInfo
+from incremental_backup.backup_meta.sum import BackupSum
 
 
 def test_scan_filesystem_no_excludes(tmpdir) -> None:

@@ -2,38 +2,10 @@ from datetime import datetime, timezone
 
 import pytest
 
-from backup_manifest import BackupManifest
-from backup_meta import BACKUP_NAME_LENGTH, BackupDirectoryCreationError, create_new_backup_directory, \
-    generate_backup_name, MANIFEST_FILENAME, read_backup_metadata, START_INFO_FILENAME
-from backup_metadata import BackupMetadata
-from backup_start_info import BackupStartInfo
-
-
-def test_generate_backup_name() -> None:
-    names = [generate_backup_name() for _ in range(153)]
-    assert all(len(name) == BACKUP_NAME_LENGTH for name in names)
-    assert all(name.isalnum() for name in names)
-    assert all(name.casefold() == name for name in names)
-    assert len(set(names)) == len(names)        # Very very low chance all names are the same.
-
-
-def test_create_new_backup_directory_nonexistent(tmpdir) -> None:
-    target_dir = tmpdir / 'target_dir'
-    create_new_backup_directory(target_dir)
-    assert target_dir.exists()
-    entries = target_dir.listdir()
-    assert len(entries) == 1
-    name = entries[0].basename
-    assert len(name) == BACKUP_NAME_LENGTH
-    assert name.isalnum()
-
-
-def test_create_new_backup_directory_invalid(tmpdir) -> None:
-    target_dir = tmpdir / 'target_dir'
-    target_dir.ensure()     # Note: creates file, not directory
-
-    with pytest.raises(BackupDirectoryCreationError):
-        create_new_backup_directory(target_dir)
+from incremental_backup.backup_meta.manifest import BackupManifest
+from incremental_backup.backup_meta.metadata import BackupMetadata, read_backup_metadata
+from incremental_backup.backup_meta.start_info import BackupStartInfo
+from incremental_backup.backup_meta.structure import MANIFEST_FILENAME, START_INFO_FILENAME
 
 
 def test_read_backup_metadata_ok(tmpdir) -> None:

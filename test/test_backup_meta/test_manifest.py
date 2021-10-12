@@ -1,7 +1,7 @@
 import pytest
 
-from backup_manifest import BackupManifest, BackupManifestParseError, prune_backup_manifest, read_backup_manifest, \
-    write_backup_manifest
+from incremental_backup.backup_meta.manifest import BackupManifest, BackupManifestParseError, prune_backup_manifest, \
+    read_backup_manifest, write_backup_manifest
 
 
 def test_prune_backup_manifest_empty() -> None:

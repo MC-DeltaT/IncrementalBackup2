@@ -3,7 +3,7 @@ import json
 from os import PathLike
 from typing import Dict, Iterator, List, NoReturn, Tuple, Union
 
-from utility import path_name_equal
+from ..utility import path_name_equal
 
 
 __all__ = [

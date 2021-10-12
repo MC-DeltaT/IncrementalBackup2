@@ -2,8 +2,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from backup_complete_info import BackupCompleteInfo, BackupCompleteInfoParseError, read_backup_complete_info, \
-    write_backup_complete_info
+from incremental_backup.backup_meta.complete_info import BackupCompleteInfo, BackupCompleteInfoParseError, \
+    read_backup_complete_info, write_backup_complete_info
 
 
 def test_write_backup_complete_info(tmpdir) -> None:

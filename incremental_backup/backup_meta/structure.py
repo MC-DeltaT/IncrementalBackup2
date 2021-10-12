@@ -2,10 +2,6 @@ from os import PathLike
 from pathlib import Path
 import random
 
-from backup_manifest import read_backup_manifest
-from backup_metadata import BackupMetadata
-from backup_start_info import read_backup_start_info
-
 
 __all__ = [
     'BACKUP_DIRECTORY_CREATION_RETRIES',
@@ -17,7 +13,6 @@ __all__ = [
     'generate_backup_name',
     'LOG_FILENAME',
     'MANIFEST_FILENAME',
-    'read_backup_metadata',
     'START_INFO_FILENAME'
 ]
 
@@ -76,21 +71,6 @@ def create_new_backup_directory(target_directory: PathLike) -> str:
                 retries -= 1
         else:
             return name
-
-
-def read_backup_metadata(backup_directory: PathLike) -> BackupMetadata:
-    """Reads the metadata of a backup, i.e. the name, start information, and manifest.
-
-        :except OSError: If a metadata file could not be read.
-        :except BackupStartInfoParseError: If the backup start information file could not be parsed.
-        :except BackupManifestParseError: If the backup manifest file could not be parsed.
-    """
-
-    backup_directory = Path(backup_directory)
-    name = backup_directory.name
-    start_info = read_backup_start_info(backup_directory / START_INFO_FILENAME)
-    manifest = read_backup_manifest(backup_directory / MANIFEST_FILENAME)
-    return BackupMetadata(name, start_info, manifest)
 
 
 class BackupDirectoryCreationError(Exception):

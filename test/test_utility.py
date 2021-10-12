@@ -1,6 +1,6 @@
 import os
 
-from utility import path_name_equal
+from incremental_backup.utility import path_name_equal
 
 
 if os.name == 'nt':

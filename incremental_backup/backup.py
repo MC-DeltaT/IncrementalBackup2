@@ -6,10 +6,9 @@ from pathlib import Path
 import re
 from typing import Iterable, List, Tuple, Union
 
-from backup_manifest import BackupManifest, prune_backup_manifest
-from backup_sum import BackupSum
-import filesystem
-from utility import path_name_equal
+from .backup_meta import BackupManifest, BackupSum, prune_backup_manifest
+from . import filesystem
+from .utility import path_name_equal
 
 
 __all__ = [

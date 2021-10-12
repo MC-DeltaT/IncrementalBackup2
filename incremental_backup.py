@@ -2,7 +2,7 @@ import argparse
 import pathlib
 import sys
 
-from backup_command import backup_command
+from incremental_backup.backup_command import backup_command
 
 
 COMMAND_MAP = {
@@ -17,9 +17,9 @@ if __name__ == '__main__':
     backup_arg_parser = arg_subparsers.add_parser('backup', description='Creates a new backup.',
                                                   help='Creates a new backup.')
     backup_arg_parser.add_argument(
-        'source_dir', action='store', type=pathlib.Path, required=True, help='Directory to back up.')
+        'source_dir', action='store', type=pathlib.Path, help='Directory to back up.')
     backup_arg_parser.add_argument(
-        'target_dir', action='store', type=pathlib.Path, required=True, help='Directory to back up into.')
+        'target_dir', action='store', type=pathlib.Path, help='Directory to back up into.')
     backup_arg_parser.add_argument(
         '--exclude-pattern', action='append', required=False,
         help='Path pattern(s) to exclude. Can be specified more than once')

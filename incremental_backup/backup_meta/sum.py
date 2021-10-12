@@ -1,9 +1,9 @@
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Union
 
-from backup_manifest import BackupManifest
-from backup_metadata import BackupMetadata
-from utility import path_name_equal
+from ..utility import path_name_equal
+from .manifest import BackupManifest
+from .metadata import BackupMetadata
 
 
 __all__ = [
