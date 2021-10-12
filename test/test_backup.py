@@ -2,11 +2,12 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from backup import compile_exclude_pattern, is_path_excluded, scan_filesystem
+from backup import compile_exclude_pattern, compute_backup_plan, is_path_excluded, scan_filesystem
 from backup_manifest import BackupManifest
 from backup_metadata import BackupMetadata
 from backup_start_info import BackupStartInfo
 from backup_sum import BackupSum
+import filesystem
 
 
 def test_scan_filesystem_no_excludes(tmpdir) -> None:
@@ -116,8 +117,8 @@ def test_scan_filesystem_some_excludes(tmpdir) -> None:
 
 
 def test_compute_backup_plan() -> None:
-    backup1 = BackupMetadata('324t9uagfkjhds', BackupStartInfo(datetime(2010, 5, 8, 12, 34, 22)), BackupManifest())
-    backup2 = BackupMetadata('h3f4078394fgh', BackupStartInfo(datetime(2010, 6, 1, 23, 4, 2)), BackupManifest())
+    backup1 = BackupMetadata('324t9uagfkjhds', BackupStartInfo(datetime(2010, 1, 8, 12, 34, 22)), BackupManifest())
+    backup2 = BackupMetadata('h3f4078394fgh', BackupStartInfo(datetime(2010, 5, 1, 23, 4, 2)), BackupManifest())
     backup3 = BackupMetadata('45gserwafdagwaeiu', BackupStartInfo(datetime(2010, 10, 1, 4, 6, 32)), BackupManifest())
     backup_sum = BackupSum(BackupSum.Directory('',
         files=[BackupSum.File('file_x.pdf', backup1), BackupSum.File('file_y', backup3)],
@@ -128,9 +129,66 @@ def test_compute_backup_plan() -> None:
             BackupSum.Directory('dir_b', files=[BackupSum.File('foo', backup2)]),
             BackupSum.Directory('dir_c', files=[BackupSum.File('bar.lnk', backup1)], subdirectories=[
                 BackupSum.Directory('dir_c_a', files=[BackupSum.File('file_c_a_qux.a', backup1)])
-            ])
+            ]),
+            BackupSum.Directory('extra_dir', files=[BackupSum.File('yeah_man', backup3)])
         ]
     ))
+    source_tree = filesystem.Directory('',
+        files=[
+            # file_x.pdf removed
+            filesystem.File('file_z', datetime(2010, 7, 3, 8, 9, 3)),           # New
+            filesystem.File('file_y', datetime(2010, 11, 2, 3, 30, 30)),        # Existing modified
+        ],
+        subdirectories=[
+            filesystem.Directory('dir_a',       # Existing
+                files=[
+                    filesystem.File('file_a_d.docx', datetime(2010, 9, 9, 9, 9, 9)),  # New
+                    filesystem.File('file_a_a.txt', datetime(2010, 1, 7, 12, 34, 22)),  # Existing unmodified
+                    # file_a_c.exe removed
+                    filesystem.File('file_a_b.png', datetime(2010, 6, 2, 20, 1, 1)),  # Existing modified
+                ],
+                subdirectories=[
+                    filesystem.Directory('dir_a_a'),    # New
+                    filesystem.Directory('dir_a_b',     # New
+                        files=[filesystem.File('new_file', datetime(2011, 1, 1, 1, 1, 1))])     # New
+                ]),
+            filesystem.Directory('dir_b',       # Existing
+                files=[filesystem.File('foo', datetime(2010, 5, 1, 12, 4, 2))]),        # Existing unmodified
+            filesystem.Directory('dir_c',       # Existing
+                files=[filesystem.File('bar.lnk', datetime(2009, 11, 23, 22, 50, 12))]),      # Existing unmodified
+                # dir_c_a removed
+            # extra_dir removed
+            filesystem.Directory('new_dir1'),       # New
+            filesystem.Directory('new_dir2', subdirectories=[       # New
+                filesystem.Directory('new_dir_nested')      # New
+            ]),
+            filesystem.Directory('new_dir_big', subdirectories=[            # New
+                filesystem.Directory('another new dir', subdirectories=[    # New
+                    filesystem.Directory('final new dir... maybe',          # New
+                        files=[filesystem.File('wrgauh', datetime(2012, 12, 12, 12, 12, 21))])      # New
+                ])
+            ])
+        ])
+
+    actual_plan = compute_backup_plan(source_tree, backup_sum)
+
+    expected_plan = BackupManifest(BackupManifest.Directory('',
+        copied_files=['file_z', 'file_y'], removed_files=['file_x.pdf'], removed_directories=['extra_dir'],
+        subdirectories=[
+            BackupManifest.Directory('dir_a',
+                copied_files=['file_a_d.docx', 'file_a_b.png'], removed_files=['file_a_c.exe'],
+                subdirectories=[
+                    BackupManifest.Directory('dir_a_b', copied_files=['new_file'])
+                ]),
+            BackupManifest.Directory('dir_c', removed_directories=['dir_c_a']),
+            BackupManifest.Directory('new_dir_big', subdirectories=[
+                BackupManifest.Directory('another new dir', subdirectories=[
+                    BackupManifest.Directory('final new dir... maybe', copied_files=['wrgauh'])
+                ])
+            ])
+        ]))
+
+    assert actual_plan == expected_plan
 
 
 def test_compile_exclude_pattern() -> None:

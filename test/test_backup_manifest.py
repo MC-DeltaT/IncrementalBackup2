@@ -4,7 +4,14 @@ from backup_manifest import BackupManifest, BackupManifestParseError, prune_back
     write_backup_manifest
 
 
-def test_prune_backup_manifest() -> None:
+def test_prune_backup_manifest_empty() -> None:
+    manifest = BackupManifest()
+    prune_backup_manifest(manifest)
+    expected = BackupManifest()
+    assert manifest == expected
+
+
+def test_prune_backup_manifest_prune_some() -> None:
     manifest = BackupManifest(BackupManifest.Directory('', copied_files=['copied_file'], subdirectories=[
         BackupManifest.Directory('a', subdirectories=[
             BackupManifest.Directory('aa', subdirectories=[
@@ -29,6 +36,35 @@ def test_prune_backup_manifest() -> None:
         ]),
         BackupManifest.Directory('d', removed_directories=['removed_dir_d'])
     ]))
+
+    assert manifest == expected
+
+
+def test_prune_backup_manifest_all() -> None:
+    manifest = BackupManifest(BackupManifest.Directory('', subdirectories=[
+        BackupManifest.Directory('foo'),
+        BackupManifest.Directory('bar', subdirectories=[
+            BackupManifest.Directory('bar_nested')
+        ]),
+        BackupManifest.Directory('qux', subdirectories=[
+            BackupManifest.Directory('nested_a', subdirectories=[
+                BackupManifest.Directory('nested_a_a')
+            ]),
+            BackupManifest.Directory('nested_b', subdirectories=[
+                BackupManifest.Directory('nested_b_a', subdirectories=[
+                    BackupManifest.Directory('foo'),
+                    BackupManifest.Directory('bar')
+                ]),
+                BackupManifest.Directory('nested_b_b', subdirectories=[
+                    BackupManifest.Directory('final-dir')
+                ])
+            ])
+        ])
+    ]))
+
+    prune_backup_manifest(manifest)
+
+    expected = BackupManifest()
 
     assert manifest == expected
 

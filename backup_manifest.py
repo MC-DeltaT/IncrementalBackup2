@@ -166,8 +166,9 @@ def read_backup_manifest(path: PathLike) -> BackupManifest:
 
 
 def prune_backup_manifest(manifest: BackupManifest) -> None:
-    """Removes directories from a backup manifest whose descendents are all directories.
-        We don't care about these empty directories because backing them up is pointless (only back up files).
+    """Removes directories from a backup manifest that don't contain (directly or indirectly) any copied files, removed
+        files, or removed directories.
+        We don't care about these "empty" directories because they contain no useful information.
 
         The operation is in-place.
     """

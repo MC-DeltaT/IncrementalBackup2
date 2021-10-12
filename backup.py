@@ -42,35 +42,44 @@ def do_backup(source_path: Path, target_path: Path, exclude_patterns: Iterable[r
 
 def compute_backup_plan(source_tree: filesystem.Directory, backup_sum: BackupSum) -> BackupManifest:
     manifest = BackupManifest()
-    search_stack: List[Union[filesystem.Directory, None]] = [source_tree]
-    path: List[str] = []
+    search_stack: List[Union[filesystem.Directory, str]] = [source_tree]
+    path_segments: List[str] = []
     manifest_stack = [manifest.root]
     is_root = True
     while search_stack:
-        search_directory = search_stack.pop()
-        if search_directory is None:
-            manifest_stack.pop()
-            path.pop()
+        search_node = search_stack.pop()
+        # TODO? change to using functions as search nodes?
+        if isinstance(search_node, str):
+            if search_node == 'pop_manifest_node':
+                manifest_stack.pop()
+            elif search_node == 'pop_path_segment':
+                path_segments.pop()
+            else:
+                raise AssertionError(f'Unexpected search node {repr(search_node)}')
         else:
             if is_root:
                 manifest_directory = manifest.root
             else:
                 manifest_directory = next(
-                    (d for d in manifest_stack[-1] if path_name_equal(d.name, search_directory.name)), None)
+                    (d for d in manifest_stack[-1].subdirectories
+                     if path_name_equal(d.name, search_node.name)), None)
                 if manifest_directory is None:
-                    manifest_directory = BackupManifest.Directory(search_directory.name)
+                    manifest_directory = BackupManifest.Directory(search_node.name)
                     manifest_stack[-1].subdirectories.append(manifest_directory)
-                path.append(search_directory.name)
+                    manifest_stack.append(manifest_directory)
+                    search_stack.append('pop_manifest_node')
+                path_segments.append(search_node.name)
+                search_stack.append('pop_path_segment')
 
-            backup_sum_directory = backup_sum.find_directory(path)
+            backup_sum_directory = backup_sum.find_directory(path_segments)
             if backup_sum_directory is None:
                 # Nothing backed up here so far, only possibility is new files to back up.
-                manifest_directory.copied_files.extend(f.name for f in search_directory.files)
+                manifest_directory.copied_files.extend(f.name for f in search_node.files)
             else:
                 # Something backed up here before, could have new files, modified files, removed files, removed
                 # subdirectories.
 
-                for current_file in search_directory.files:
+                for current_file in search_node.files:
                     backed_up_file = next(
                         (f for f in backup_sum_directory.files if path_name_equal(f.name, current_file.name)), None)
                     # File never backed up or modified since last backup.
@@ -80,14 +89,13 @@ def compute_backup_plan(source_tree: filesystem.Directory, backup_sum: BackupSum
 
                 manifest_directory.removed_files.extend(
                     f.name for f in backup_sum_directory.files
-                    if not any(path_name_equal(f.name, f2.name) for f2 in search_directory.files))
+                    if not any(path_name_equal(f.name, f2.name) for f2 in search_node.files))
 
                 manifest_directory.removed_directories.extend(
                     d.name for d in backup_sum_directory.subdirectories
-                    if not any(path_name_equal(d.name, d2.name) for d2 in search_directory.subdirectories))
+                    if not any(path_name_equal(d.name, d2.name) for d2 in search_node.subdirectories))
 
-            search_stack.append(None)
-            search_stack.extend(reversed(search_directory.subdirectories))
+            search_stack.extend(reversed(search_node.subdirectories))
         is_root = False
 
     prune_backup_manifest(manifest)
