@@ -70,6 +70,8 @@ class BackupSum:
 
         backups_sorted = sorted(backups, key=lambda b: b.start_info.start_time)
 
+        # TODO? calculate tree pruning content counts while constructing the tree?
+
         for backup in backups_sorted:
             search_stack: List[Union[BackupManifest.Directory, None]] = [backup.manifest.root]
             sum_stack = [root]
@@ -77,7 +79,7 @@ class BackupSum:
             while search_stack:
                 search_directory = search_stack.pop()
                 if search_directory is None:
-                    sum_stack.pop()
+                    del sum_stack[-1]
                 else:
                     if not is_root:
                         sum_directory = next(

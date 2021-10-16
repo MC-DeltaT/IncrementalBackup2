@@ -45,7 +45,7 @@ def test_read_backup_metadata_missing_file(tmpdir) -> None:
     backup_dir.ensure_dir()
     with open(manifest_path, 'w', encoding='utf8') as file:
         file.write(
-            '[{"n": "", "rf": ["a", "bc", "d.efg"]}, {"n": "running", "cf": ["out", "of.ideas"]}, "^",'
+            '[{"n": "", "rf": ["a", "bc", "d.efg"]}, {"n": "running", "cf": ["out", "of.ideas"]}, "^1",'
             '{"n": "hmm", "rf": ["foo.pdf"], "cf": ["magic", "flower.ino"]}]')
 
     with pytest.raises(FileNotFoundError):

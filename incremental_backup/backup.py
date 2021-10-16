@@ -6,7 +6,7 @@ import os.path
 from pathlib import Path
 import re
 import shutil
-from typing import Callable, Iterable, List, Tuple
+from typing import Callable, Iterable, List, Optional, Tuple
 
 from . import filesystem
 from .backup_meta import BackupManifest, BackupSum, prune_backup_manifest
@@ -31,17 +31,30 @@ class BackupResults:
     files_removed: int
 
 
-def do_backup(source_path: Path, destination_path: Path, exclude_patterns: Iterable[re.Pattern],
-              backup_sum: BackupSum) -> Tuple[BackupResults, BackupManifest]:
-    source_tree, paths_skipped = scan_filesystem(source_path, exclude_patterns)
+def do_backup(source_path: Path, destination_path: Path, exclude_patterns: Iterable[re.Pattern], backup_sum: BackupSum,
+              on_exclude: Optional[Callable[[Path], None]] = None,
+              on_listdir_error: Optional[Callable[[Path, OSError], None]] = None,
+              on_metadata_error: Optional[Callable[[Path, OSError], None]] = None,
+              on_mkdir_error: Optional[Callable[[Path, OSError], None]] = None,
+              on_copy_error: Optional[Callable[[Path, Path, OSError], None]] = None) \
+        -> Tuple[BackupResults, BackupManifest]:
+    source_tree, paths_skipped = scan_filesystem(
+        source_path, exclude_patterns, on_exclude, on_listdir_error, on_metadata_error)
     backup_plan = compute_backup_plan(source_tree, backup_sum)
-    results, manifest = execute_backup_plan(backup_plan, source_path, destination_path)
+    results, manifest = execute_backup_plan(backup_plan, source_path, destination_path, on_mkdir_error, on_copy_error)
     results.paths_skipped |= paths_skipped
     return results, manifest
 
 
-def execute_backup_plan(backup_plan: BackupManifest, source_path: Path, destination_path: Path) \
+def execute_backup_plan(backup_plan: BackupManifest, source_path: Path, destination_path: Path,
+                        on_mkdir_error: Optional[Callable[[Path, OSError], None]] = None,
+                        on_copy_error: Optional[Callable[[Path, Path, OSError], None]] = None) \
         -> Tuple[BackupResults, BackupManifest]:
+    if on_mkdir_error is None:
+        on_mkdir_error = lambda p, e: None
+    if on_copy_error is None:
+        on_copy_error = lambda s, d, e: None
+
     results = BackupResults(False, 0, 0)
     search_stack: List[Callable[[], None]] = []
     path_segments: List[str] = []
@@ -60,22 +73,25 @@ def execute_backup_plan(backup_plan: BackupManifest, source_path: Path, destinat
 
         try:
             destination_directory_path.mkdir(parents=True, exist_ok=True)
-        except OSError:
-            # TODO: user feedback
-
+        except OSError as e:
             # TODO? Remove directory from manifest completely?
             search_directory.copied_files = []
             search_directory.removed_files = []
             search_directory.removed_directories = []
             search_directory.subdirectories = []
+
+            on_mkdir_error(destination_directory_path, e)
         else:
             for file in search_directory.copied_files:
                 relative_file_path = relative_directory_path / file
                 source_file_path = source_path / relative_file_path
                 destination_file_path = destination_path / relative_file_path
-                # TODO: error handling
-                shutil.copy2(source_file_path, destination_file_path)
-                results.files_copied += 1
+                try:
+                    shutil.copy2(source_file_path, destination_file_path)
+                except OSError as e:
+                    on_copy_error(source_file_path, destination_file_path, e)
+                else:
+                    results.files_copied += 1
 
             results.files_removed += search_directory.removed_files
 
@@ -156,16 +172,30 @@ def compute_backup_plan(source_tree: filesystem.Directory, backup_sum: BackupSum
     return manifest
 
 
-def scan_filesystem(path: Path, exclude_patterns: Iterable[re.Pattern]) -> Tuple[filesystem.Directory, bool]:
+def scan_filesystem(path: Path, exclude_patterns: Iterable[re.Pattern],
+                    on_exclude: Optional[Callable[[Path], None]] = None,
+                    on_listdir_error: Optional[Callable[[Path, OSError], None]] = None,
+                    on_metadata_error: Optional[Callable[[Path, OSError], None]] = None) \
+        -> Tuple[filesystem.Directory, bool]:
     """Produces a tree representation of the filesystem at a given directory.
 
         :param path: The path of the directory to scan.
         :param exclude_patterns: Compiled exclude patterns. If a directory or file matches any of these, it and its
             descendents are not included in the scan.
+        :param on_exclude: Called when a file or directory is matched by `exclude_patterns` and is excluded.
+        :param on_listdir_error: Called when an error is raised when requesting the entries in a directory.
+        :param on_metadata_error: Called when an error is raised when requesting file or directory metadata.
         :return: First element is the root of the tree representation of the filesystem (the root represents the
             directory at `path`). Second element indicates if any paths were skipped due to I/O errors (does not include
             paths matched by `exclude_patterns`).
     """
+
+    if on_exclude is None:
+        on_exclude = lambda p: None
+    if on_listdir_error is None:
+        on_listdir_error = lambda p, e: None
+    if on_metadata_error is None:
+        on_metadata_error = lambda p, e: None
 
     paths_skipped = False
     root = filesystem.Directory('')
@@ -188,11 +218,9 @@ def scan_filesystem(path: Path, exclude_patterns: Iterable[re.Pattern]) -> Tuple
             search_stack.append(pop_path_segment)
             directory_path = '/' + '/'.join(path_segments) + '/'
 
-        directory_excluded = is_path_excluded(directory_path, exclude_patterns)
-
-        # TODO: user feedback for excluded path
-
-        if not directory_excluded:
+        if is_path_excluded(directory_path, exclude_patterns):
+            on_exclude(search_directory)
+        else:
             if is_root:
                 tree_node = root
             else:
@@ -201,23 +229,30 @@ def scan_filesystem(path: Path, exclude_patterns: Iterable[re.Pattern]) -> Tuple
                 tree_node_stack.append(tree_node)
                 search_stack.append(pop_tree_node)
 
-            files: List[filesystem.File] = []
-            subdirectories: List[Path] = []
-            # TODO: error: failed to enumerate directory, skipping
-            children = list(search_directory.iterdir())
-            for child in children:
-                # TODO: error: failed to access file metadata, skipping
-                if child.is_file():
-                    file_path = directory_path + os.path.normcase(child.name)
-                    if not is_path_excluded(file_path, exclude_patterns):
-                        last_modified = datetime.fromtimestamp(os.path.getmtime(child), tz=timezone.utc)
-                        files.append(filesystem.File(child.name, last_modified))
-                elif child.is_dir():
-                    subdirectories.append(child)
+            try:
+                children = list(search_directory.iterdir())
+            except OSError as e:
+                on_listdir_error(search_directory, e)
+            else:
+                files: List[filesystem.File] = []
+                subdirectories: List[Path] = []
+                for child in children:
+                    try:
+                        if child.is_file():
+                            file_path = directory_path + os.path.normcase(child.name)
+                            if is_path_excluded(file_path, exclude_patterns):
+                                on_exclude(child)
+                            else:
+                                last_modified = datetime.fromtimestamp(os.path.getmtime(child), tz=timezone.utc)
+                                files.append(filesystem.File(child.name, last_modified))
+                        elif child.is_dir():
+                            subdirectories.append(child)
+                    except OSError as e:
+                        on_metadata_error(child, e)
 
-            tree_node.files.extend(files)
-            # Need to use partial instead of lambda to avoid name rebinding issues.
-            search_stack.extend(partial(visit_directory, d) for d in reversed(subdirectories))
+                tree_node.files.extend(files)
+                # Need to use partial instead of lambda to avoid name rebinding issues.
+                search_stack.extend(partial(visit_directory, d) for d in reversed(subdirectories))
 
     search_stack.append(partial(visit_directory, path))
     while search_stack:

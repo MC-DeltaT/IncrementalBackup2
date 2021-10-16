@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import re
 import sys
-from typing import Iterable, List, Sequence
+from typing import Iterable, List, Sequence, Tuple
 
 from .backup import BackupResults, compile_exclude_pattern, do_backup
 from .backup_meta import BackupCompleteInfo, BackupDirectoryCreationError, BackupManifest, BackupManifestParseError, \
@@ -32,7 +32,7 @@ def backup_command(args) -> None:
         data_path = create_data_directory(backup_path)
         create_start_info(backup_path)
 
-        results, manifest = do_backup(source_path, data_path, exclude_patterns, backup_sum)
+        results, manifest = perform_backup(source_path, data_path, exclude_patterns, backup_sum)
 
         save_manifest(backup_path, manifest)
         create_complete_info(backup_path, results.paths_skipped)
@@ -117,6 +117,12 @@ def create_start_info(backup_path: Path) -> None:
         raise FatalError(f'Failed to write backup start information file: {e}', EXIT_CODE_RUNTIME_ERROR) from e
 
 
+def perform_backup(source_path: Path, destination_path: Path, exclude_patterns: Iterable[re.Pattern],
+                   backup_sum: BackupSum) -> Tuple[BackupResults, BackupManifest]:
+    # TODO: callbacks
+    return do_backup(source_path, destination_path, exclude_patterns, backup_sum)
+
+
 def save_manifest(backup_path: Path, manifest: BackupManifest) -> None:
     file_path = backup_path / MANIFEST_FILENAME
     try:
@@ -136,7 +142,8 @@ def create_complete_info(backup_path: Path, paths_skipped: bool) -> None:
 
 
 def print_results(results: BackupResults) -> None:
-    """TODO"""
+    print(f'Files copied: {results.files_copied}')
+    print(f'Files removed: {results.files_removed}')
 
 
 def warning(message: str) -> None:

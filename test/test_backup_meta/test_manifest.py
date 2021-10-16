@@ -119,8 +119,7 @@ def test_write_backup_manifest(tmpdir) -> None:
 "great\\nfile\\"name.pdf"
 ]
 },
-"^",
-"^",
+"^2",
 {
 "n": "very very longish\u5673kinda long name"
 },
@@ -148,10 +147,10 @@ def test_read_backup_manifest_valid(tmpdir) -> None:
     contents = """[
         {"n": "", "cf": ["myfile675"], "rf": []},
         {"n": "dir1", "cf": ["running", "out"]},
-        "^",
+        "^1",
         {"n": "of", "rd": ["name", "ideas"]},
         {"n": "yeah", "cf": ["I", "am"]},
-        "^",
+        "^2",
         {"n": "finally", "rd": ["barz", "wumpus"], "rf": ["w\x23o\x64r\x79l\u8794d\u1234"]}
     ]"""
     with open(path, 'w', encoding='utf8') as file:
@@ -161,9 +160,9 @@ def test_read_backup_manifest_valid(tmpdir) -> None:
         BackupManifest.Directory('dir1', copied_files=['running', 'out']),
         BackupManifest.Directory('of', removed_directories=['name', 'ideas'], subdirectories=[
             BackupManifest.Directory('yeah', copied_files=['I', 'am']),
-            BackupManifest.Directory('finally', removed_directories=['barz', 'wumpus'],
-                                     removed_files=['w\x23o\x64r\x79l\u8794d\u1234'])
-        ])
+        ]),
+        BackupManifest.Directory('finally', removed_directories=['barz', 'wumpus'],
+                                 removed_files=['w\x23o\x64r\x79l\u8794d\u1234'])
     ]))
     assert actual == expected
 
@@ -204,7 +203,11 @@ def test_read_backup_manifest_invalid(tmpdir) -> None:
         '29',
         '[null]'
         '["^"]',
+        '["^1"]',
+        '["^4"]',
         '[{"n": ""}, "^"]',
+        '[{"n": ""}, "^1"]',
+        '[{"n": ""}, "^2"]',
         '[{"n": ""}, {}]',
         '[{"n": ""}, {"n": "foo"},',
         '[{"n": ""}, {"n": "baz"}, ""]',

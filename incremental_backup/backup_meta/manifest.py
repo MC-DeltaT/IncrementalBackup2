@@ -48,9 +48,22 @@ def write_backup_manifest(path: PathLike, value: BackupManifest) -> None:
                 stack.append(None)
                 stack.extend(reversed(node.subdirectories))
 
-    def node_to_object(node: Union[BackupManifest.Directory, None]) -> Union[Dict[str, str], str]:
-        if node is None:
-            return '^'
+    def compress_backtracks(nodes: Iterator[Union[BackupManifest.Directory, None]]) \
+            -> Iterator[Union[BackupManifest.Directory, int]]:
+        backtrack_count = 0
+        for node in nodes:
+            if node is None:
+                backtrack_count += 1
+            else:
+                if backtrack_count > 0:
+                    yield backtrack_count
+                    backtrack_count = 0
+                yield node
+        # Also trims trailing backtracks since they are not required.
+
+    def node_to_object(node: Union[BackupManifest.Directory, int]) -> Union[Dict[str, str], str]:
+        if isinstance(node, int):
+            return f'^{node}'
         else:
             obj = {'n': node.name}
             if node.copied_files:
@@ -61,9 +74,7 @@ def write_backup_manifest(path: PathLike, value: BackupManifest) -> None:
                 obj['rd'] = node.removed_directories
             return obj
 
-    nodes = list(search(value))
-    while nodes and nodes[-1] is None:
-        del nodes[-1]
+    nodes = list(compress_backtracks(search(value)))
     json_data = [node_to_object(node) for node in nodes]
 
     with open(path, 'w', encoding='utf8') as file:
@@ -113,6 +124,19 @@ def read_backup_manifest(path: PathLike) -> BackupManifest:
 
         return name, copied_files, removed_files, removed_directories
 
+    def parse_backtrack(entry: str, entry_num: int) -> int:
+        if not entry.startswith('^'):
+            parse_error(f'Entry: {entry_num}: invalid value, backtrack must be in form "^n"')
+
+        try:
+            backtracks = int(entry[1:])
+        except ValueError:
+            pass
+        else:
+            if backtracks >= 1:
+                return backtracks
+        parse_error(f'Entry {entry_num}: invalid backtrack amount, must be positive integer')
+
     try:
         with open(path, 'r', encoding='utf8') as file:
             json_data = json.load(file)
@@ -125,11 +149,13 @@ def read_backup_manifest(path: PathLike) -> BackupManifest:
     backup_manifest = BackupManifest()
     directory_stack = []
     for entry_num, entry in enumerate(json_data, 1):
-        if entry == '^':
+        if isinstance(entry, str):
+            backtracks = parse_backtrack(entry, entry_num)
+
             # Backtrack to parent directory.
-            if len(directory_stack) <= 1:
-                parse_error(f'Entry {entry_num}: backtrack past backup source directory')
-            directory_stack.pop()
+            if len(directory_stack) <= backtracks:
+                parse_error(f'Entry {entry_num}: cannot backtrack past backup source directory')
+            del directory_stack[-backtracks:]
         elif isinstance(entry, dict):
             # Directory entry.
 
@@ -160,7 +186,7 @@ def read_backup_manifest(path: PathLike) -> BackupManifest:
                     directory.removed_directories.extend(removed_directories)
             directory_stack.append(directory)
         else:
-            parse_error(f'Entry {entry_num}: invalid value, expected object or "^"')
+            parse_error(f'Entry {entry_num}: invalid value, expected object or string')
 
     return backup_manifest
 
