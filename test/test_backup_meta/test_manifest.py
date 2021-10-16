@@ -4,6 +4,12 @@ from incremental_backup.backup_meta.manifest import BackupManifest, BackupManife
     read_backup_manifest, write_backup_manifest
 
 
+def test_backup_manifest_construct() -> None:
+    manifest = BackupManifest()
+    expected = BackupManifest(BackupManifest.Directory('', [], []))
+    assert manifest == expected
+
+
 def test_prune_backup_manifest_empty() -> None:
     manifest = BackupManifest()
     prune_backup_manifest(manifest)

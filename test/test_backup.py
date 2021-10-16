@@ -1,9 +1,11 @@
 import re
 from datetime import datetime, timezone
+from os import PathLike
 from pathlib import Path
 
 from incremental_backup import filesystem
-from incremental_backup.backup import compile_exclude_pattern, compute_backup_plan, is_path_excluded, scan_filesystem
+from incremental_backup.backup import BackupResults, compile_exclude_pattern, compute_backup_plan, execute_backup_plan, \
+    is_path_excluded, scan_filesystem
 from incremental_backup.backup_meta.manifest import BackupManifest
 from incremental_backup.backup_meta.metadata import BackupMetadata
 from incremental_backup.backup_meta.start_info import BackupStartInfo
@@ -142,7 +144,7 @@ def test_compute_backup_plan() -> None:
         subdirectories=[
             filesystem.Directory('dir_a',       # Existing
                 files=[
-                    filesystem.File('file_a_d.docx', datetime(2010, 9, 9, 9, 9, 9)),  # New
+                    filesystem.File('file_a_d.docx', datetime(2010, 9, 9, 9, 9, 9)),    # New
                     filesystem.File('file_a_a.txt', datetime(2010, 1, 7, 12, 34, 22)),  # Existing unmodified
                     # file_a_c.exe removed
                     filesystem.File('file_a_b.png', datetime(2010, 6, 2, 20, 1, 1)),  # Existing modified
@@ -189,6 +191,82 @@ def test_compute_backup_plan() -> None:
         ]))
 
     assert actual_plan == expected_plan
+
+
+def test_execute_backup_plan(tmpdir) -> None:
+    tmpdir = Path(tmpdir)
+
+    source_path = tmpdir / 'source'
+    source_path.mkdir(parents=True)
+    write_file(source_path / 'Modified.txt', 'this is modified.txt')
+    (source_path / 'file2').touch()
+    write_file(source_path / 'another file.docx', 'this is another file')
+    (source_path / 'my directory').mkdir(parents=True)
+    write_file(source_path / 'my directory' / 'modified1.baz', 'foo bar qux')
+    write_file(source_path / 'my directory' / 'an unmodified file', 'qux bar foo')
+    (source_path / 'unmodified_dir').mkdir(parents=True)
+    write_file(source_path / 'unmodified_dir' / 'some_file.png', 'doesnt matter')
+    write_file(source_path / 'unmodified_dir' / 'more files.md', 'doesnt matter2')
+    write_file(source_path / 'unmodified_dir' / 'lastFile.jkl', 'doesnt matter3')
+    (source_path / 'something' / 'qwerty').mkdir(parents=True)
+    write_file(source_path / 'something' / 'qwerty' / 'wtoeiur', 'content')
+    write_file(source_path / 'something' / 'qwerty' / 'do not copy', 'magic contents')
+
+    destination_path = tmpdir / 'destination'
+    destination_path.mkdir()
+
+    plan = BackupManifest(BackupManifest.Directory('',
+        copied_files=['Modified.txt', 'file2', 'nonexistent-file.yay'],
+        removed_files=['file removed'], removed_directories=['removed dir'],
+        subdirectories=[
+            BackupManifest.Directory('my directory', copied_files=['modified1.baz'], removed_directories=['qux']),
+            BackupManifest.Directory('something', subdirectories=[
+                BackupManifest.Directory('qwerty', copied_files=['wtoeiur'])
+            ]),
+            BackupManifest.Directory('nonexistent_directory', copied_files=['flower'], removed_files=['zxcv'])
+        ]))
+
+    copy_errors = []
+    on_copy_error = lambda s, d, e: copy_errors.append((s, d, e))
+
+    results, manifest = execute_backup_plan(plan, source_path, destination_path, on_copy_error=on_copy_error)
+
+    expected_results = BackupResults(paths_skipped=True, files_copied=4, files_removed=2)
+
+    expected_manifest = BackupManifest(BackupManifest.Directory('',
+        copied_files=['Modified.txt', 'file2'],
+        removed_files=['file removed'], removed_directories=['removed dir'],
+        subdirectories=[
+            BackupManifest.Directory('my directory', copied_files=['modified1.baz'], removed_directories=['qux']),
+            BackupManifest.Directory('something', subdirectories=[
+                BackupManifest.Directory('qwerty', copied_files=['wtoeiur'])
+            ]),
+            BackupManifest.Directory('nonexistent_directory', removed_files=['zxcv'])
+        ]))
+
+    assert set(destination_path.iterdir()) == {
+        destination_path / 'Modified.txt', destination_path / 'file2',
+        destination_path / 'my directory', destination_path / 'something', destination_path / 'nonexistent_directory'}
+    assert read_file(destination_path / 'Modified.txt') == 'this is modified.txt'
+    assert read_file(destination_path / 'file2') == ''
+    assert set((destination_path / 'my directory').iterdir()) == {destination_path / 'my directory' / 'modified1.baz'}
+    assert read_file(destination_path / 'my directory' / 'modified1.baz') == 'foo bar qux'
+    assert set((destination_path / 'something').iterdir()) == {destination_path / 'something' / 'qwerty'}
+    assert set((destination_path / 'something' / 'qwerty').iterdir()) == \
+           {destination_path / 'something' / 'qwerty' / 'wtoeiur'}
+    assert read_file(destination_path / 'something' / 'qwerty' / 'wtoeiur') == 'content'
+    assert set((destination_path / 'nonexistent_directory').iterdir()) == set()
+
+    assert results == expected_results
+    assert manifest == expected_manifest
+
+    assert len(copy_errors) == 2
+    assert copy_errors[0][0] == source_path / 'nonexistent-file.yay'
+    assert copy_errors[0][1] == destination_path / 'nonexistent-file.yay'
+    assert isinstance(copy_errors[0][2], FileNotFoundError)
+    assert copy_errors[1][0] == source_path / 'nonexistent_directory' / 'flower'
+    assert copy_errors[1][1] == destination_path / 'nonexistent_directory' / 'flower'
+    assert isinstance(copy_errors[1][2], FileNotFoundError)
 
 
 def test_compile_exclude_pattern() -> None:
@@ -284,3 +362,13 @@ def test_is_path_excluded_advanced() -> None:
     assert not is_path_excluded('/foo.git/', patterns)
     assert not is_path_excluded('/.git.bar/', patterns)
     assert not is_path_excluded('/__pycache__/yeah/man/', patterns)
+
+
+def write_file(path: PathLike, content: str) -> None:
+    with open(path, 'w') as file:
+        file.write(content)
+
+
+def read_file(path: PathLike) -> str:
+    with open(path, 'r') as file:
+        return file.read()

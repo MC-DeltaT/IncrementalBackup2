@@ -64,6 +64,8 @@ def execute_backup_plan(backup_plan: BackupManifest, source_path: Path, destinat
         del path_segments[-1]
 
     def visit_directory(search_directory: BackupManifest.Directory) -> None:
+        # TODO: do we need to create the directory if no files are copied in it?
+
         if not is_root:
             path_segments.append(search_directory.name)
             search_stack.append(pop_path_segment)
@@ -80,20 +82,26 @@ def execute_backup_plan(backup_plan: BackupManifest, source_path: Path, destinat
             search_directory.removed_directories = []
             search_directory.subdirectories = []
 
+            results.paths_skipped = True
+
             on_mkdir_error(destination_directory_path, e)
         else:
-            for file in search_directory.copied_files:
+            results.files_removed += len(search_directory.removed_files)
+
+            copied_files = search_directory.copied_files
+            search_directory.copied_files = []
+            for file in copied_files:
                 relative_file_path = relative_directory_path / file
                 source_file_path = source_path / relative_file_path
                 destination_file_path = destination_path / relative_file_path
                 try:
                     shutil.copy2(source_file_path, destination_file_path)
                 except OSError as e:
+                    results.paths_skipped = True
                     on_copy_error(source_file_path, destination_file_path, e)
                 else:
+                    search_directory.copied_files.append(file)
                     results.files_copied += 1
-
-            results.files_removed += search_directory.removed_files
 
             # Need to use partial instead of lambda to avoid name rebinding issues.
             search_stack.extend(partial(visit_directory, d) for d in search_directory.subdirectories)

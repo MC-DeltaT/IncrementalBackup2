@@ -142,8 +142,8 @@ def create_complete_info(backup_path: Path, paths_skipped: bool) -> None:
 
 
 def print_results(results: BackupResults) -> None:
-    print(f'Files copied: {results.files_copied}')
-    print(f'Files removed: {results.files_removed}')
+    print(f'+{results.files_copied} files')
+    print(f'-{results.files_removed} files')
 
 
 def warning(message: str) -> None:
