@@ -4,8 +4,8 @@ from os import PathLike
 from pathlib import Path
 
 from incremental_backup import filesystem
-from incremental_backup.backup import BackupResults, compile_exclude_pattern, compute_backup_plan, execute_backup_plan, \
-    is_path_excluded, scan_filesystem
+from incremental_backup.backup import BackupPlan, BackupResults, compile_exclude_pattern, compute_backup_plan, \
+    execute_backup_plan, is_path_excluded, scan_filesystem
 from incremental_backup.backup_meta.manifest import BackupManifest
 from incremental_backup.backup_meta.metadata import BackupMetadata
 from incremental_backup.backup_meta.start_info import BackupStartInfo
@@ -174,7 +174,7 @@ def test_compute_backup_plan() -> None:
 
     actual_plan = compute_backup_plan(source_tree, backup_sum)
 
-    expected_plan = BackupManifest(BackupManifest.Directory('',
+    expected_manifest = BackupManifest(BackupManifest.Directory('',
         copied_files=['file_z', 'file_y'], removed_files=['file_x.pdf'], removed_directories=['extra_dir'],
         subdirectories=[
             BackupManifest.Directory('dir_a',
@@ -190,7 +190,9 @@ def test_compute_backup_plan() -> None:
             ])
         ]))
 
-    assert actual_plan == expected_plan
+    assert actual_plan.manifest == expected_manifest
+
+    # TODO: test plan.manifest_content_counts
 
 
 def test_execute_backup_plan(tmpdir) -> None:
@@ -215,7 +217,7 @@ def test_execute_backup_plan(tmpdir) -> None:
     destination_path = tmpdir / 'destination'
     destination_path.mkdir()
 
-    plan = BackupManifest(BackupManifest.Directory('',
+    plan_manifest = BackupManifest(BackupManifest.Directory('',
         copied_files=['Modified.txt', 'file2', 'nonexistent-file.yay'],
         removed_files=['file removed'], removed_directories=['removed dir'],
         subdirectories=[
@@ -223,8 +225,15 @@ def test_execute_backup_plan(tmpdir) -> None:
             BackupManifest.Directory('something', subdirectories=[
                 BackupManifest.Directory('qwerty', copied_files=['wtoeiur'])
             ]),
-            BackupManifest.Directory('nonexistent_directory', copied_files=['flower'], removed_files=['zxcv'])
+            BackupManifest.Directory('nonexistent_directory', copied_files=['flower'], removed_files=['zxcv']),
+            BackupManifest.Directory('no_copied_files', removed_files=['foo', 'bar', 'notqux'])
         ]))
+
+    manifest_content_counts = {
+        # TODO
+    }
+
+    plan = BackupPlan(plan_manifest, manifest_content_counts)
 
     copy_errors = []
     on_copy_error = lambda s, d, e: copy_errors.append((s, d, e))
@@ -241,7 +250,8 @@ def test_execute_backup_plan(tmpdir) -> None:
             BackupManifest.Directory('something', subdirectories=[
                 BackupManifest.Directory('qwerty', copied_files=['wtoeiur'])
             ]),
-            BackupManifest.Directory('nonexistent_directory', removed_files=['zxcv'])
+            BackupManifest.Directory('nonexistent_directory', removed_files=['zxcv']),
+            BackupManifest.Directory('no_copied_files', removed_files=['foo', 'bar', 'notqux'])
         ]))
 
     assert set(destination_path.iterdir()) == {

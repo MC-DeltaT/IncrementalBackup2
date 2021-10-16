@@ -38,8 +38,8 @@ class BackupSum:
     def find_directory(self, path: Iterable[str]) -> Optional[Directory]:
         """Finds a directory within the backup sum by path.
 
-            :param path: Sequence of directory names forming the path to the directory, relative to the backup source
-                directory (i.e. root of the backup sum).
+            :param path: Sequence of directory names forming the path to the directory, relative to the root of the
+                backup sum (i.e. the backup source directory).
             :return: The requested directory if it exists in the backup sum, else `None`.
         """
 

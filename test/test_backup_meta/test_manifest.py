@@ -1,13 +1,65 @@
 import pytest
 
-from incremental_backup.backup_meta.manifest import BackupManifest, BackupManifestParseError, prune_backup_manifest, \
-    read_backup_manifest, write_backup_manifest
+from incremental_backup.backup_meta.manifest import BackupManifest, BackupManifestDirectoryContentCount, \
+    BackupManifestParseError, calculate_manifest_content_counts, prune_backup_manifest, read_backup_manifest, \
+    write_backup_manifest
 
 
 def test_backup_manifest_construct() -> None:
     manifest = BackupManifest()
     expected = BackupManifest(BackupManifest.Directory('', [], []))
     assert manifest == expected
+
+
+def test_backup_manifest_find_directory() -> None:
+    dir_a = BackupManifest.Directory('dir_a', copied_files=['qux', 'a file'])
+    dir_b_a = BackupManifest.Directory('dir_b_a')
+    dir_a2 = BackupManifest.Directory('dir_a', removed_files=['ugh', 'naming things'])
+    dir_b = BackupManifest.Directory('dir_b', removed_directories=['something removed'],
+                                     subdirectories=[dir_b_a, dir_a2])
+    dir_c = BackupManifest.Directory('dir_c')
+    root = BackupManifest.Directory(
+        '', copied_files=['foo'], removed_files=['bar'], subdirectories=[dir_a, dir_b, dir_c])
+
+    manifest = BackupManifest(root)
+
+    assert manifest.find_directory(()) is root
+    assert manifest.find_directory(('dir_a',)) is dir_a
+    assert manifest.find_directory(('dir_b',)) is dir_b
+    assert manifest.find_directory(('dir_b', 'dir_b_a')) is dir_b_a
+    assert manifest.find_directory(('dir_b', 'dir_a')) is dir_a2
+    assert manifest.find_directory(('dir_c',)) is dir_c
+    assert manifest.find_directory(('qux',)) is None
+    assert manifest.find_directory(('dir_d',)) is None
+    assert manifest.find_directory(('dir_b_a',)) is None
+    assert manifest.find_directory(('dir_a', 'dir_b')) is None
+    assert manifest.find_directory(('dir_b', 'dir_a', 'bar')) is None
+
+
+def test_calculate_manifest_content_counts() -> None:
+    dir_a = BackupManifest.Directory('dir_a', copied_files=['qux', 'a file'])
+    dir_b_a = BackupManifest.Directory('dir_b_a')
+    dir_a2 = BackupManifest.Directory('dir_a', removed_files=['ugh', 'naming things'])
+    dir_b = BackupManifest.Directory('dir_b', removed_directories=['something removed'],
+                                     subdirectories=[dir_b_a, dir_a2])
+    dir_c = BackupManifest.Directory('dir_c')
+    root = BackupManifest.Directory(
+        '', copied_files=['foo'], removed_files=['bar'], subdirectories=[dir_a, dir_b, dir_c])
+
+    manifest = BackupManifest(root)
+
+    content_counts = calculate_manifest_content_counts(manifest)
+
+    expected_content_counts = {
+        id(root): BackupManifestDirectoryContentCount(3, 3, 1),
+        id(dir_a): BackupManifestDirectoryContentCount(2, 0, 0),
+        id(dir_b): BackupManifestDirectoryContentCount(0, 2, 1),
+        id(dir_b_a): BackupManifestDirectoryContentCount(0, 0, 0),
+        id(dir_a2): BackupManifestDirectoryContentCount(0, 2, 0),
+        id(dir_c): BackupManifestDirectoryContentCount(0, 0, 0)
+    }
+
+    assert content_counts == expected_content_counts
 
 
 def test_prune_backup_manifest_empty() -> None:

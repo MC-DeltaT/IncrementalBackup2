@@ -6,14 +6,16 @@ import os.path
 from pathlib import Path
 import re
 import shutil
-from typing import Callable, Iterable, List, Optional, Tuple
+from typing import Callable, Iterable, List, Mapping, Optional, Tuple
 
 from . import filesystem
-from .backup_meta import BackupManifest, BackupSum, prune_backup_manifest
+from .backup_meta import BackupManifest, BackupManifestDirectoryContentCount, BackupSum, \
+    calculate_manifest_content_counts, prune_backup_manifest
 from .utility import path_name_equal
 
 
 __all__ = [
+    'BackupPlan',
     'BackupResults',
     'compile_exclude_pattern',
     'compute_backup_plan',
@@ -31,6 +33,19 @@ class BackupResults:
     files_removed: int
 
 
+@dataclass
+class BackupPlan:
+    manifest: BackupManifest
+    """The backup manifest planned to be enacted."""
+
+    manifest_content_counts: Mapping[int, BackupManifestDirectoryContentCount]
+    """Maps from hash of backup manifest node to content count.
+    
+        This is used during a backup operation to "look ahead" and determine which directories do not contain copied
+        files, to avoid creating empty directories in the destination filesystem.
+    """
+
+
 def do_backup(source_path: Path, destination_path: Path, exclude_patterns: Iterable[re.Pattern], backup_sum: BackupSum,
               on_exclude: Optional[Callable[[Path], None]] = None,
               on_listdir_error: Optional[Callable[[Path, OSError], None]] = None,
@@ -46,7 +61,7 @@ def do_backup(source_path: Path, destination_path: Path, exclude_patterns: Itera
     return results, manifest
 
 
-def execute_backup_plan(backup_plan: BackupManifest, source_path: Path, destination_path: Path,
+def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_path: Path,
                         on_mkdir_error: Optional[Callable[[Path, OSError], None]] = None,
                         on_copy_error: Optional[Callable[[Path, Path, OSError], None]] = None) \
         -> Tuple[BackupResults, BackupManifest]:
@@ -64,7 +79,8 @@ def execute_backup_plan(backup_plan: BackupManifest, source_path: Path, destinat
         del path_segments[-1]
 
     def visit_directory(search_directory: BackupManifest.Directory) -> None:
-        # TODO: do we need to create the directory if no files are copied in it?
+        # TODO: do not create directory if it contains no copied files
+        # TODO: preserve removed files and directories if parent directory can't be created
 
         if not is_root:
             path_segments.append(search_directory.name)
@@ -106,17 +122,17 @@ def execute_backup_plan(backup_plan: BackupManifest, source_path: Path, destinat
             # Need to use partial instead of lambda to avoid name rebinding issues.
             search_stack.extend(partial(visit_directory, d) for d in search_directory.subdirectories)
 
-    search_stack.append(partial(visit_directory, backup_plan.root))
+    search_stack.append(partial(visit_directory, backup_plan.manifest.root))
     while search_stack:
         search_stack.pop()()
         is_root = False
 
-    return results, backup_plan
+    return results, backup_plan.manifest
 
 
-def compute_backup_plan(source_tree: filesystem.Directory, backup_sum: BackupSum) -> BackupManifest:
-    """Computes a tentative/planned backup manifest ("backup plan") for a backup operation given the current source file
-        tree and previous backup sum."""
+def compute_backup_plan(source_tree: filesystem.Directory, backup_sum: BackupSum) -> BackupPlan:
+    """Computes the information required to enact a backup operation given the current source file tree and previous
+        backup sum."""
 
     manifest = BackupManifest()
     search_stack: List[Callable[[], None]] = []
@@ -176,8 +192,10 @@ def compute_backup_plan(source_tree: filesystem.Directory, backup_sum: BackupSum
         search_stack.pop()()
         is_root = False
 
-    prune_backup_manifest(manifest)
-    return manifest
+    content_counts = calculate_manifest_content_counts(manifest)
+    prune_backup_manifest(manifest, content_counts)
+
+    return BackupPlan(manifest, content_counts)
 
 
 def scan_filesystem(path: Path, exclude_patterns: Iterable[re.Pattern],

@@ -1,14 +1,16 @@
 from dataclasses import dataclass, field
 import json
 from os import PathLike
-from typing import Dict, Iterator, List, NoReturn, Tuple, Union
+from typing import Dict, Iterable, Iterator, List, NoReturn, Optional, Tuple, Union
 
 from ..utility import path_name_equal
 
 
 __all__ = [
     'BackupManifest',
+    'BackupManifestDirectoryContentCount',
     'BackupManifestParseError',
+    'calculate_manifest_content_counts',
     'prune_backup_manifest',
     'read_backup_manifest',
     'write_backup_manifest'
@@ -31,6 +33,38 @@ class BackupManifest:
 
     root: Directory = field(default_factory=lambda: BackupManifest.Directory(''))
     """The root of the manifest tree. This object represents the backup source directory."""
+
+    def find_directory(self, path: Iterable[str]) -> Optional[Directory]:
+        """Finds a directory within the backup manifest by path.
+
+            :param path: Sequence of directory names forming the path to the directory, relative to the root of the
+                backup manifest (i.e. the backup source directory).
+            :return: The requested directory if it exists in the backup manifest, else `None`.
+        """
+
+        directory = self.root
+        for name in path:
+            directory = next((d for d in directory.subdirectories if path_name_equal(d.name, name)), None)
+            if directory is None:
+                break
+        return directory
+
+
+@dataclass
+class BackupManifestDirectoryContentCount:
+    copied_files: int
+    removed_files: int
+    removed_directories: int
+
+    @property
+    def total(self) -> int:
+        return self.copied_files + self.removed_files + self.removed_directories
+
+    def __add__(self, other: 'BackupManifestDirectoryContentCount') -> 'BackupManifestDirectoryContentCount':
+        return BackupManifestDirectoryContentCount(
+            self.copied_files + other.copied_files,
+            self.removed_files + other.removed_files,
+            self.removed_directories + other.removed_directories)
 
 
 def write_backup_manifest(path: PathLike, value: BackupManifest) -> None:
@@ -191,13 +225,10 @@ def read_backup_manifest(path: PathLike) -> BackupManifest:
     return backup_manifest
 
 
-def prune_backup_manifest(manifest: BackupManifest) -> None:
-    """Removes directories from a backup manifest that don't contain (directly or indirectly) any copied files, removed
-        files, or removed directories.
-        We don't care about these "empty" directories because they contain no useful information.
-
-        The operation is in-place.
-    """
+def calculate_manifest_content_counts(manifest: BackupManifest) -> Dict[int, BackupManifestDirectoryContentCount]:
+    def content_count(directory: BackupManifest.Directory) -> BackupManifestDirectoryContentCount:
+        return BackupManifestDirectoryContentCount(
+            len(directory.copied_files), len(directory.removed_files), len(directory.removed_directories))
 
     # Find all directories first.
     directories: List[BackupManifest.Directory] = []
@@ -207,31 +238,37 @@ def prune_backup_manifest(manifest: BackupManifest) -> None:
         directories.append(directory)
         search_stack.extend(directory.subdirectories)
 
-    # Calculate how many non-empty descendents each directory has.
-    # Empty = contains nothing or only directories.
-    content_counts: Dict[int, int] = {}
+    content_counts: Dict[int, BackupManifestDirectoryContentCount] = {}
     for directory in reversed(directories):
         content_counts[id(directory)] = \
-            sum(content_counts[id(d)] for d in directory.subdirectories) \
-            + len(directory.copied_files) \
-            + len(directory.removed_files) \
-            + len(directory.removed_directories)
+            sum((content_counts[id(d)] for d in directory.subdirectories), start=content_count(directory))
+
+    return content_counts
+
+
+def prune_backup_manifest(manifest: BackupManifest,
+                          content_counts: Optional[Dict[int, BackupManifestDirectoryContentCount]] = None) -> None:
+    """Removes directories from a backup manifest that don't contain (directly or indirectly) any copied files, removed
+        files, or removed directories.
+        We don't care about these "empty" directories because they contain no useful information.
+
+        The operation is in-place.
+    """
+
+    if content_counts is None:
+        content_counts = calculate_manifest_content_counts(manifest)
 
     # Traverse the manifest again and remove directories that are empty.
     # Note: root never gets removed.
     search_stack: List[BackupManifest.Directory] = [manifest.root]
     while search_stack:
         directory = search_stack.pop()
-        to_remove: List[int] = []
-        for i, subdirectory in enumerate(directory.subdirectories):
-            if content_counts[id(subdirectory)] == 0:
-                to_remove.append(i)
-            else:
-                search_stack.append(subdirectory)
-        delta = 0
-        for i in to_remove:
-            del directory.subdirectories[i + delta]
-            delta -= 1
+        new_subdirectories: List[BackupManifest.Directory] = []
+        for subdirectory in directory.subdirectories:
+            if content_counts[id(subdirectory)].total > 0:
+                new_subdirectories.append(subdirectory)
+        directory.subdirectories = new_subdirectories
+        search_stack.extend(new_subdirectories)
 
 
 class BackupManifestParseError(Exception):
