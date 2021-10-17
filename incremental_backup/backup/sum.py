@@ -115,29 +115,26 @@ class BackupSum:
     def _prune_tree(root: Directory) -> None:
         """Removes directories that don't have any descendents which are files."""
 
-        # Find all directories first.
+        # Enumerate all directories first.
         directories: List[BackupSum.Directory] = []
-        search_stack: List[BackupSum.Directory] = [root]
+        search_stack = [root]
         while search_stack:
             directory = search_stack.pop()
             directories.append(directory)
             search_stack.extend(directory.subdirectories)
+        # Note that each directory occurs before its children in the list.
 
-        # Calculate how many non-empty descendents each directory has.
+        # Calculate how many non-empty descendents each directory has and remove empty directories.
         # Empty = contains nothing or only directories.
         content_counts: Dict[int, int] = {}
         for directory in reversed(directories):
-            content_counts[id(directory)] = \
-                sum(content_counts[id(d)] for d in directory.subdirectories) + len(directory.files)
-
-        # Traverse the tree again and remove directories that are empty.
-        # Note: root never gets removed.
-        search_stack: List[BackupSum.Directory] = [root]
-        while search_stack:
-            directory = search_stack.pop()
-            new_subdirectories: List[BackupSum.Directory] = []
+            content_count = len(directory.files)
+            nonempty_subdirectories: List[BackupSum.Directory] = []
             for subdirectory in directory.subdirectories:
-                if content_counts[id(subdirectory)] > 0:
-                    new_subdirectories.append(subdirectory)
-            directory.subdirectories = new_subdirectories
-            search_stack.extend(new_subdirectories)
+                # Ok, content count of child is always calculated before parent.
+                sub_content_count = content_counts[id(subdirectory)]
+                if sub_content_count > 0:
+                    nonempty_subdirectories.append(subdirectory)
+                    content_count += sub_content_count
+            content_counts[id(directory)] = content_count
+            directory.subdirectories = nonempty_subdirectories
