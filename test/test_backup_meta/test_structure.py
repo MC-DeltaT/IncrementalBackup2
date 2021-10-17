@@ -1,6 +1,6 @@
 import pytest
 
-from incremental_backup.backup_meta.structure import BACKUP_NAME_LENGTH, BackupDirectoryCreationError, \
+from incremental_backup.meta.structure import BACKUP_NAME_LENGTH, BackupDirectoryCreationError, \
     create_new_backup_directory, generate_backup_name
 
 

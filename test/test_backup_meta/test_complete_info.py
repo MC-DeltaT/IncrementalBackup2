@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from incremental_backup.backup_meta.complete_info import BackupCompleteInfo, BackupCompleteInfoParseError, \
+from incremental_backup.meta.complete_info import BackupCompleteInfo, BackupCompleteInfoParseError, \
     read_backup_complete_info, write_backup_complete_info
 
 

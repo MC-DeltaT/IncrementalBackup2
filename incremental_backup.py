@@ -2,7 +2,7 @@ import argparse
 import pathlib
 import sys
 
-from incremental_backup.backup_command import backup_command
+from incremental_backup.commands import backup_command
 
 
 COMMAND_MAP = {

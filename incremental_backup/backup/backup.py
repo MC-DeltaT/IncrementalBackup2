@@ -6,19 +6,17 @@ import os.path
 from pathlib import Path
 import re
 import shutil
-from typing import Callable, Iterable, List, Mapping, Optional, Tuple
+from typing import Callable, Iterable, List, Optional, Tuple
 
-from . import filesystem
-from .backup_meta import BackupManifest, BackupManifestDirectoryContentCount, BackupSum, \
-    calculate_manifest_content_counts, prune_backup_manifest
-from .utility import path_name_equal
+from .. import filesystem
+from ..meta import BackupManifest
+from .plan import BackupPlan
+from .sum import BackupSum
 
 
 __all__ = [
-    'BackupPlan',
     'BackupResults',
     'compile_exclude_pattern',
-    'compute_backup_plan',
     'do_backup',
     'execute_backup_plan',
     'is_path_excluded',
@@ -33,19 +31,6 @@ class BackupResults:
     files_removed: int
 
 
-@dataclass
-class BackupPlan:
-    manifest: BackupManifest
-    """The backup manifest planned to be enacted."""
-
-    manifest_content_counts: Mapping[int, BackupManifestDirectoryContentCount]
-    """Maps from hash of backup manifest node to content count.
-    
-        This is used during a backup operation to "look ahead" and determine which directories do not contain copied
-        files, to avoid creating empty directories in the destination filesystem.
-    """
-
-
 def do_backup(source_path: Path, destination_path: Path, exclude_patterns: Iterable[re.Pattern], backup_sum: BackupSum,
               on_exclude: Optional[Callable[[Path], None]] = None,
               on_listdir_error: Optional[Callable[[Path, OSError], None]] = None,
@@ -55,7 +40,7 @@ def do_backup(source_path: Path, destination_path: Path, exclude_patterns: Itera
         -> Tuple[BackupResults, BackupManifest]:
     source_tree, paths_skipped = scan_filesystem(
         source_path, exclude_patterns, on_exclude, on_listdir_error, on_metadata_error)
-    backup_plan = compute_backup_plan(source_tree, backup_sum)
+    backup_plan = BackupPlan.new(source_tree, backup_sum)
     results, manifest = execute_backup_plan(backup_plan, source_path, destination_path, on_mkdir_error, on_copy_error)
     results.paths_skipped |= paths_skipped
     return results, manifest
@@ -78,7 +63,7 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
     def pop_path_segment() -> None:
         del path_segments[-1]
 
-    def visit_directory(search_directory: BackupManifest.Directory) -> None:
+    def visit_directory(search_directory: BackupPlan.Directory) -> None:
         # TODO: do not create directory if it contains no copied files
         # TODO: preserve removed files and directories if parent directory can't be created
 
@@ -122,80 +107,12 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
             # Need to use partial instead of lambda to avoid name rebinding issues.
             search_stack.extend(partial(visit_directory, d) for d in search_directory.subdirectories)
 
-    search_stack.append(partial(visit_directory, backup_plan.manifest.root))
+    search_stack.append(partial(visit_directory, backup_plan.root))
     while search_stack:
         search_stack.pop()()
         is_root = False
 
-    return results, backup_plan.manifest
-
-
-def compute_backup_plan(source_tree: filesystem.Directory, backup_sum: BackupSum) -> BackupPlan:
-    """Computes the information required to enact a backup operation given the current source file tree and previous
-        backup sum."""
-
-    manifest = BackupManifest()
-    search_stack: List[Callable[[], None]] = []
-    path_segments: List[str] = []
-    manifest_stack = [manifest.root]
-    is_root = True
-
-    def pop_path_segment() -> None:
-        del path_segments[-1]
-
-    def pop_manifest_node() -> None:
-        del manifest_stack[-1]
-
-    def visit_directory(search_directory: filesystem.Directory) -> None:
-        if is_root:
-            manifest_directory = manifest.root
-        else:
-            manifest_directory = next(
-                (d for d in manifest_stack[-1].subdirectories if path_name_equal(d.name, search_directory.name)), None)
-            if manifest_directory is None:
-                manifest_directory = BackupManifest.Directory(search_directory.name)
-                manifest_stack[-1].subdirectories.append(manifest_directory)
-                manifest_stack.append(manifest_directory)
-                search_stack.append(pop_manifest_node)
-            path_segments.append(search_directory.name)
-            search_stack.append(pop_path_segment)
-
-        backup_sum_directory = backup_sum.find_directory(path_segments)
-        if backup_sum_directory is None:
-            # Nothing backed up here so far, only possibility is new files to back up.
-            manifest_directory.copied_files.extend(f.name for f in search_directory.files)
-        else:
-            # Something backed up here before, could have new files, modified files, removed files, removed
-            # subdirectories.
-
-            for current_file in search_directory.files:
-                backed_up_file = next(
-                    (f for f in backup_sum_directory.files if path_name_equal(f.name, current_file.name)), None)
-                # File never backed up or modified since last backup.
-                if backed_up_file is None \
-                        or current_file.last_modified > backed_up_file.last_backup.start_info.start_time:
-                    manifest_directory.copied_files.append(current_file.name)
-
-            manifest_directory.removed_files.extend(
-                f.name for f in backup_sum_directory.files
-                if not any(path_name_equal(f.name, f2.name) for f2 in search_directory.files))
-
-            manifest_directory.removed_directories.extend(
-                d.name for d in backup_sum_directory.subdirectories
-                if not any(path_name_equal(d.name, d2.name) for d2 in search_directory.subdirectories))
-
-        # Need to use partial instead of lambda to avoid name rebinding issues.
-        search_stack.extend(partial(visit_directory, d) for d in reversed(search_directory.subdirectories))
-
-    search_stack.append(partial(visit_directory, source_tree))
-    while search_stack:
-        search_stack.pop()()
-        is_root = False
-
-    content_counts = calculate_manifest_content_counts(manifest)
-    prune_backup_manifest(manifest, content_counts)
-
-    return BackupPlan(manifest, content_counts)
+    return results, manifest
 
 
 def scan_filesystem(path: Path, exclude_patterns: Iterable[re.Pattern],

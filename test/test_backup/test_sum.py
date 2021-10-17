@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
 
-from incremental_backup.backup_meta.manifest import BackupManifest
-from incremental_backup.backup_meta.metadata import BackupMetadata
-from incremental_backup.backup_meta.start_info import BackupStartInfo
-from incremental_backup.backup_meta.sum import BackupSum
+from incremental_backup.backup.sum import BackupSum
+from incremental_backup.meta.manifest import BackupManifest
+from incremental_backup.meta.metadata import BackupMetadata
+from incremental_backup.meta.start_info import BackupStartInfo
 
 
 def test_backup_sum_empty() -> None:

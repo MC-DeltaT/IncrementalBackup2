@@ -2,10 +2,10 @@ from datetime import datetime, timezone
 
 import pytest
 
-from incremental_backup.backup_meta.manifest import BackupManifest
-from incremental_backup.backup_meta.metadata import BackupMetadata, read_backup_metadata
-from incremental_backup.backup_meta.start_info import BackupStartInfo
-from incremental_backup.backup_meta.structure import MANIFEST_FILENAME, START_INFO_FILENAME
+from incremental_backup.meta.manifest import BackupManifest
+from incremental_backup.meta.metadata import BackupMetadata, read_backup_metadata
+from incremental_backup.meta.start_info import BackupStartInfo
+from incremental_backup.meta.structure import MANIFEST_FILENAME, START_INFO_FILENAME
 
 
 def test_read_backup_metadata_ok(tmpdir) -> None:

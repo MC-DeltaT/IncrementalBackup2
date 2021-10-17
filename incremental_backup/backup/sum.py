@@ -1,9 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Union
 
+from ..meta import BackupManifest, BackupMetadata
 from ..utility import path_name_equal
-from .manifest import BackupManifest
-from .metadata import BackupMetadata
 
 
 __all__ = [
@@ -136,13 +135,9 @@ class BackupSum:
         search_stack: List[BackupSum.Directory] = [root]
         while search_stack:
             directory = search_stack.pop()
-            to_remove: List[int] = []
-            for i, subdirectory in enumerate(directory.subdirectories):
-                if content_counts[id(subdirectory)] == 0:
-                    to_remove.append(i)
-                else:
-                    search_stack.append(subdirectory)
-            delta = 0
-            for i in to_remove:
-                del directory.subdirectories[i + delta]
-                delta -= 1
+            new_subdirectories: List[BackupSum.Directory] = []
+            for subdirectory in directory.subdirectories:
+                if content_counts[id(subdirectory)] > 0:
+                    new_subdirectories.append(subdirectory)
+            directory.subdirectories = new_subdirectories
+            search_stack.extend(new_subdirectories)

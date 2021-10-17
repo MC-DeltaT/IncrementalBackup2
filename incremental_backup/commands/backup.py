@@ -4,9 +4,9 @@ import re
 import sys
 from typing import Iterable, List, Sequence, Tuple
 
-from .backup import BackupResults, compile_exclude_pattern, do_backup
-from .backup_meta import BackupCompleteInfo, BackupDirectoryCreationError, BackupManifest, BackupManifestParseError, \
-    BackupMetadata, BackupStartInfo, BackupStartInfoParseError, BackupSum, COMPLETE_INFO_FILENAME, \
+from ..backup import BackupSum, BackupResults, compile_exclude_pattern, do_backup
+from ..meta import BackupCompleteInfo, BackupDirectoryCreationError, BackupManifest, BackupManifestParseError, \
+    BackupMetadata, BackupStartInfo, BackupStartInfoParseError, COMPLETE_INFO_FILENAME, \
     create_new_backup_directory, DATA_DIRECTORY_NAME, MANIFEST_FILENAME, read_backup_metadata, START_INFO_FILENAME, \
     write_backup_complete_info, write_backup_manifest, write_backup_start_info
 
