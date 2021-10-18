@@ -68,10 +68,7 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
     def pop_path_segment() -> None:
         del path_segments[-1]
 
-    def visit_directory(search_directory: BackupPlan.Directory, copy_ok: bool) -> None:
-        # TODO: do not create directory if it contains no copied files
-        # TODO: preserve removed files and directories if parent directory can't be created
-
+    def visit_directory(search_directory: BackupPlan.Directory, mkdir_failed: bool) -> None:
         if is_root:
             manifest_directory = manifest.root
         else:
@@ -87,7 +84,9 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
         results.files_removed += len(search_directory.removed_files)
         manifest_directory.removed_directories = search_directory.removed_directories
 
-        if copy_ok:
+        # Once we fail to create a destination directory, or the current directory doesn't contain any more files to
+        # copy, no need to try to create the destination directory or copy any files.
+        if (not mkdir_failed) and search_directory.contains_copied_files:
             relative_directory_path = Path(*path_segments)
             destination_directory_path = destination_path / relative_directory_path
 
@@ -95,7 +94,7 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
                 destination_directory_path.mkdir(parents=True, exist_ok=True)
             except OSError as e:
                 results.paths_skipped = True
-                copy_ok = False
+                mkdir_failed = True
 
                 on_mkdir_error(destination_directory_path, e)
             else:
@@ -112,11 +111,14 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
                         manifest_directory.copied_files.append(file)
                         results.files_copied += 1
 
+        # Keep searching through child directories if:
+        #   a) destination directory was created successfully, or
+        #   b) destination directory creation failed, but there are still removed items to be recorded in the manifest.
         # Need to use partial instead of lambda to avoid name rebinding issues.
-        # TODO
-        search_stack.extend(partial(visit_directory, d, copy_ok) for d in search_directory.subdirectories)
+        search_stack.extend(partial(visit_directory, d, mkdir_failed) for d in reversed(search_directory.subdirectories)
+                            if not mkdir_failed or d.contains_removed_items)
 
-    search_stack.append(partial(visit_directory, backup_plan.root, True))
+    search_stack.append(partial(visit_directory, backup_plan.root, False))
     while search_stack:
         search_stack.pop()()
         is_root = False

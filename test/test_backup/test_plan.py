@@ -8,16 +8,21 @@ from incremental_backup.meta.metadata import BackupMetadata
 from incremental_backup.meta.start_info import BackupStartInfo
 
 
+def test_backup_plan_directory_init() -> None:
+    directory = BackupPlan.Directory('\x12\u3409someName*&^%#$#%34')
+    assert directory.name == '\x12\u3409someName*&^%#$#%34'
+    assert directory.copied_files == []
+    assert directory.removed_files == []
+    assert directory.removed_directories == []
+    assert directory.subdirectories == []
+    assert not directory.contains_copied_files
+    assert not directory.contains_removed_items
+
+
 def test_backup_plan_init() -> None:
     plan = BackupPlan()
-    assert plan.root.name == ''
-    assert plan.root.copied_files == []
-    assert plan.root.removed_files == []
-    assert plan.root.removed_directories == []
-    assert plan.root.subdirectories == []
-    assert plan.root.contained_copied_files == 0
-    assert plan.root.contained_removed_files == 0
-    assert plan.root.contained_removed_directories == 0
+    expected_root = BackupPlan.Directory('')
+    assert plan.root == expected_root
 
 
 def test_backup_plan_new() -> None:
@@ -78,18 +83,18 @@ def test_backup_plan_new() -> None:
 
     expected_plan = BackupPlan(BackupPlan.Directory('',
         copied_files=['file_z', 'file_y'], removed_files=['file_x.pdf'], removed_directories=['extra_dir'],
-        contained_copied_files=6, contained_removed_files=2, contained_removed_directories=2,
+        contains_copied_files=True, contains_removed_items=True,
         subdirectories=[
             BackupPlan.Directory('dir_a',
                 copied_files=['file_a_d.docx', 'file_a_b.png'], removed_files=['file_a_c.exe'],
-                contained_copied_files=3, contained_removed_files=1,
+                contains_copied_files=True, contains_removed_items=True,
                 subdirectories=[
-                    BackupPlan.Directory('dir_a_b', copied_files=['new_file'], contained_copied_files=1)
+                    BackupPlan.Directory('dir_a_b', copied_files=['new_file'], contains_copied_files=True)
                 ]),
-            BackupPlan.Directory('dir_c', removed_directories=['dir_c_a'], contained_removed_directories=1),
-            BackupPlan.Directory('new_dir_big', contained_copied_files=1, subdirectories=[
-                BackupPlan.Directory('another new dir', contained_copied_files=1, subdirectories=[
-                    BackupPlan.Directory('final new dir... maybe', copied_files=['wrgauh'], contained_copied_files=1)
+            BackupPlan.Directory('dir_c', removed_directories=['dir_c_a'], contains_removed_items=True),
+            BackupPlan.Directory('new_dir_big', contains_copied_files=True, subdirectories=[
+                BackupPlan.Directory('another new dir', contains_copied_files=True, subdirectories=[
+                    BackupPlan.Directory('final new dir... maybe', copied_files=['wrgauh'], contains_copied_files=True)
                 ])
             ])
         ]))

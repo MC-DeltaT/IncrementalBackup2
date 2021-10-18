@@ -24,11 +24,10 @@ class BackupPlan:
         removed_files: List[str] = field(default_factory=list)
         removed_directories: List[str] = field(default_factory=list)
         subdirectories: List['BackupPlan.Directory'] = field(default_factory=list)
-        # TODO: are all 3 of these actually required?
-        # Total counts of copied files, removed files, and removed directories in this directory and its descendents.
-        contained_copied_files: int = 0
-        contained_removed_files: int = 0
-        contained_removed_directories: int = 0
+        contains_copied_files: bool = False
+        """Indicates if this directory or any of its descendents contain any copied files."""
+        contains_removed_items: bool = False
+        """Indicates if this directory or any of its descendents contain any removed files or removed directories."""
 
     root: Directory = field(default_factory=lambda: BackupPlan.Directory(''))
 
@@ -97,19 +96,16 @@ class BackupPlan:
             search_stack.pop()()
             is_root = False
 
-        # Calculate directory content counts and prune empty directories.
+        # Calculate contains_copied_files and contained_removed_items, and prune empty directories.
         for directory in reversed(plan_directories):
-            directory.contained_copied_files = len(directory.copied_files)
-            directory.contained_removed_files = len(directory.removed_files)
-            directory.contained_removed_directories = len(directory.removed_directories)
+            directory.contains_copied_files = len(directory.copied_files) > 0
+            directory.contains_removed_items = len(directory.removed_files) + len(directory.removed_directories) > 0
             nonempty_subdirectories: List[BackupPlan.Directory] = []
             for subdirectory in directory.subdirectories:
-                # Ok, content counts of child is always calculated before parent.
-                directory.contained_copied_files += subdirectory.contained_copied_files
-                directory.contained_removed_files += subdirectory.contained_removed_files
-                directory.contained_removed_directories += subdirectory.contained_removed_directories
-                if subdirectory.contained_copied_files + subdirectory.contained_removed_files \
-                        + subdirectory.contained_removed_directories > 0:
+                # Ok, values for child are always calculated before parent.
+                directory.contains_copied_files |= subdirectory.contains_copied_files
+                directory.contains_removed_items |= subdirectory.contains_removed_items
+                if subdirectory.contains_copied_files or subdirectory.contains_removed_items:
                     nonempty_subdirectories.append(subdirectory)
             directory.subdirectories = nonempty_subdirectories
 

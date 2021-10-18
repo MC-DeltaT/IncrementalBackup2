@@ -4,13 +4,19 @@ from incremental_backup.meta.manifest import BackupManifest, BackupManifestParse
     write_backup_manifest
 
 
+def test_backup_manifest_directory_init() -> None:
+    directory = BackupManifest.Directory('NotSure_how_m4ny_M\u2390re names-I can think OF')
+    assert directory.name == 'NotSure_how_m4ny_M\u2390re names-I can think OF'
+    assert directory.copied_files == []
+    assert directory.removed_files == []
+    assert directory.removed_directories == []
+    assert directory.subdirectories == []
+
+
 def test_backup_manifest_init() -> None:
     manifest = BackupManifest()
-    assert manifest.root.name == ''
-    assert manifest.root.copied_files == []
-    assert manifest.root.removed_files == []
-    assert manifest.root.removed_directories == []
-    assert manifest.root.subdirectories == []
+    expected_root = BackupManifest.Directory('')
+    assert manifest.root == expected_root
 
 
 def test_write_backup_manifest(tmpdir) -> None:

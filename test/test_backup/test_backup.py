@@ -137,27 +137,27 @@ def test_execute_backup_plan(tmpdir) -> None:
     destination_path = tmpdir / 'destination'
     destination_path.mkdir()
 
-    plan_manifest = BackupManifest(BackupManifest.Directory('',
+    plan = BackupPlan(BackupPlan.Directory('',
         copied_files=['Modified.txt', 'file2', 'nonexistent-file.yay'],
         removed_files=['file removed'], removed_directories=['removed dir'],
+        contains_copied_files=True, contains_removed_items=True,
         subdirectories=[
-            BackupManifest.Directory('my directory', copied_files=['modified1.baz'], removed_directories=['qux']),
-            BackupManifest.Directory('something', subdirectories=[
-                BackupManifest.Directory('qwerty', copied_files=['wtoeiur'])
+            BackupPlan.Directory('my directory', copied_files=['modified1.baz'], removed_directories=['qux'],
+                                 contains_copied_files=True, contains_removed_items=True),
+            BackupPlan.Directory('something', contains_copied_files=True, subdirectories=[
+                BackupPlan.Directory('qwerty', copied_files=['wtoeiur'], contains_copied_files=True)
             ]),
-            BackupManifest.Directory('nonexistent_directory', copied_files=['flower'], removed_files=['zxcv']),
-            BackupManifest.Directory('no_copied_files', removed_files=['foo', 'bar', 'notqux'])
+            BackupPlan.Directory('nonexistent_directory', copied_files=['flower'], removed_files=['zxcv'],
+                                 contains_copied_files=True, contains_removed_items=True),
+            BackupPlan.Directory('no_copied_files', removed_files=['foo', 'bar', 'notqux'], contains_removed_items=True)
         ]))
-
-    # TODO
-    plan = ...
 
     copy_errors = []
     on_copy_error = lambda s, d, e: copy_errors.append((s, d, e))
 
     results, manifest = execute_backup_plan(plan, source_path, destination_path, on_copy_error=on_copy_error)
 
-    expected_results = BackupResults(paths_skipped=True, files_copied=4, files_removed=2)
+    expected_results = BackupResults(paths_skipped=True, files_copied=4, files_removed=5)
 
     expected_manifest = BackupManifest(BackupManifest.Directory('',
         copied_files=['Modified.txt', 'file2'],
