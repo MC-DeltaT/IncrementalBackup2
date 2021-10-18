@@ -33,7 +33,7 @@ class BackupPlan:
 
     @classmethod
     def new(cls, source_tree: filesystem.Directory, backup_sum: BackupSum) -> 'BackupPlan':
-        """Constructs a backup plan from the current backup source directory state and previous backup sum."""
+        """Constructs a backup plan from the backup source directory state and previous backup sum."""
 
         plan = cls()
         plan_directories = [plan.root]

@@ -1,3 +1,4 @@
+from argparse import ArgumentTypeError
 from datetime import datetime, timezone
 from pathlib import Path
 import re
@@ -12,28 +13,46 @@ from ..meta import BackupCompleteInfo, BackupDirectoryCreationError, BackupManif
 
 
 __all__ = [
-    'backup_command'
+    'add_arg_subparser',
+    'COMMAND_NAME',
+    'entrypoint',
 ]
 
 
-def backup_command(args) -> None:
+COMMAND_NAME = 'backup'
+
+
+def add_arg_subparser(subparser) -> None:
+    parser = subparser.add_parser(COMMAND_NAME, description='Creates a new backup.', help='Creates a new backup.')
+    parser.add_argument('source_dir', action='store', type=parse_source_directory, help='Directory to back up.')
+    parser.add_argument('target_dir', action='store', type=parse_target_directory, help='Directory to back up into.')
+    parser.add_argument(
+        '--exclude-pattern', action='append', type=compile_exclude_pattern, required=False,
+        help='Path pattern(s) to exclude. Can be specified more than once')
+
+
+def entrypoint(args) -> None:
     source_path: Path = args.source_dir
     target_path: Path = args.target_dir
-    exclude_pattern_strs: Sequence[str] = args.exclude_pattern or ()
-    exclude_patterns = tuple(map(compile_exclude_pattern, exclude_pattern_strs))
+    exclude_patterns: Sequence[re.Pattern] = args.exclude_pattern or ()
 
     try:
         print_config(source_path, target_path, exclude_patterns)
+        print()
 
+        print('Reading previous backups')
         previous_backups = read_previous_backups(target_path)
         backup_sum = BackupSum.from_backups(previous_backups)
 
+        print('Initialising backup')
         backup_path = create_backup_directory(target_path)
         data_path = create_data_directory(backup_path)
         create_start_info(backup_path)
 
+        print('Running backup operation')
         results, manifest = perform_backup(source_path, data_path, exclude_patterns, backup_sum)
 
+        print('Saving metadata')
         save_manifest(backup_path, manifest)
         create_complete_info(backup_path, results.paths_skipped)
 
@@ -46,6 +65,22 @@ def backup_command(args) -> None:
     except Exception as e:
         error(f'Unhandled exception: {repr(e)}')
         sys.exit(EXIT_CODE_LOGIC_ERROR)
+
+
+def parse_source_directory(path: str) -> Path:
+    path = Path(path)
+    if not path.exists():
+        raise ArgumentTypeError('Directory not found')
+    if not path.is_dir():
+        raise ArgumentTypeError('Must be a directory')
+    return path
+
+
+def parse_target_directory(path: str) -> Path:
+    path = Path(path)
+    if path.exists() and not path.is_dir():
+        raise ArgumentTypeError('Must be a directory')
+    return path
 
 
 def print_config(source_path: Path, target_path: Path, exclude_patterns: Iterable[re.Pattern]) -> None:
@@ -119,8 +154,29 @@ def create_start_info(backup_path: Path) -> None:
 
 def perform_backup(source_path: Path, destination_path: Path, exclude_patterns: Iterable[re.Pattern],
                    backup_sum: BackupSum) -> Tuple[BackupResults, BackupManifest]:
-    # TODO: callbacks
-    return do_backup(source_path, destination_path, exclude_patterns, backup_sum)
+    def on_exclude(path: Path) -> None:
+        # Path matched exclude patterns so was excluded from backup.
+        print(f'Excluded path "{path}"')
+
+    def on_listdir_error(directory: Path, e: OSError) -> None:
+        # Failed to query directory contents while scanning source directory.
+        warning(f'Failed to enumerate directory "{directory}": {e}')
+
+    def on_metadata_error(path: Path, e: OSError) -> None:
+        # Failed to query file/directory metadata when scanning source directory.
+        warning(f'Failed to get metadata of "{path}": {e}')
+
+    def on_mkdir_error(directory: Path, e: OSError) -> None:
+        # Failed to create a directory when backing up files.
+        warning(f'Failed to create directory "{directory}": {e}')
+
+    def on_copy_error(source: Path, destination: Path, e: OSError) -> None:
+        # Failed to back up a file.
+        warning(f'Failed to copy file "{source}" to "{destination}": {e}')
+
+    return do_backup(source_path, destination_path, exclude_patterns, backup_sum, on_exclude=on_exclude,
+                     on_listdir_error=on_listdir_error, on_metadata_error=on_metadata_error,
+                     on_mkdir_error=on_mkdir_error, on_copy_error=on_copy_error)
 
 
 def save_manifest(backup_path: Path, manifest: BackupManifest) -> None:
@@ -142,8 +198,7 @@ def create_complete_info(backup_path: Path, paths_skipped: bool) -> None:
 
 
 def print_results(results: BackupResults) -> None:
-    print(f'+{results.files_copied} files')
-    print(f'-{results.files_removed} files')
+    print(f'+{results.files_copied} / -{results.files_removed} files')
 
 
 def warning(message: str) -> None:

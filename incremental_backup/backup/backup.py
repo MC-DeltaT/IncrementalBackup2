@@ -38,6 +38,12 @@ def do_backup(source_path: Path, destination_path: Path, exclude_patterns: Itera
               on_mkdir_error: Optional[Callable[[Path, OSError], None]] = None,
               on_copy_error: Optional[Callable[[Path, Path, OSError], None]] = None) \
         -> Tuple[BackupResults, BackupManifest]:
+    """Performs a backup operation, consisting of scanning the source filesystem, constructing the backup plan, and
+        enacting the backup plan.
+
+        Please see `scan_filesystem()`, `BackupPlan`, and `execute_backup_plan()` for more details.
+    """
+
     source_tree, paths_skipped = scan_filesystem(
         source_path, exclude_patterns, on_exclude, on_listdir_error, on_metadata_error)
     backup_plan = BackupPlan.new(source_tree, backup_sum)
@@ -50,6 +56,24 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
                         on_mkdir_error: Optional[Callable[[Path, OSError], None]] = None,
                         on_copy_error: Optional[Callable[[Path, Path, OSError], None]] = None) \
         -> Tuple[BackupResults, BackupManifest]:
+    """Enacts a backup plan, copying files and creating the backup manifest.
+
+        If a file cannot be backup up (i.e. copied), it is ignored and excluded from the manifest.
+
+        If a directory cannot be created, no files will be backed up into it or its (planned) child directories.
+        Any files planned to be backed up within it will not be copied and will be excluded from the manifest.
+        However, any removed files or directories within it will still be recorded in the manifest.
+
+        :param backup_plan: The backup plan to enact. Should be based off `source_path`, otherwise the results will be
+            nonsense.
+        :param source_path: The backup source directory; where files are copied from.
+        :param destination_path: The location to copy files to. Files directly contained in the backup source directory
+            will become directly contained by this directory.
+        :param on_mkdir_error: Called when an error is raised creating a directory.
+        :param on_copy_error: Called when an error is raised copying a file.
+        :return: First element is the backup results, second element is the backup manifest.
+    """
+
     if on_mkdir_error is None:
         on_mkdir_error = lambda p, e: None
     if on_copy_error is None:
@@ -132,6 +156,8 @@ def scan_filesystem(path: Path, exclude_patterns: Iterable[re.Pattern],
                     on_metadata_error: Optional[Callable[[Path, OSError], None]] = None) \
         -> Tuple[filesystem.Directory, bool]:
     """Produces a tree representation of the filesystem at a given directory.
+
+        If any paths cannot be accessed for any reason, they will be skipped and excluded from the constructed tree.
 
         :param path: The path of the directory to scan.
         :param exclude_patterns: Compiled exclude patterns. If a directory or file matches any of these, it and its
