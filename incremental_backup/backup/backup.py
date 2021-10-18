@@ -56,58 +56,67 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
         on_copy_error = lambda s, d, e: None
 
     results = BackupResults(False, 0, 0)
+    manifest = BackupManifest()
     search_stack: List[Callable[[], None]] = []
+    manifest_stack = [manifest.root]
     path_segments: List[str] = []
     is_root = True
+
+    def pop_manifest_node() -> None:
+        del manifest_stack[-1]
 
     def pop_path_segment() -> None:
         del path_segments[-1]
 
-    def visit_directory(search_directory: BackupPlan.Directory) -> None:
+    def visit_directory(search_directory: BackupPlan.Directory, copy_ok: bool) -> None:
         # TODO: do not create directory if it contains no copied files
         # TODO: preserve removed files and directories if parent directory can't be created
 
-        if not is_root:
+        if is_root:
+            manifest_directory = manifest.root
+        else:
             path_segments.append(search_directory.name)
             search_stack.append(pop_path_segment)
 
-        relative_directory_path = Path(*path_segments)
-        destination_directory_path = destination_path / relative_directory_path
+            manifest_directory = BackupManifest.Directory(search_directory.name)
+            manifest_stack[-1].subdirectories.append(manifest_directory)
+            manifest_stack.append(manifest_directory)
+            search_stack.append(pop_manifest_node)
 
-        try:
-            destination_directory_path.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            # TODO? Remove directory from manifest completely?
-            search_directory.copied_files = []
-            search_directory.removed_files = []
-            search_directory.removed_directories = []
-            search_directory.subdirectories = []
+        manifest_directory.removed_files = search_directory.removed_files
+        results.files_removed += len(search_directory.removed_files)
+        manifest_directory.removed_directories = search_directory.removed_directories
 
-            results.paths_skipped = True
+        if copy_ok:
+            relative_directory_path = Path(*path_segments)
+            destination_directory_path = destination_path / relative_directory_path
 
-            on_mkdir_error(destination_directory_path, e)
-        else:
-            results.files_removed += len(search_directory.removed_files)
+            try:
+                destination_directory_path.mkdir(parents=True, exist_ok=True)
+            except OSError as e:
+                results.paths_skipped = True
+                copy_ok = False
 
-            copied_files = search_directory.copied_files
-            search_directory.copied_files = []
-            for file in copied_files:
-                relative_file_path = relative_directory_path / file
-                source_file_path = source_path / relative_file_path
-                destination_file_path = destination_path / relative_file_path
-                try:
-                    shutil.copy2(source_file_path, destination_file_path)
-                except OSError as e:
-                    results.paths_skipped = True
-                    on_copy_error(source_file_path, destination_file_path, e)
-                else:
-                    search_directory.copied_files.append(file)
-                    results.files_copied += 1
+                on_mkdir_error(destination_directory_path, e)
+            else:
+                for file in search_directory.copied_files:
+                    relative_file_path = relative_directory_path / file
+                    source_file_path = source_path / relative_file_path
+                    destination_file_path = destination_path / relative_file_path
+                    try:
+                        shutil.copy2(source_file_path, destination_file_path)
+                    except OSError as e:
+                        results.paths_skipped = True
+                        on_copy_error(source_file_path, destination_file_path, e)
+                    else:
+                        manifest_directory.copied_files.append(file)
+                        results.files_copied += 1
 
-            # Need to use partial instead of lambda to avoid name rebinding issues.
-            search_stack.extend(partial(visit_directory, d) for d in search_directory.subdirectories)
+        # Need to use partial instead of lambda to avoid name rebinding issues.
+        # TODO
+        search_stack.extend(partial(visit_directory, d, copy_ok) for d in search_directory.subdirectories)
 
-    search_stack.append(partial(visit_directory, backup_plan.root))
+    search_stack.append(partial(visit_directory, backup_plan.root, True))
     while search_stack:
         search_stack.pop()()
         is_root = False
