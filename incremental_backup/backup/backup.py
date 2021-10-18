@@ -67,8 +67,8 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
         :param backup_plan: The backup plan to enact. Should be based off `source_path`, otherwise the results will be
             nonsense.
         :param source_path: The backup source directory; where files are copied from.
-        :param destination_path: The location to copy files to. Files directly contained in the backup source directory
-            will become directly contained by this directory.
+        :param destination_path: The location to copy files to. This directory itself represents the backup source
+            directory.
         :param on_mkdir_error: Called when an error is raised creating a directory.
         :param on_copy_error: Called when an error is raised copying a file.
         :return: First element is the backup results, second element is the backup manifest.

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import re
 import sys
-from typing import Iterable, List, Sequence, Tuple
+from typing import Iterable, List, NoReturn, Sequence, Tuple
 
 from ..backup import BackupSum, BackupResults, compile_exclude_pattern, do_backup
 from ..meta import BackupCompleteInfo, BackupDirectoryCreationError, BackupManifest, BackupManifestParseError, \
@@ -20,9 +20,12 @@ __all__ = [
 
 
 COMMAND_NAME = 'backup'
+"""Name of this command for the command line arguments."""
 
 
 def add_arg_subparser(subparser) -> None:
+    """Adds the command line argument subparser for the backup command."""
+
     parser = subparser.add_parser(COMMAND_NAME, description='Creates a new backup.', help='Creates a new backup.')
     parser.add_argument('source_dir', action='store', type=parse_source_directory, help='Directory to back up.')
     parser.add_argument('target_dir', action='store', type=parse_target_directory, help='Directory to back up into.')
@@ -31,7 +34,12 @@ def add_arg_subparser(subparser) -> None:
         help='Path pattern(s) to exclude. Can be specified more than once')
 
 
-def entrypoint(args) -> None:
+def entrypoint(args) -> NoReturn:
+    """Entrypoint for the backup command.
+
+        :param args: The command line arguments object acquired from argparse.
+    """
+
     source_path: Path = args.source_dir
     target_path: Path = args.target_dir
     exclude_patterns: Sequence[re.Pattern] = args.exclude_pattern or ()
@@ -68,6 +76,10 @@ def entrypoint(args) -> None:
 
 
 def parse_source_directory(path: str) -> Path:
+    """Parses and validates the backup source directory.
+        Validation should prevent other parts of the program from failing strangely for non-path inputs.
+    """
+
     path = Path(path)
     if not path.exists():
         raise ArgumentTypeError('Directory not found')
@@ -77,6 +89,10 @@ def parse_source_directory(path: str) -> Path:
 
 
 def parse_target_directory(path: str) -> Path:
+    """Parses and validates the backup target directory.
+        Validation should prevent other parts of the program from failing strangely for non-path inputs.
+    """
+
     path = Path(path)
     if path.exists() and not path.is_dir():
         raise ArgumentTypeError('Must be a directory')
@@ -84,6 +100,8 @@ def parse_target_directory(path: str) -> Path:
 
 
 def print_config(source_path: Path, target_path: Path, exclude_patterns: Iterable[re.Pattern]) -> None:
+    """Prints the configuration of the application to stdout."""
+
     print(f'Source directory: {source_path}')
     print(f'Target directory: {target_path}')
     print('Exclude patterns:')
@@ -95,6 +113,13 @@ def print_config(source_path: Path, target_path: Path, exclude_patterns: Iterabl
 
 
 def read_previous_backups(target_path: Path) -> List[BackupMetadata]:
+    """Reads existing backups' metadata from the backup target directory.
+
+        If any backup's metadata cannot be read, prints a warning to the console and skips that backup.
+
+        :except FatalError: If `target_path` cannot be enumerated.
+    """
+
     def is_probably_backup(directory: Path) -> bool:
         start_info_path = directory / START_INFO_FILENAME
         manifest_path = directory / MANIFEST_FILENAME
@@ -126,6 +151,12 @@ def read_previous_backups(target_path: Path) -> List[BackupMetadata]:
 
 
 def create_backup_directory(target_path: Path) -> Path:
+    """Creates a new backup directory within the target directory. Prints the name of the directory to the console.
+
+        :return: Path to the created directory.
+        :except FatalError: If the directory could not be created.
+    """
+
     try:
         backup_name = create_new_backup_directory(target_path)
     except BackupDirectoryCreationError as e:
@@ -135,6 +166,12 @@ def create_backup_directory(target_path: Path) -> Path:
 
 
 def create_data_directory(backup_path: Path) -> Path:
+    """Creates the backup data directory (directory which contains the copied files).
+
+        :return: Path to the created directory.
+        :except FatalError: If the directory could not be created.
+    """
+
     path = backup_path / DATA_DIRECTORY_NAME
     try:
         path.mkdir(parents=True, exist_ok=False)
@@ -144,6 +181,11 @@ def create_data_directory(backup_path: Path) -> Path:
 
 
 def create_start_info(backup_path: Path) -> None:
+    """Writes the backup start information to file within the backup directory.
+
+        :except FatalError: If the file could not be written to.
+    """
+
     start_info = BackupStartInfo(datetime.now(timezone.utc))
     file_path = backup_path / START_INFO_FILENAME
     try:
@@ -154,6 +196,11 @@ def create_start_info(backup_path: Path) -> None:
 
 def perform_backup(source_path: Path, destination_path: Path, exclude_patterns: Iterable[re.Pattern],
                    backup_sum: BackupSum) -> Tuple[BackupResults, BackupManifest]:
+    """Performs the backup operation. Just a wrapper around `backup.do_backup()`.
+
+        Prints informational messages and warnings to the console as appropriate.
+    """
+
     def on_exclude(path: Path) -> None:
         # Path matched exclude patterns so was excluded from backup.
         print(f'Excluded path "{path}"')
@@ -180,6 +227,11 @@ def perform_backup(source_path: Path, destination_path: Path, exclude_patterns: 
 
 
 def save_manifest(backup_path: Path, manifest: BackupManifest) -> None:
+    """Writes the backup manifest to file within the backup directory.
+
+        :except FatalError: If the file could not be written to.
+    """
+
     file_path = backup_path / MANIFEST_FILENAME
     try:
         write_backup_manifest(file_path, manifest)
@@ -188,6 +240,12 @@ def save_manifest(backup_path: Path, manifest: BackupManifest) -> None:
 
 
 def create_complete_info(backup_path: Path, paths_skipped: bool) -> None:
+    """Writes the backup completion information to file within the backup directory.
+
+        If this operation fails, just prints a warning to the console, since the completion information is not required
+        by the application at this time.
+    """
+
     complete_info = BackupCompleteInfo(datetime.now(timezone.utc), paths_skipped)
     file_path = backup_path / COMPLETE_INFO_FILENAME
     try:
@@ -198,17 +256,24 @@ def create_complete_info(backup_path: Path, paths_skipped: bool) -> None:
 
 
 def print_results(results: BackupResults) -> None:
+    """Prints backup results to the console."""
+
     print(f'+{results.files_copied} / -{results.files_removed} files')
 
 
 def warning(message: str) -> None:
+    """Prints a warning message to stdout. Should be used for nonfatal errors."""
+
     print(f'WARNING: {message}')
 
 
 def error(message: str) -> None:
+    """Prints an error message to stdout. Should be used for fatal errors."""
+
     print(f'ERROR: {message}', file=sys.stderr)
 
 
+# Process exit codes.
 EXIT_CODE_SUCCESS = 0
 EXIT_CODE_RUNTIME_ERROR = 1
 # Invalid usage is handled by argparse, uses code 2.
@@ -216,6 +281,9 @@ EXIT_CODE_LOGIC_ERROR = 3
 
 
 class FatalError(Exception):
+    """High-level error indicating that the program should exit.
+        This probably shouldn't be caught except at the highest scope."""
+
     def __init__(self, message: str, exit_code: int) -> None:
         super().__init__(message)
         self.message = message

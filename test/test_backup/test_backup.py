@@ -196,6 +196,11 @@ def test_execute_backup_plan(tmpdir) -> None:
     assert isinstance(copy_errors[1][2], FileNotFoundError)
 
 
+def test_do_backup(tmpdir) -> None:
+    # TODO
+    assert False
+
+
 def test_compile_exclude_pattern() -> None:
     p1 = compile_exclude_pattern('')
     assert isinstance(p1, re.Pattern)
