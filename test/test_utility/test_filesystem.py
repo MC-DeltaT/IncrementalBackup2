@@ -1,4 +1,4 @@
-from incremental_backup.filesystem import Directory
+from incremental_backup.utility.filesystem import Directory
 
 
 def test_directory_init() -> None:

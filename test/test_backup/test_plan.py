@@ -1,11 +1,11 @@
 from datetime import datetime
 
-from incremental_backup import filesystem
 from incremental_backup.backup.plan import BackupPlan
 from incremental_backup.backup.sum import BackupSum
 from incremental_backup.meta.manifest import BackupManifest
 from incremental_backup.meta.metadata import BackupMetadata
 from incremental_backup.meta.start_info import BackupStartInfo
+from incremental_backup.utility import filesystem
 
 
 def test_backup_plan_directory_init() -> None:
@@ -100,3 +100,8 @@ def test_backup_plan_new() -> None:
         ]))
 
     assert actual_plan == expected_plan
+
+
+def test_backup_plan_new_empty_sum(tmpdir) -> None:
+    # TODO
+    assert False

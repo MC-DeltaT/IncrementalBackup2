@@ -8,8 +8,8 @@ import re
 import shutil
 from typing import Callable, Iterable, List, Optional, Tuple
 
-from .. import filesystem
 from ..meta import BackupManifest
+from ..utility import filesystem
 from .plan import BackupPlan
 from .sum import BackupSum
 

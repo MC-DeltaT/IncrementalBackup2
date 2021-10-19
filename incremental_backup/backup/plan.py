@@ -2,8 +2,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import Callable, List
 
-from .. import filesystem
-from ..utility import path_name_equal
+from ..utility import filesystem, path_name_equal
 from .sum import BackupSum
 
 
