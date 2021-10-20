@@ -93,20 +93,11 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
         del path_segments[-1]
 
     def visit_directory(search_directory: BackupPlan.Directory, mkdir_failed: bool) -> None:
-        if is_root:
-            manifest_directory = manifest.root
-        else:
+        if not is_root:
             path_segments.append(search_directory.name)
             search_stack.append(pop_path_segment)
 
-            manifest_directory = BackupManifest.Directory(search_directory.name)
-            manifest_stack[-1].subdirectories.append(manifest_directory)
-            manifest_stack.append(manifest_directory)
-            search_stack.append(pop_manifest_node)
-
-        manifest_directory.removed_files = search_directory.removed_files
-        results.files_removed += len(search_directory.removed_files)
-        manifest_directory.removed_directories = search_directory.removed_directories
+        copied_files: List[str] = []
 
         # Once we fail to create a destination directory, or the current directory doesn't contain any more files to
         # copy, no need to try to create the destination directory or copy any files.
@@ -132,15 +123,34 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
                         results.paths_skipped = True
                         on_copy_error(source_file_path, destination_file_path, e)
                     else:
-                        manifest_directory.copied_files.append(file)
+                        copied_files.append(file)
                         results.files_copied += 1
 
         # Keep searching through child directories if:
         #   a) destination directory was created successfully, or
         #   b) destination directory creation failed, but there are still removed items to be recorded in the manifest.
+        children_to_visit = [d for d in reversed(search_directory.subdirectories)
+                             if not mkdir_failed or d.contains_removed_items]
+
+        # Only need to create and fill in the manifest entry if there is anything to put in it. I.e. if there are copied
+        # files or removed file/directories to be recorded, or child entries. This may not always be true if creating
+        # the destination directory failed.
+        if copied_files or search_directory.removed_files or search_directory.removed_directories or children_to_visit:
+            if is_root:
+                manifest_directory = manifest.root
+            else:
+                manifest_directory = BackupManifest.Directory(search_directory.name)
+                manifest_stack[-1].subdirectories.append(manifest_directory)
+                manifest_stack.append(manifest_directory)
+                search_stack.append(pop_manifest_node)
+
+            manifest_directory.copied_files = copied_files
+            manifest_directory.removed_files = search_directory.removed_files
+            results.files_removed += len(search_directory.removed_files)
+            manifest_directory.removed_directories = search_directory.removed_directories
+
         # Need to use partial instead of lambda to avoid name rebinding issues.
-        search_stack.extend(partial(visit_directory, d, mkdir_failed) for d in reversed(search_directory.subdirectories)
-                            if not mkdir_failed or d.contains_removed_items)
+        search_stack.extend(partial(visit_directory, d, mkdir_failed) for d in children_to_visit)
 
     search_stack.append(partial(visit_directory, backup_plan.root, False))
     while search_stack:

@@ -2,6 +2,7 @@ import re
 from datetime import datetime, timezone
 from os import PathLike
 from pathlib import Path
+from typing import List, Tuple
 
 from incremental_backup.backup.backup import BackupResults, compile_exclude_pattern, execute_backup_plan, \
     is_path_excluded, scan_filesystem
@@ -133,6 +134,10 @@ def test_execute_backup_plan(tmpdir) -> None:
     (source_path / 'something' / 'qwerty').mkdir(parents=True)
     write_file(source_path / 'something' / 'qwerty' / 'wtoeiur', 'content')
     write_file(source_path / 'something' / 'qwerty' / 'do not copy', 'magic contents')
+    (source_path / 'something' / 'uh oh').mkdir(parents=True)
+    write_file(source_path / 'something' / 'uh oh' / 'failure1', 'this file wont be copied!')
+    (source_path / 'something' / 'uh oh' / 'another_dir').mkdir(parents=True)
+    write_file(source_path / 'something' / 'uh oh' / 'another_dir' / 'failure__2.bin', 'something important')
 
     destination_path = tmpdir / 'destination'
     destination_path.mkdir()
@@ -145,17 +150,30 @@ def test_execute_backup_plan(tmpdir) -> None:
             BackupPlan.Directory('my directory', copied_files=['modified1.baz'], removed_directories=['qux'],
                                  contains_copied_files=True, contains_removed_items=True),
             BackupPlan.Directory('something', contains_copied_files=True, subdirectories=[
-                BackupPlan.Directory('qwerty', copied_files=['wtoeiur'], contains_copied_files=True)
+                BackupPlan.Directory('qwerty', copied_files=['wtoeiur'], contains_copied_files=True),
+                BackupPlan.Directory('uh oh', copied_files=['failure1'], contains_copied_files=True, subdirectories=[
+                    BackupPlan.Directory('another_dir', copied_files=['failure__2.bin'], contains_copied_files=True)
+                ])
             ]),
             BackupPlan.Directory('nonexistent_directory', copied_files=['flower'], removed_files=['zxcv'],
                                  contains_copied_files=True, contains_removed_items=True),
             BackupPlan.Directory('no_copied_files', removed_files=['foo', 'bar', 'notqux'], contains_removed_items=True)
         ]))
 
-    copy_errors = []
+    # Create this file to force a directory creation failure.
+    (destination_path / 'something').mkdir(parents=True)
+    (destination_path / 'something' / 'uh oh').touch()
+
+    mkdir_errors: List[Tuple[Path, OSError]] = []
+    on_mkdir_error = lambda p, e: mkdir_errors.append((p, e))
+
+    copy_errors: List[Tuple[Path, Path, OSError]] = []
     on_copy_error = lambda s, d, e: copy_errors.append((s, d, e))
 
-    results, manifest = execute_backup_plan(plan, source_path, destination_path, on_copy_error=on_copy_error)
+    results, manifest = execute_backup_plan(plan, source_path, destination_path,
+                                            on_mkdir_error=on_mkdir_error, on_copy_error=on_copy_error)
+
+    (destination_path / 'something' / 'uh oh').unlink(missing_ok=False)
 
     expected_results = BackupResults(paths_skipped=True, files_copied=4, files_removed=5)
 
@@ -186,6 +204,10 @@ def test_execute_backup_plan(tmpdir) -> None:
 
     assert results == expected_results
     assert manifest == expected_manifest
+
+    assert len(mkdir_errors) == 1
+    assert mkdir_errors[0][0] == destination_path / 'something' / 'uh oh'
+    assert isinstance(mkdir_errors[0][1], FileExistsError)
 
     assert len(copy_errors) == 2
     assert copy_errors[0][0] == source_path / 'nonexistent-file.yay'
