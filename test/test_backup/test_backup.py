@@ -121,23 +121,23 @@ def test_execute_backup_plan(tmpdir) -> None:
 
     source_path = tmpdir / 'source'
     source_path.mkdir(parents=True)
-    write_file(source_path / 'Modified.txt', 'this is modified.txt')
+    (source_path / 'Modified.txt').write_text('this is modified.txt')
     (source_path / 'file2').touch()
-    write_file(source_path / 'another file.docx', 'this is another file')
+    (source_path / 'another file.docx').write_text('this is another file')
     (source_path / 'my directory').mkdir(parents=True)
-    write_file(source_path / 'my directory' / 'modified1.baz', 'foo bar qux')
-    write_file(source_path / 'my directory' / 'an unmodified file', 'qux bar foo')
+    (source_path / 'my directory' / 'modified1.baz').write_text('foo bar qux')
+    (source_path / 'my directory' / 'an unmodified file').write_text('qux bar foo')
     (source_path / 'unmodified_dir').mkdir(parents=True)
-    write_file(source_path / 'unmodified_dir' / 'some_file.png', 'doesnt matter')
-    write_file(source_path / 'unmodified_dir' / 'more files.md', 'doesnt matter2')
-    write_file(source_path / 'unmodified_dir' / 'lastFile.jkl', 'doesnt matter3')
+    (source_path / 'unmodified_dir' / 'some_file.png').write_text('doesnt matter')
+    (source_path / 'unmodified_dir' / 'more files.md').write_text('doesnt matter2')
+    (source_path / 'unmodified_dir' / 'lastFile.jkl').write_text('doesnt matter3')
     (source_path / 'something' / 'qwerty').mkdir(parents=True)
-    write_file(source_path / 'something' / 'qwerty' / 'wtoeiur', 'content')
-    write_file(source_path / 'something' / 'qwerty' / 'do not copy', 'magic contents')
+    (source_path / 'something' / 'qwerty' / 'wtoeiur').write_text('content')
+    (source_path / 'something' / 'qwerty' / 'do not copy').write_text('magic contents')
     (source_path / 'something' / 'uh oh').mkdir(parents=True)
-    write_file(source_path / 'something' / 'uh oh' / 'failure1', 'this file wont be copied!')
+    (source_path / 'something' / 'uh oh' / 'failure1').write_text('this file wont be copied!')
     (source_path / 'something' / 'uh oh' / 'another_dir').mkdir(parents=True)
-    write_file(source_path / 'something' / 'uh oh' / 'another_dir' / 'failure__2.bin', 'something important')
+    (source_path / 'something' / 'uh oh' / 'another_dir' / 'failure__2.bin').write_text('something important')
 
     destination_path = tmpdir / 'destination'
     destination_path.mkdir()
@@ -192,14 +192,14 @@ def test_execute_backup_plan(tmpdir) -> None:
     assert set(destination_path.iterdir()) == {
         destination_path / 'Modified.txt', destination_path / 'file2',
         destination_path / 'my directory', destination_path / 'something', destination_path / 'nonexistent_directory'}
-    assert read_file(destination_path / 'Modified.txt') == 'this is modified.txt'
-    assert read_file(destination_path / 'file2') == ''
+    assert (destination_path / 'Modified.txt').read_text() == 'this is modified.txt'
+    assert (destination_path / 'file2').read_text() == ''
     assert set((destination_path / 'my directory').iterdir()) == {destination_path / 'my directory' / 'modified1.baz'}
-    assert read_file(destination_path / 'my directory' / 'modified1.baz') == 'foo bar qux'
+    assert (destination_path / 'my directory' / 'modified1.baz').read_text() == 'foo bar qux'
     assert set((destination_path / 'something').iterdir()) == {destination_path / 'something' / 'qwerty'}
     assert set((destination_path / 'something' / 'qwerty').iterdir()) == \
            {destination_path / 'something' / 'qwerty' / 'wtoeiur'}
-    assert read_file(destination_path / 'something' / 'qwerty' / 'wtoeiur') == 'content'
+    assert (destination_path / 'something' / 'qwerty' / 'wtoeiur').read_text() == 'content'
     assert set((destination_path / 'nonexistent_directory').iterdir()) == set()
 
     assert results == expected_results
@@ -316,13 +316,3 @@ def test_is_path_excluded_advanced() -> None:
     assert not is_path_excluded('/foo.git/', patterns)
     assert not is_path_excluded('/.git.bar/', patterns)
     assert not is_path_excluded('/__pycache__/yeah/man/', patterns)
-
-
-def write_file(path: PathLike, content: str) -> None:
-    with open(path, 'w') as file:
-        file.write(content)
-
-
-def read_file(path: PathLike) -> str:
-    with open(path, 'r') as file:
-        return file.read()
