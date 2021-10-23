@@ -32,13 +32,13 @@ class BackupManifest:
     """The root of the manifest tree. This object represents the backup source directory."""
 
 
-def write_backup_manifest(path: PathLike, value: BackupManifest) -> None:
+def write_backup_manifest(path: PathLike, value: BackupManifest, /) -> None:
     """Writes a backup manifest to file.
 
         :except OSError: If the file could not be written to.
     """
 
-    def search(manifest: BackupManifest) -> Iterator[Union[BackupManifest.Directory, None]]:
+    def search(manifest: BackupManifest, /) -> Iterator[Union[BackupManifest.Directory, None]]:
         stack: List[Union[BackupManifest.Directory, None]] = [manifest.root]
         while stack:
             node = stack.pop()
@@ -47,7 +47,7 @@ def write_backup_manifest(path: PathLike, value: BackupManifest) -> None:
                 stack.append(None)
                 stack.extend(reversed(node.subdirectories))
 
-    def compress_backtracks(nodes: Iterator[Union[BackupManifest.Directory, None]]) \
+    def compress_backtracks(nodes: Iterator[Union[BackupManifest.Directory, None]], /) \
             -> Iterator[Union[BackupManifest.Directory, int]]:
         backtrack_count = 0
         for node in nodes:
@@ -60,7 +60,7 @@ def write_backup_manifest(path: PathLike, value: BackupManifest) -> None:
                 yield node
         # Also trims trailing backtracks since they are not required.
 
-    def node_to_object(node: Union[BackupManifest.Directory, int]) -> Union[Dict[str, str], str]:
+    def node_to_object(node: Union[BackupManifest.Directory, int], /) -> Union[Dict[str, str], str]:
         if isinstance(node, int):
             return f'^{node}'
         else:
@@ -80,20 +80,20 @@ def write_backup_manifest(path: PathLike, value: BackupManifest) -> None:
         json.dump(json_data, file, indent=0, ensure_ascii=False)
 
 
-def read_backup_manifest(path: PathLike) -> BackupManifest:
+def read_backup_manifest(path: PathLike, /) -> BackupManifest:
     """Reads a backup manifest from file.
 
         :except OSError: If the file could not be read.
         :except BackupManifestParseError: If the file is not a valid backup manifest.
     """
 
-    def parse_error(reason: str) -> NoReturn:
+    def parse_error(reason: str, /) -> NoReturn:
         raise BackupManifestParseError(str(path), reason)
 
-    def parse_error_from(reason: str, e: Exception) -> NoReturn:
+    def parse_error_from(reason: str, e: Exception, /) -> NoReturn:
         raise BackupManifestParseError(str(path), reason) from e
 
-    def parse_directory_entry(entry: dict, entry_num: int) -> Tuple[str, List[str], List[str], List[str]]:
+    def parse_directory_entry(entry: dict, entry_num: int, /) -> Tuple[str, List[str], List[str], List[str]]:
         try:
             name = entry.pop('n')
         except KeyError as e:
@@ -117,13 +117,12 @@ def read_backup_manifest(path: PathLike) -> BackupManifest:
         if not isinstance(removed_directories, list) or not all(isinstance(f, str) for f in removed_directories):
             parse_error(f'Entry {entry_num}: field "rd" must be a list of strings')
 
-        extra_fields = list(entry.keys())
-        if extra_fields:
+        if extra_fields := list(entry.keys()):
             parse_error(f'Entry {entry_num}: invalid fields {extra_fields}')
 
         return name, copied_files, removed_files, removed_directories
 
-    def parse_backtrack(entry: str, entry_num: int) -> int:
+    def parse_backtrack(entry: str, entry_num: int, /) -> int:
         if not entry.startswith('^'):
             parse_error(f'Entry: {entry_num}: invalid value, backtrack must be in form "^n"')
 

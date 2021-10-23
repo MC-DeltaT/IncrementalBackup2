@@ -32,6 +32,7 @@ class BackupResults:
 
 
 def do_backup(source_path: Path, destination_path: Path, exclude_patterns: Iterable[re.Pattern], backup_sum: BackupSum,
+              *,
               on_exclude: Optional[Callable[[Path], None]] = None,
               on_listdir_error: Optional[Callable[[Path, OSError], None]] = None,
               on_metadata_error: Optional[Callable[[Path, OSError], None]] = None,
@@ -45,14 +46,16 @@ def do_backup(source_path: Path, destination_path: Path, exclude_patterns: Itera
     """
 
     source_tree, paths_skipped = scan_filesystem(
-        source_path, exclude_patterns, on_exclude, on_listdir_error, on_metadata_error)
+        source_path, exclude_patterns, on_exclude,
+        on_listdir_error=on_listdir_error, on_metadata_error=on_metadata_error)
     backup_plan = BackupPlan.new(source_tree, backup_sum)
-    results, manifest = execute_backup_plan(backup_plan, source_path, destination_path, on_mkdir_error, on_copy_error)
+    results, manifest = execute_backup_plan(backup_plan, source_path, destination_path,
+                                            on_mkdir_error=on_mkdir_error, on_copy_error=on_copy_error)
     results.paths_skipped |= paths_skipped
     return results, manifest
 
 
-def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_path: Path,
+def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_path: Path, *,
                         on_mkdir_error: Optional[Callable[[Path, OSError], None]] = None,
                         on_copy_error: Optional[Callable[[Path, Path, OSError], None]] = None) \
         -> Tuple[BackupResults, BackupManifest]:
@@ -94,7 +97,7 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
     def pop_path_segment() -> None:
         del path_segments[-1]
 
-    def visit_directory(search_directory: BackupPlan.Directory, mkdir_failed: bool) -> None:
+    def visit_directory(search_directory: BackupPlan.Directory, /, mkdir_failed: bool) -> None:
         if not is_root:
             path_segments.append(search_directory.name)
             search_stack.append(pop_path_segment)
@@ -163,7 +166,7 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
 
 
 def scan_filesystem(path: Path, exclude_patterns: Iterable[re.Pattern],
-                    on_exclude: Optional[Callable[[Path], None]] = None,
+                    on_exclude: Optional[Callable[[Path], None]] = None, *,
                     on_listdir_error: Optional[Callable[[Path, OSError], None]] = None,
                     on_metadata_error: Optional[Callable[[Path, OSError], None]] = None) \
         -> Tuple[filesystem.Directory, bool]:
@@ -204,7 +207,7 @@ def scan_filesystem(path: Path, exclude_patterns: Iterable[re.Pattern],
     def pop_tree_node() -> None:
         del tree_node_stack[-1]
 
-    def visit_directory(search_directory: Path) -> None:
+    def visit_directory(search_directory: Path, /) -> None:
         if is_root:
             directory_path = '/'
         else:
@@ -258,14 +261,14 @@ def scan_filesystem(path: Path, exclude_patterns: Iterable[re.Pattern],
     return root, paths_skipped
 
 
-def compile_exclude_pattern(pattern: str) -> re.Pattern:
+def compile_exclude_pattern(pattern: str, /) -> re.Pattern:
     """Compiles a path exclude pattern provided by the user into a regex object (for performance reasons, so we don't
         have to recompile patterns on every call to `is_path_excluded()`."""
 
     return re.compile(pattern, re.DOTALL)
 
 
-def is_path_excluded(path: str, exclude_patterns: Iterable[re.Pattern]) -> bool:
+def is_path_excluded(path: str, exclude_patterns: Iterable[re.Pattern], /) -> bool:
     """Checks if a path is matched by any path exclude pattern.
 
         :param path: The path in question. Should be an absolute POSIX-style path, where the root is the backup source

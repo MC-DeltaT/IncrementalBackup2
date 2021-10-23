@@ -24,7 +24,7 @@ class BackupCompleteInfo:
     """Indicates if any paths were skipped due to filesystem errors (does NOT include explicitly excluded paths)."""
 
 
-def write_backup_complete_info(path: PathLike, value: BackupCompleteInfo) -> None:
+def write_backup_complete_info(path: PathLike, value: BackupCompleteInfo, /) -> None:
     """Writes backup completion information to file.
 
         :except OSError: If the file could not be written to.
@@ -38,17 +38,17 @@ def write_backup_complete_info(path: PathLike, value: BackupCompleteInfo) -> Non
         json.dump(json_data, file, indent=4, ensure_ascii=False)
 
 
-def read_backup_complete_info(path: PathLike) -> BackupCompleteInfo:
+def read_backup_complete_info(path: PathLike, /) -> BackupCompleteInfo:
     """Reads backup completion information from file.
 
         :except OSError: If the file could not be read.
         :except BackupCompleteInfoParseError: If the file is not valid backup completion information.
     """
 
-    def parse_error(reason: str) -> NoReturn:
+    def parse_error(reason: str, /) -> NoReturn:
         raise BackupCompleteInfoParseError(str(path), reason)
 
-    def parse_error_from(reason: str, e: Exception) -> NoReturn:
+    def parse_error_from(reason: str, e: Exception, /) -> NoReturn:
         raise BackupCompleteInfoParseError(str(path), reason) from e
 
     try:

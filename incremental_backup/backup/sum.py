@@ -34,7 +34,7 @@ class BackupSum:
         This object represents the backup source directory.
     """
 
-    def find_directory(self, path: Iterable[str]) -> Optional[Directory]:
+    def find_directory(self, path: Iterable[str], /) -> Optional[Directory]:
         """Finds a directory within the backup sum by path.
 
             :param path: Sequence of directory names forming the path to the directory, relative to the root of the
@@ -50,7 +50,7 @@ class BackupSum:
         return directory
 
     @classmethod
-    def from_backups(cls, backups: Iterable[BackupMetadata]) -> 'BackupSum':
+    def from_backups(cls, backups: Iterable[BackupMetadata], /) -> 'BackupSum':
         """Constructs a backup sum from previous backup metadata.
 
             :param backups: 0 or more backups to sum. Should all be for the same source directory, or the results will
@@ -62,7 +62,7 @@ class BackupSum:
         return cls(root)
 
     @staticmethod
-    def _construct_tree(backups: Iterable[BackupMetadata]) -> Directory:
+    def _construct_tree(backups: Iterable[BackupMetadata], /) -> Directory:
         """Reconstructs the file/directory tree from the given backups."""
 
         root = BackupSum.Directory('')
@@ -112,7 +112,7 @@ class BackupSum:
         return root
 
     @staticmethod
-    def _prune_tree(root: Directory) -> None:
+    def _prune_tree(root: Directory, /) -> None:
         """Removes directories that don't have any descendents which are files."""
 
         # Enumerate all directories first.
@@ -124,18 +124,17 @@ class BackupSum:
             search_stack.extend(directory.subdirectories)
         # Note that each directory occurs before its children in the list.
 
-        # TODO: don't need count, just boolean
         # Calculate how many non-empty descendents each directory has and remove empty directories.
         # Empty = contains nothing or only directories.
-        content_counts: Dict[int, int] = {}
+        nonempty_map: Dict[int, bool] = {}
         for directory in reversed(directories):
-            content_count = len(directory.files)
+            nonempty = len(directory.files) > 0
             nonempty_subdirectories: List[BackupSum.Directory] = []
             for subdirectory in directory.subdirectories:
                 # Ok, content count of child is always calculated before parent.
-                sub_content_count = content_counts[id(subdirectory)]
-                if sub_content_count > 0:
+                sub_nonempty = nonempty_map[id(subdirectory)]
+                if sub_nonempty:
                     nonempty_subdirectories.append(subdirectory)
-                    content_count += sub_content_count
-            content_counts[id(directory)] = content_count
+                    nonempty = True
+            nonempty_map[id(directory)] = nonempty
             directory.subdirectories = nonempty_subdirectories

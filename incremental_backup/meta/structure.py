@@ -49,7 +49,7 @@ def generate_backup_name() -> str:
     return name
 
 
-def create_new_backup_directory(target_directory: PathLike) -> str:
+def create_new_backup_directory(target_directory: PathLike, /) -> str:
     """Creates a new backup directory in the given directory.
         Will try up to `BACKUP_DIRECTORY_CREATION_RETRIES` to create a new directory before failing.
 

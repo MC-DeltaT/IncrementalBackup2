@@ -24,7 +24,7 @@ COMMAND_NAME = 'backup'
 """Name of this command for the command line arguments."""
 
 
-def add_arg_subparser(subparser) -> None:
+def add_arg_subparser(subparser, /) -> None:
     """Adds the command line argument subparser for the backup command."""
 
     parser = subparser.add_parser(COMMAND_NAME, description='Creates a new backup.', help='Creates a new backup.')
@@ -35,7 +35,7 @@ def add_arg_subparser(subparser) -> None:
         help='Path pattern(s) to exclude. Can be specified more than once')
 
 
-def entrypoint(arguments) -> None:
+def entrypoint(arguments, /) -> None:
     """Entrypoint for the backup command.
 
         :param arguments: The parsed command line arguments object acquired from argparse.
@@ -68,7 +68,7 @@ def entrypoint(arguments) -> None:
     print_results(results)
 
 
-def parse_source_directory(path: str) -> Path:
+def parse_source_directory(path: str, /) -> Path:
     """Parses and validates the backup source directory.
         Validation should prevent other parts of the program from failing strangely for non-path inputs.
     """
@@ -81,7 +81,7 @@ def parse_source_directory(path: str) -> Path:
     return path
 
 
-def parse_target_directory(path: str) -> Path:
+def parse_target_directory(path: str, /) -> Path:
     """Parses and validates the backup target directory.
         Validation should prevent other parts of the program from failing strangely for non-path inputs.
     """
@@ -105,7 +105,7 @@ def print_config(source_path: Path, target_path: Path, exclude_patterns: Iterabl
         print('  <none>')
 
 
-def read_previous_backups(target_path: Path) -> List[BackupMetadata]:
+def read_previous_backups(target_path: Path, /) -> List[BackupMetadata]:
     """Reads existing backups' metadata from the backup target directory.
 
         If any backup's metadata cannot be read, prints a warning to the console and skips that backup.
@@ -143,7 +143,7 @@ def read_previous_backups(target_path: Path) -> List[BackupMetadata]:
     return backups
 
 
-def create_backup_directory(target_path: Path) -> Path:
+def create_backup_directory(target_path: Path, /) -> Path:
     """Creates a new backup directory within the target directory. Prints the name of the directory to the console.
 
         :return: Path to the created directory.
@@ -158,7 +158,7 @@ def create_backup_directory(target_path: Path) -> Path:
     return target_path / backup_name
 
 
-def create_data_directory(backup_path: Path) -> Path:
+def create_data_directory(backup_path: Path, /) -> Path:
     """Creates the backup data directory (directory which contains the copied files).
 
         :return: Path to the created directory.
@@ -173,7 +173,7 @@ def create_data_directory(backup_path: Path) -> Path:
     return path
 
 
-def create_start_info(backup_path: Path) -> None:
+def create_start_info(backup_path: Path, /) -> None:
     """Writes the backup start information to file within the backup directory.
 
         :except FatalError: If the file could not be written to.
@@ -219,7 +219,7 @@ def perform_backup(source_path: Path, destination_path: Path, exclude_patterns: 
                      on_mkdir_error=on_mkdir_error, on_copy_error=on_copy_error)
 
 
-def save_manifest(backup_path: Path, manifest: BackupManifest) -> None:
+def save_manifest(backup_path: Path, manifest: BackupManifest, /) -> None:
     """Writes the backup manifest to file within the backup directory.
 
         :except FatalError: If the file could not be written to.
@@ -232,7 +232,7 @@ def save_manifest(backup_path: Path, manifest: BackupManifest) -> None:
         raise FatalRuntimeError(f'Failed to write backup manifest file: {e}') from e
 
 
-def create_complete_info(backup_path: Path, paths_skipped: bool) -> None:
+def create_complete_info(backup_path: Path, /, paths_skipped: bool) -> None:
     """Writes the backup completion information to file within the backup directory.
 
         If this operation fails, just prints a warning to the console, since the completion information is not required
@@ -248,7 +248,7 @@ def create_complete_info(backup_path: Path, paths_skipped: bool) -> None:
         print_warning(f'Failed to write backup completion information file: {e}')
 
 
-def print_results(results: BackupResults) -> None:
+def print_results(results: BackupResults, /) -> None:
     """Prints backup results to the console."""
 
     print(f'+{results.files_copied} / -{results.files_removed} files')

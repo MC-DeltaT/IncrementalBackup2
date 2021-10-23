@@ -48,7 +48,7 @@ class BackupPlan:
         def pop_plan_node() -> None:
             del plan_stack[-1]
 
-        def visit_directory(search_directory: filesystem.Directory) -> None:
+        def visit_directory(search_directory: filesystem.Directory, /) -> None:
             if is_root:
                 plan_directory = plan.root
             else:

@@ -40,7 +40,7 @@ def script_entrypoint() -> NoReturn:
     sys.exit(exit_code)
 
 
-def script_main(arguments: Sequence[str]) -> int:
+def script_main(arguments: Sequence[str], /) -> int:
     """Intermediate entrypoint function which is handy for testing purposes.
 
         :param arguments: The program command line arguments.
@@ -65,7 +65,7 @@ def script_main(arguments: Sequence[str]) -> int:
         return EXIT_CODE_LOGIC_ERROR
 
 
-def api_entrypoint(arguments: Sequence[str]) -> None:
+def api_entrypoint(arguments: Sequence[str], /) -> None:
     """API-level entrypoint of the incremental backup program.
 
         :param arguments: The program command line arguments. Should not include the "program name" zeroth argument.

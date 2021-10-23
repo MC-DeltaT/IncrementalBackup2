@@ -21,7 +21,7 @@ class BackupStartInfo:
     """The UTC time at which the backup operated started (just before any files were copied)."""
 
 
-def write_backup_start_info(path: PathLike, value: BackupStartInfo) -> None:
+def write_backup_start_info(path: PathLike, value: BackupStartInfo, /) -> None:
     """Writes backup start information to file.
 
         :except OSError: If the file could not be written to.
@@ -34,17 +34,17 @@ def write_backup_start_info(path: PathLike, value: BackupStartInfo) -> None:
         json.dump(json_data, file, indent=4, ensure_ascii=False)
 
 
-def read_backup_start_info(path: PathLike) -> BackupStartInfo:
+def read_backup_start_info(path: PathLike, /) -> BackupStartInfo:
     """Reads backup start information from file.
 
         :except OSError: If the file could not be read.
         :except BackupStartInfoParseError: If the file is not valid backup start information.
     """
 
-    def parse_error(reason: str) -> NoReturn:
+    def parse_error(reason: str, /) -> NoReturn:
         raise BackupStartInfoParseError(str(path), reason)
 
-    def parse_error_from(reason: str, e: Exception) -> NoReturn:
+    def parse_error_from(reason: str, e: Exception, /) -> NoReturn:
         raise BackupStartInfoParseError(str(path), reason) from e
 
     try:

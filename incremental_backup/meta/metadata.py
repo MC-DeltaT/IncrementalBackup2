@@ -24,7 +24,7 @@ class BackupMetadata:
     # Note backup completion information is not here because it is currently not read by the application.
 
 
-def read_backup_metadata(backup_directory: PathLike) -> BackupMetadata:
+def read_backup_metadata(backup_directory: PathLike, /) -> BackupMetadata:
     """Reads the metadata of a backup, i.e. the name, start information, and manifest.
 
         :except OSError: If a metadata file could not be read.
