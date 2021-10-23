@@ -54,8 +54,8 @@ def script_main(arguments: Sequence[str]) -> int:
         api_entrypoint(arguments)
         return EXIT_CODE_SUCCESS
     except FatalArgumentError as e:
-        # TODO: print usage info
-        print(str(e), file=sys.stderr)
+        print(e.usage, file=sys.stderr)
+        print(e.message, file=sys.stderr)
         return EXIT_CODE_INVALID_ARGUMENTS
     except FatalError as e:
         print_error(str(e))
@@ -75,10 +75,7 @@ def api_entrypoint(arguments: Sequence[str]) -> None:
 
     arg_parser = get_argument_parser()
 
-    try:
-        parsed_arguments = arg_parser.parse_args(arguments)
-    except argparse.ArgumentError as e:
-        raise FatalArgumentError(str(e)) from e
+    parsed_arguments = arg_parser.parse_args(arguments)
 
     command_entrypoint = COMMAND_ENTRYPOINT_MAP[parsed_arguments.command]
     command_entrypoint(parsed_arguments)
@@ -101,5 +98,5 @@ class ArgumentParser(argparse.ArgumentParser):
         exiting the process."""
 
     def error(self, message: str) -> NoReturn:
-        # TODO: usage info, improve message
-        raise FatalArgumentError(message)
+        full_message = f'{self.prog}: error: {message}'     # Same as base ArgumentParser
+        raise FatalArgumentError(full_message, self.format_usage())

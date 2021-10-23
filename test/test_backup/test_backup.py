@@ -1,32 +1,36 @@
 import re
-from datetime import datetime, timezone
-from os import PathLike
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Tuple
 
-from incremental_backup.backup.backup import BackupResults, compile_exclude_pattern, execute_backup_plan, \
+from incremental_backup.backup.backup import BackupResults, compile_exclude_pattern, do_backup, execute_backup_plan, \
     is_path_excluded, scan_filesystem
 from incremental_backup.backup.plan import BackupPlan
+from incremental_backup.backup.sum import BackupSum
 from incremental_backup.meta.manifest import BackupManifest
+from incremental_backup.meta.metadata import BackupMetadata
+from incremental_backup.meta.start_info import BackupStartInfo
 
 
 def test_scan_filesystem_no_excludes(tmpdir) -> None:
     tmpdir = Path(tmpdir)
 
     time = datetime.now(timezone.utc)
-    (tmpdir / 'a').mkdir(parents=True)
-    (tmpdir / 'a' / 'aA').mkdir(parents=True)
-    (tmpdir / 'a' / 'ab').mkdir(parents=True)
-    (tmpdir / 'b').mkdir(parents=True)
-    (tmpdir / 'b' / 'ba').mkdir(parents=True)
+    (tmpdir / 'a').mkdir()
+    (tmpdir / 'a' / 'aA').mkdir()
+    (tmpdir / 'a' / 'ab').mkdir()
+    (tmpdir / 'b').mkdir()
+    (tmpdir / 'b' / 'ba').mkdir()
     (tmpdir / 'b' / 'ba' / 'file_ba_1.jpg').touch()
     (tmpdir / 'b' / 'ba' / 'FILE_ba_2.txt').touch()
-    (tmpdir / 'b' / 'bb').mkdir(parents=True)
-    (tmpdir / 'b' / 'bb' / 'bba').mkdir(parents=True)
-    (tmpdir / 'b' / 'bb' / 'bba' / 'bbaa').mkdir(parents=True)
+    (tmpdir / 'b' / 'bb').mkdir()
+    (tmpdir / 'b' / 'bb' / 'bba').mkdir()
+    (tmpdir / 'b' / 'bb' / 'bba' / 'bbaa').mkdir()
     (tmpdir / 'b' / 'bb' / 'bba' / 'bbaa' / 'file\u4569_bbaa').touch()
-    (tmpdir / 'C').mkdir(parents=True)
+    (tmpdir / 'C').mkdir()
     (tmpdir / 'file.txt').touch()
+
+    # Note sure how to test error situations.
 
     root, paths_skipped = scan_filesystem(tmpdir, ())
 
@@ -73,20 +77,19 @@ def test_scan_filesystem_some_excludes(tmpdir) -> None:
     time = datetime.now(timezone.utc)
     (tmpdir / 'un\xEFi\uC9F6c\u91F5ode.txt').touch()
     (tmpdir / 'foo.jpg').touch()
-    (tmpdir / 'temp').mkdir(parents=True)
+    (tmpdir / 'temp').mkdir()
     (tmpdir / 'temp' / 'a_file').touch()
-    (tmpdir / 'temp' / 'a_dir').mkdir(parents=True)
     (tmpdir / 'temp' / 'a_dir' / 'b_dir').mkdir(parents=True)
     (tmpdir / 'Code' / 'project').mkdir(parents=True)
     (tmpdir / 'Code' / 'project' / 'README').touch()
-    (tmpdir / 'Code' / 'project' / 'src').mkdir(parents=True)
+    (tmpdir / 'Code' / 'project' / 'src').mkdir()
     (tmpdir / 'Code' / 'project' / 'src' / 'main.cpp').touch()
-    (tmpdir / 'Code' / 'project' / 'bin').mkdir(parents=True)
+    (tmpdir / 'Code' / 'project' / 'bin').mkdir()
     (tmpdir / 'Code' / 'project' / 'bin' / 'artifact.bin').touch()
     (tmpdir / 'Code' / 'project' / 'bin' / 'Program.exe').touch()
-    (tmpdir / 'Code' / 'project' / '.git').mkdir(parents=True)
+    (tmpdir / 'Code' / 'project' / '.git').mkdir()
     (tmpdir / 'Code' / 'project' / '.git' / 'somefile').touch()
-    (tmpdir / 'empty').mkdir(parents=True)
+    (tmpdir / 'empty').mkdir()
 
     root, paths_skipped = scan_filesystem(tmpdir, exclude_patterns)
 
@@ -120,23 +123,24 @@ def test_execute_backup_plan(tmpdir) -> None:
     tmpdir = Path(tmpdir)
 
     source_path = tmpdir / 'source'
-    source_path.mkdir(parents=True)
+    source_path.mkdir()
     (source_path / 'Modified.txt').write_text('this is modified.txt')
     (source_path / 'file2').touch()
     (source_path / 'another file.docx').write_text('this is another file')
-    (source_path / 'my directory').mkdir(parents=True)
+    (source_path / 'my directory').mkdir()
     (source_path / 'my directory' / 'modified1.baz').write_text('foo bar qux')
     (source_path / 'my directory' / 'an unmodified file').write_text('qux bar foo')
-    (source_path / 'unmodified_dir').mkdir(parents=True)
+    (source_path / 'unmodified_dir').mkdir()
     (source_path / 'unmodified_dir' / 'some_file.png').write_text('doesnt matter')
     (source_path / 'unmodified_dir' / 'more files.md').write_text('doesnt matter2')
     (source_path / 'unmodified_dir' / 'lastFile.jkl').write_text('doesnt matter3')
-    (source_path / 'something' / 'qwerty').mkdir(parents=True)
+    (source_path / 'something').mkdir()
+    (source_path / 'something' / 'qwerty').mkdir()
     (source_path / 'something' / 'qwerty' / 'wtoeiur').write_text('content')
     (source_path / 'something' / 'qwerty' / 'do not copy').write_text('magic contents')
-    (source_path / 'something' / 'uh oh').mkdir(parents=True)
+    (source_path / 'something' / 'uh oh').mkdir()
     (source_path / 'something' / 'uh oh' / 'failure1').write_text('this file wont be copied!')
-    (source_path / 'something' / 'uh oh' / 'another_dir').mkdir(parents=True)
+    (source_path / 'something' / 'uh oh' / 'another_dir').mkdir()
     (source_path / 'something' / 'uh oh' / 'another_dir' / 'failure__2.bin').write_text('something important')
 
     destination_path = tmpdir / 'destination'
@@ -219,8 +223,89 @@ def test_execute_backup_plan(tmpdir) -> None:
 
 
 def test_do_backup(tmpdir) -> None:
-    # TODO
-    assert False
+    tmpdir = Path(tmpdir)
+
+    source_path = tmpdir / 'source'
+    source_path.mkdir()
+    (source_path / 'why why why').write_text('some gibberish')      # Existing modified
+    (source_path / 'akrhjbgd').write_text('190234856 19243857 123746809 9045')      # Existing unmodified
+    (source_path / 'new').write_text('   x   ')     # New
+    (source_path / 'empty').mkdir()
+    (source_path / 'no_changes').mkdir()
+    (source_path / 'no_changes' / 'a file').write_text('f00_b4r_qu*')       # Existing unmodified
+    (source_path / 'no_changes' / 'still_no_changes').mkdir()
+    (source_path / 'no_changes' / 'still_no_changes' / 'un.modified').write_text('the same')    # Existing unmodified
+    (source_path / 'foo').mkdir()
+    (source_path / 'foo' / 'bar.avi').write_text('ignoreme!')       # New, but excluded
+    (source_path / 'amazing_code_proj').mkdir()
+    (source_path / 'amazing_code_proj' / '.git').mkdir()        # Existing, but excluded -> removed, hm
+    (source_path / 'amazing_code_proj' / '.git' / 'config').touch()     # Existing modified, but excluded
+    (source_path / 'amazing_code_proj' / '.git' / 'objects').mkdir()
+    (source_path / 'amazing_code_proj' / '.git' / 'objects' / 'something').touch()      # New, but excluded
+    (source_path / 'amazing_code_proj' / 'README.md').write_text('A really COOL project')       # New
+    (source_path / 'amazing_code_proj' / 'src').mkdir()
+    (source_path / 'amazing_code_proj' / 'src' / 'main.py').write_text('from mylib import foo ; foo("hello world")')    # Existing unmodified
+    (source_path / 'amazing_code_proj' / 'src' / 'mylib.py').write_text('def foo(x): print(x)')     # Existing modified
+    (source_path / 'disappear').mkdir()
+
+    backup_past = BackupMetadata(
+        '43q86y55wysh', BackupStartInfo(datetime(2018, 2, 4, 6, 9, 19, tzinfo=timezone.utc)), None)
+    backup_future = BackupMetadata(
+        '43q86y55wysh', BackupStartInfo(datetime.now(timezone.utc) + timedelta(days=1)), None)
+    backup_sum = BackupSum(BackupSum.Directory('',
+        files=[
+            BackupSum.File('why why why', backup_past),
+            BackupSum.File('akrhjbgd', backup_future),
+            BackupSum.File('removed.file', backup_past)
+        ],
+        subdirectories=[
+            BackupSum.Directory('no_changes', files=[BackupSum.File('a file', backup_future)],
+                subdirectories=[
+                    BackupSum.Directory('still_no_changes', files=[BackupSum.File('un.modified', backup_future)])
+                ]),
+            BackupSum.Directory('disappear', files=[BackupSum.File('to-be REmoved', backup_past)]),
+            BackupSum.Directory('amazing_code_proj', subdirectories=[
+                BackupSum.Directory('.git', files=[BackupSum.File('config', backup_past)]),
+                BackupSum.Directory('src', files=[
+                    BackupSum.File('main.py', backup_future), BackupSum.File('mylib.py', backup_past)])
+            ])
+        ]))
+
+    destination_path = tmpdir / 'destination'
+    destination_path.mkdir()
+
+    exclude_patterns = ('/foo/bar.avi', r'.*/\.git/')
+    exclude_patterns = tuple(map(compile_exclude_pattern, exclude_patterns))
+
+    # Not sure how to test error situations.
+
+    actual_results, actual_manifest = do_backup(source_path, destination_path, exclude_patterns, backup_sum)
+
+    expected_results = BackupResults(False, files_copied=4, files_removed=2)
+
+    assert actual_results == expected_results
+
+    assert set(actual_manifest.root.copied_files) == {'new', 'why why why'}
+    assert actual_manifest.root.removed_files == ['removed.file']
+    assert actual_manifest.root.removed_directories == []
+    assert len(actual_manifest.root.subdirectories) == 2
+    amazing_code_proj = next(d for d in actual_manifest.root.subdirectories if d.name == 'amazing_code_proj')
+    assert amazing_code_proj == BackupManifest.Directory('amazing_code_proj',
+        copied_files=['README.md'], removed_directories=['.git'],
+        subdirectories=[
+            BackupManifest.Directory('src', copied_files=['mylib.py'])
+        ])
+    disappear = next(d for d in actual_manifest.root.subdirectories if d.name == 'disappear')
+    assert disappear == BackupManifest.Directory('disappear', removed_files=['to-be REmoved'])
+
+    assert set(destination_path.iterdir()) == \
+           {destination_path / 'why why why', destination_path / 'new', destination_path / 'amazing_code_proj'}
+    assert (destination_path / 'why why why').read_text() == 'some gibberish'
+    assert (destination_path / 'new').read_text() == '   x   '
+    assert set((destination_path / 'amazing_code_proj').iterdir()) == \
+           {destination_path / 'amazing_code_proj' / 'README.md', destination_path / 'amazing_code_proj' / 'src'}
+    assert set((destination_path / 'amazing_code_proj' / 'src').iterdir()) == \
+           {destination_path / 'amazing_code_proj' / 'src' / 'mylib.py'}
 
 
 def test_compile_exclude_pattern() -> None:

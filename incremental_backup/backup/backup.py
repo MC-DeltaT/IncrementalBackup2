@@ -69,8 +69,10 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
         :param source_path: The backup source directory; where files are copied from.
         :param destination_path: The location to copy files to. This directory itself represents the backup source
             directory.
-        :param on_mkdir_error: Called when an error is raised creating a directory.
-        :param on_copy_error: Called when an error is raised copying a file.
+        :param on_mkdir_error: Called when an error is raised creating a directory. First argument is the directory
+            path, second argument is the raised exception.
+        :param on_copy_error: Called when an error is raised copying a file. First argument is the source path, second
+            argument is the destination path, third argument is the raised exception.
         :return: First element is the backup results, second element is the backup manifest.
     """
 
@@ -173,8 +175,10 @@ def scan_filesystem(path: Path, exclude_patterns: Iterable[re.Pattern],
         :param exclude_patterns: Compiled exclude patterns. If a directory or file matches any of these, it and its
             descendents are not included in the scan.
         :param on_exclude: Called when a file or directory is matched by `exclude_patterns` and is excluded.
-        :param on_listdir_error: Called when an error is raised when requesting the entries in a directory.
-        :param on_metadata_error: Called when an error is raised when requesting file or directory metadata.
+        :param on_listdir_error: Called when an error is raised when requesting the entries in a directory. First
+            argument is the directory path, second argument is the raised exception.
+        :param on_metadata_error: Called when an error is raised when requesting file or directory metadata. First
+            argument is the path of the file/directory being queried, second argument is the raised exception.
         :return: First element is the root of the tree representation of the filesystem (the root represents the
             directory at `path`). Second element indicates if any paths were skipped due to I/O errors (does not include
             paths matched by `exclude_patterns`).

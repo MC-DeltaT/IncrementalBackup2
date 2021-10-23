@@ -25,7 +25,14 @@ class FatalError(ABC, Exception):
 class FatalArgumentError(FatalError):
     """Indicates that command line arguments are invalid."""
 
-    # TODO: usage info
+    def __init__(self, message: str, usage: str) -> None:
+        """
+            :param message: Specific description of the error.
+            :param usage: Program usage info string, to show the user the correct usage.
+        """
+
+        super().__init__(message)
+        self.usage = usage
 
 
 class FatalRuntimeError(FatalError):

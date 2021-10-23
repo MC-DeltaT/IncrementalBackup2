@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 
 from incremental_backup.backup.plan import BackupPlan
 from incremental_backup.backup.sum import BackupSum
-from incremental_backup.meta.manifest import BackupManifest
 from incremental_backup.meta.metadata import BackupMetadata
 from incremental_backup.meta.start_info import BackupStartInfo
 from incremental_backup.utility import filesystem
@@ -27,17 +26,11 @@ def test_backup_plan_init() -> None:
 
 def test_backup_plan_new() -> None:
     backup1 = BackupMetadata(
-        '324t9uagfkjhds',
-        BackupStartInfo(datetime(2010, 1, 8, 12, 34, 22, tzinfo=timezone.utc)),
-        BackupManifest())
+        '324t9uagfkjhds', BackupStartInfo(datetime(2010, 1, 8, 12, 34, 22, tzinfo=timezone.utc)), None)
     backup2 = BackupMetadata(
-        'h3f4078394fgh',
-        BackupStartInfo(datetime(2010, 5, 1, 23, 4, 2, tzinfo=timezone.utc)),
-        BackupManifest())
+        'h3f4078394fgh', BackupStartInfo(datetime(2010, 5, 1, 23, 4, 2, tzinfo=timezone.utc)), None)
     backup3 = BackupMetadata(
-        '45gserwafdagwaeiu',
-        BackupStartInfo(datetime(2010, 10, 1, 4, 6, 32, tzinfo=timezone.utc)),
-        BackupManifest())
+        '45gserwafdagwaeiu', BackupStartInfo(datetime(2010, 10, 1, 4, 6, 32, tzinfo=timezone.utc)), None)
     backup_sum = BackupSum(BackupSum.Directory('',
         files=[BackupSum.File('file_x.pdf', backup1), BackupSum.File('file_y', backup3)],
         subdirectories=[

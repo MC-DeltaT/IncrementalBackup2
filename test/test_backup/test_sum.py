@@ -11,9 +11,9 @@ def test_backup_sum_empty() -> None:
     assert backup_sum == BackupSum(BackupSum.Directory('', [], []))
 
     backup_sum = BackupSum.from_backups((
-        BackupMetadata('aergfkhj45', BackupStartInfo(datetime.now(timezone.utc)), BackupManifest()),
-        BackupMetadata('08594ghwe984', BackupStartInfo(datetime.now(timezone.utc)), BackupManifest()),
-        BackupMetadata('2534698h', BackupStartInfo(datetime.now(timezone.utc)), BackupManifest()),
+        BackupMetadata('aergfkhj45', BackupStartInfo(datetime(2020, 10, 10, tzinfo=timezone.utc)), BackupManifest()),
+        BackupMetadata('08594ghwe984', BackupStartInfo(datetime(2020, 10, 11, tzinfo=timezone.utc)), BackupManifest()),
+        BackupMetadata('2534698h', BackupStartInfo(datetime(2020, 9, 12, tzinfo=timezone.utc)), BackupManifest()),
     ))
     expected = BackupSum(BackupSum.Directory('', [], []))
     assert backup_sum == expected

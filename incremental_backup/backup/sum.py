@@ -124,6 +124,7 @@ class BackupSum:
             search_stack.extend(directory.subdirectories)
         # Note that each directory occurs before its children in the list.
 
+        # TODO: don't need count, just boolean
         # Calculate how many non-empty descendents each directory has and remove empty directories.
         # Empty = contains nothing or only directories.
         content_counts: Dict[int, int] = {}
