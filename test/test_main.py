@@ -173,4 +173,9 @@ def test_backup_no_previous_backups(tmpdir) -> None:
     assert actual_manifest == expected_manifest
 
 
-# TODO
+def test_backup_some_previous_backups(tmpdir) -> None:
+    tmpdir = Path(tmpdir)
+
+    # TODO
+
+    assert False

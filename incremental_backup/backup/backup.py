@@ -221,8 +221,7 @@ def scan_filesystem(path: Path, exclude_patterns: Iterable[re.Pattern],
             if is_root:
                 tree_node = root
             else:
-                # TODO? need to handle re-entering directories?
-
+                # Pretty sure it is impossible to re-enter a directory during the search.
                 tree_node = filesystem.Directory(search_directory.name)
                 tree_node_stack[-1].subdirectories.append(tree_node)
                 tree_node_stack.append(tree_node)

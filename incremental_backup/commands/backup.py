@@ -141,7 +141,8 @@ def read_previous_backups(target_path: Path, /) -> List[BackupMetadata]:
                 print_warning(f'Failed to read metadata of previous backup {directory.name}: {e}')
             else:
                 backups.append(metadata)
-        # TODO? should we give feedback to the user if a directory is not a backup?
+        else:
+            print_warning(f'Found directory in target directory that is not a backup: "{directory.name}"')
 
     print(f'Read {len(backups)} previous backups')
 

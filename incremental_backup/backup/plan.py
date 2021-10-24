@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 from ..utility import filesystem, path_name_equal
 from .sum import BackupSum
@@ -38,12 +38,12 @@ class BackupPlan:
         plan_directories = [plan.root]
 
         search_stack: List[Callable[[], None]] = []
-        path_segments: List[str] = []
+        backup_sum_stack: List[Optional[BackupSum.Directory]] = [backup_sum.root]
         plan_stack = [plan.root]
         is_root = True
 
-        def pop_path_segment() -> None:
-            del path_segments[-1]
+        def pop_backup_sum_node() -> None:
+            del backup_sum_stack[-1]
 
         def pop_plan_node() -> None:
             del plan_stack[-1]
@@ -51,6 +51,7 @@ class BackupPlan:
         def visit_directory(search_directory: filesystem.Directory, /) -> None:
             if is_root:
                 plan_directory = plan.root
+                backup_sum_directory = backup_sum.root
             else:
                 # Assume filesystem tree doesn't re-enter the same directory. I think this will never happen, if it does
                 # then I don't think it will cause real issues, just yield unoptimised tree structure.
@@ -59,11 +60,16 @@ class BackupPlan:
                 plan_stack.append(plan_directory)
                 search_stack.append(pop_plan_node)
                 plan_directories.append(plan_directory)
-                path_segments.append(search_directory.name)
-                search_stack.append(pop_path_segment)
 
-            # TODO? simultaneously traverse filesystem tree and backup sum tree to avoid searching backup sum every time
-            backup_sum_directory = backup_sum.find_directory(path_segments)
+                if backup_sum_stack[-1] is None:
+                    backup_sum_directory = None
+                else:
+                    backup_sum_directory = next(
+                        (d for d in backup_sum_stack[-1].subdirectories
+                         if path_name_equal(d.name, search_directory.name)), None)
+                backup_sum_stack.append(backup_sum_directory)
+                search_stack.append(pop_backup_sum_node)
+
             if backup_sum_directory is None:
                 # Nothing backed up here so far, only possibility is new files to back up.
                 plan_directory.copied_files.extend(f.name for f in search_directory.files)

@@ -99,23 +99,3 @@ def test_backup_sum_multiple_backups() -> None:
         ]))
 
     assert backup_sum == expected
-
-
-def test_backup_sum_find_directory() -> None:
-    bar = BackupSum.Directory('bar', files=[BackupSum.File('bar', None)])
-    foo = BackupSum.Directory('foo', subdirectories=[bar])
-    ab = BackupSum.Directory('ab')
-    root = BackupSum.Directory('',
-        files=[BackupSum.File('foo', None), BackupSum.File('qux', None)],
-        subdirectories=[foo, ab])
-
-    backup_sum = BackupSum(root)
-
-    assert backup_sum.find_directory(()) is root
-    assert backup_sum.find_directory(('foo',)) is foo
-    assert backup_sum.find_directory(('ab',)) is ab
-    assert backup_sum.find_directory(('foo', 'bar')) is bar
-    assert backup_sum.find_directory(('qux',)) is None
-    assert backup_sum.find_directory(('420',)) is None
-    assert backup_sum.find_directory(('foo', 'bar', 'magic')) is None
-    assert backup_sum.find_directory(('foo', 'qux')) is None

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Union
 
 from ..meta import BackupManifest, BackupMetadata
 from ..utility import path_name_equal
@@ -34,21 +34,6 @@ class BackupSum:
         This object represents the backup source directory.
     """
 
-    def find_directory(self, path: Iterable[str], /) -> Optional[Directory]:
-        """Finds a directory within the backup sum by path.
-
-            :param path: Sequence of directory names forming the path to the directory, relative to the root of the
-                backup sum (i.e. the backup source directory).
-            :return: The requested directory if it exists in the backup sum, else `None`.
-        """
-
-        directory = self.root
-        for name in path:
-            directory = next((d for d in directory.subdirectories if path_name_equal(d.name, name)), None)
-            if directory is None:
-                break
-        return directory
-
     @classmethod
     def from_backups(cls, backups: Iterable[BackupMetadata], /) -> 'BackupSum':
         """Constructs a backup sum from previous backup metadata.
@@ -57,19 +42,12 @@ class BackupSum:
                 be meaningless.
         """
 
-        root = cls._construct_tree(backups)
-        cls._prune_tree(root)
-        return cls(root)
-
-    @staticmethod
-    def _construct_tree(backups: Iterable[BackupMetadata], /) -> Directory:
-        """Reconstructs the file/directory tree from the given backups."""
-
         root = BackupSum.Directory('')
 
         backups_sorted = sorted(backups, key=lambda b: b.start_info.start_time)
 
-        # TODO? calculate tree pruning content counts while constructing the tree?
+        # List of all directories. Parent will always occur before child in list.
+        directories: List[BackupSum.Directory] = [root]
 
         for backup in backups_sorted:
             search_stack: List[Union[BackupManifest.Directory, None]] = [backup.manifest.root]
@@ -87,6 +65,7 @@ class BackupSum:
                         if sum_directory is None:
                             sum_directory = BackupSum.Directory(search_directory.name)
                             sum_stack[-1].subdirectories.append(sum_directory)
+                            directories.append(sum_directory)
                         sum_stack.append(sum_directory)
 
                     for copied_file in search_directory.copied_files:
@@ -109,21 +88,6 @@ class BackupSum:
                     search_stack.extend(reversed(search_directory.subdirectories))
                 is_root = False
 
-        return root
-
-    @staticmethod
-    def _prune_tree(root: Directory, /) -> None:
-        """Removes directories that don't have any descendents which are files."""
-
-        # Enumerate all directories first.
-        directories: List[BackupSum.Directory] = []
-        search_stack = [root]
-        while search_stack:
-            directory = search_stack.pop()
-            directories.append(directory)
-            search_stack.extend(directory.subdirectories)
-        # Note that each directory occurs before its children in the list.
-
         # Calculate if each directory has nonempty descendents has and remove empty directories.
         # Empty = contains nothing or only directories.
         nonempty_map: Dict[int, bool] = {}
@@ -131,10 +95,12 @@ class BackupSum:
             nonempty = len(directory.files) > 0
             nonempty_subdirectories: List[BackupSum.Directory] = []
             for subdirectory in directory.subdirectories:
-                # Ok, content count of child is always calculated before parent.
+                # Ok, emptiness of child is always calculated before parent.
                 sub_nonempty = nonempty_map[id(subdirectory)]
                 if sub_nonempty:
                     nonempty_subdirectories.append(subdirectory)
                     nonempty = True
             nonempty_map[id(directory)] = nonempty
             directory.subdirectories = nonempty_subdirectories
+
+        return cls(root)
