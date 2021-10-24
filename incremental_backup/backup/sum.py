@@ -124,7 +124,7 @@ class BackupSum:
             search_stack.extend(directory.subdirectories)
         # Note that each directory occurs before its children in the list.
 
-        # Calculate how many non-empty descendents each directory has and remove empty directories.
+        # Calculate if each directory has nonempty descendents has and remove empty directories.
         # Empty = contains nothing or only directories.
         nonempty_map: Dict[int, bool] = {}
         for directory in reversed(directories):

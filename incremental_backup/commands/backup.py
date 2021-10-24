@@ -28,8 +28,8 @@ def add_arg_subparser(subparser, /) -> None:
     """Adds the command line argument subparser for the backup command."""
 
     parser = subparser.add_parser(COMMAND_NAME, description='Creates a new backup.', help='Creates a new backup.')
-    parser.add_argument('source_dir', action='store', type=parse_source_directory, help='Directory to back up.')
-    parser.add_argument('target_dir', action='store', type=parse_target_directory, help='Directory to back up into.')
+    parser.add_argument('source_dir', action='store', type=Path, help='Directory to back up.')
+    parser.add_argument('target_dir', action='store', type=Path, help='Directory to back up into.')
     parser.add_argument(
         '--exclude-pattern', action='append', type=compile_exclude_pattern, required=False,
         help='Path pattern(s) to exclude. Can be specified more than once')
@@ -45,6 +45,9 @@ def entrypoint(arguments, /) -> None:
     source_path: Path = arguments.source_dir
     target_path: Path = arguments.target_dir
     exclude_patterns: Sequence[re.Pattern] = arguments.exclude_pattern or ()
+
+    validate_source_directory(source_path)
+    validate_target_directory(target_path)
 
     print_config(source_path, target_path, exclude_patterns)
     print()
@@ -68,28 +71,30 @@ def entrypoint(arguments, /) -> None:
     print_results(results)
 
 
-def parse_source_directory(path: str, /) -> Path:
-    """Parses and validates the backup source directory.
-        Validation should prevent other parts of the program from failing strangely for non-path inputs.
+def validate_source_directory(path: Path, /) -> None:
+    """Validates the backup source directory.
+        Should mostly prevent other parts of the program from failing strangely for invalid inputs.
     """
 
-    path = Path(path)
-    if not path.exists():
-        raise ArgumentTypeError('Directory not found')
-    if not path.is_dir():
-        raise ArgumentTypeError('Must be a directory')
-    return path
+    try:
+        if not path.exists():
+            raise FatalRuntimeError('Source directory not found')
+        if not path.is_dir():
+            raise FatalRuntimeError('Source directory is not a directory')
+    except OSError as e:
+        raise FatalRuntimeError(f'Failed to query source directory: {e}') from e
 
 
-def parse_target_directory(path: str, /) -> Path:
-    """Parses and validates the backup target directory.
-        Validation should prevent other parts of the program from failing strangely for non-path inputs.
+def validate_target_directory(path: Path, /) -> None:
+    """Validates the backup target directory.
+        Should mostly prevent other parts of the program from failing strangely for invalid inputs.
     """
 
-    path = Path(path)
-    if path.exists() and not path.is_dir():
-        raise ArgumentTypeError('Must be a directory')
-    return path
+    try:
+        if path.exists() and not path.is_dir():
+            raise FatalRuntimeError('Target directory is not a directory')
+    except OSError as e:
+        raise FatalRuntimeError(f'Failed to query target directory: {e}') from e
 
 
 def print_config(source_path: Path, target_path: Path, exclude_patterns: Iterable[re.Pattern]) -> None:

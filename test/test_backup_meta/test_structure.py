@@ -5,11 +5,11 @@ from incremental_backup.meta.structure import BACKUP_NAME_LENGTH, BackupDirector
 
 
 def test_generate_backup_name() -> None:
-    names = [generate_backup_name() for _ in range(153)]
+    names = [generate_backup_name() for _ in range(24356)]
     assert all(len(name) == BACKUP_NAME_LENGTH for name in names)
     assert all(name.isalnum() for name in names)
     assert all(name.casefold() == name for name in names)
-    assert len(set(names)) == len(names)        # Very very low chance all names are the same.
+    assert len(set(names)) == len(names)        # Very low chance any names are the same.
 
 
 def test_create_new_backup_directory_nonexistent(tmpdir) -> None:

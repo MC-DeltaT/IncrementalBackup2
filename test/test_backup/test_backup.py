@@ -11,6 +11,8 @@ from incremental_backup.meta.manifest import BackupManifest
 from incremental_backup.meta.metadata import BackupMetadata
 from incremental_backup.meta.start_info import BackupStartInfo
 
+from helpers import dir_entries
+
 
 def test_scan_filesystem_no_excludes(tmpdir) -> None:
     tmpdir = Path(tmpdir)
@@ -41,7 +43,7 @@ def test_scan_filesystem_no_excludes(tmpdir) -> None:
     assert root.name == ''
     assert len(root.files) == 1 and len(root.subdirectories) == 3
     file = root.files[0]
-    assert file.name == 'file.txt' and abs((file.last_modified - time).seconds) < MODIFY_TIME_TOLERANCE
+    assert file.name == 'file.txt' and abs((file.last_modified - time).total_seconds()) < MODIFY_TIME_TOLERANCE
     a = next(d for d in root.subdirectories if d.name == 'a')
     assert a.files == [] and len(a.subdirectories) == 2
     aa = next(d for d in a.subdirectories if d.name == 'aA')
@@ -53,9 +55,9 @@ def test_scan_filesystem_no_excludes(tmpdir) -> None:
     ba = next(d for d in b.subdirectories if d.name == 'ba')
     assert len(ba.files) == 2 and ba.subdirectories == []
     file_ba_1 = next(f for f in ba.files if f.name == 'file_ba_1.jpg')
-    assert abs((file_ba_1.last_modified - time).seconds) < MODIFY_TIME_TOLERANCE
+    assert abs((file_ba_1.last_modified - time).total_seconds()) < MODIFY_TIME_TOLERANCE
     file_ba_2 = next(f for f in ba.files if f.name == 'FILE_ba_2.txt')
-    assert abs((file_ba_2.last_modified - time).seconds) < MODIFY_TIME_TOLERANCE
+    assert abs((file_ba_2.last_modified - time).total_seconds()) < MODIFY_TIME_TOLERANCE
     bb = next(d for d in b.subdirectories if d.name == 'bb')
     assert bb.files == [] and len(bb.subdirectories) == 1
     bba = next(d for d in bb.subdirectories if d.name == 'bba')
@@ -63,7 +65,7 @@ def test_scan_filesystem_no_excludes(tmpdir) -> None:
     bbaa = next(d for d in bba.subdirectories if d.name == 'bbaa')
     assert len(bbaa.files) == 1 and bbaa.subdirectories == []
     file_bbaa = bbaa.files[0]
-    assert file_bbaa.name == 'file\u4569_bbaa' and abs((file_bbaa.last_modified - time).seconds) < MODIFY_TIME_TOLERANCE
+    assert file_bbaa.name == 'file\u4569_bbaa' and abs((file_bbaa.last_modified - time).total_seconds()) < MODIFY_TIME_TOLERANCE
     c = next(d for d in root.subdirectories if d.name == 'C')
     assert c.files == [] and c.subdirectories == []
 
@@ -100,21 +102,21 @@ def test_scan_filesystem_some_excludes(tmpdir) -> None:
     assert root.name == ''
     assert len(root.files) == 1 and len(root.subdirectories) == 2
     foo_jpg = next(f for f in root.files if f.name == 'foo.jpg')
-    assert abs((foo_jpg.last_modified - time).seconds) < MODIFY_TIME_TOLERANCE
+    assert abs((foo_jpg.last_modified - time).total_seconds()) < MODIFY_TIME_TOLERANCE
     code = next(d for d in root.subdirectories if d.name == 'Code')
     assert len(code.files) == 0 and len(code.subdirectories) == 1
     project = next(d for d in code.subdirectories if d.name == 'project')
     assert len(project.files) == 1 and len(project.subdirectories) == 2
     readme = next(f for f in project.files if f.name == 'README')
-    assert abs((readme.last_modified - time).seconds) < MODIFY_TIME_TOLERANCE
+    assert abs((readme.last_modified - time).total_seconds()) < MODIFY_TIME_TOLERANCE
     src = next(d for d in project.subdirectories if d.name == 'src')
     assert len(src.files) == 1 and len(src.subdirectories) == 0
     main_cpp = next(f for f in src.files if f.name == 'main.cpp')
-    assert abs((main_cpp.last_modified - time).seconds) < MODIFY_TIME_TOLERANCE
+    assert abs((main_cpp.last_modified - time).total_seconds()) < MODIFY_TIME_TOLERANCE
     bin_ = next(d for d in project.subdirectories if d.name == 'bin')
     assert len(bin_.files) == 1 and len(bin_.subdirectories) == 0
     program_exe = next(f for f in bin_.files if f.name == 'Program.exe')
-    assert abs((program_exe.last_modified - time).seconds) < MODIFY_TIME_TOLERANCE
+    assert abs((program_exe.last_modified - time).total_seconds()) < MODIFY_TIME_TOLERANCE
     empty = next(d for d in root.subdirectories if d.name == 'empty')
     assert len(empty.files) == 0 and len(empty.subdirectories) == 0
 
@@ -193,18 +195,16 @@ def test_execute_backup_plan(tmpdir) -> None:
             BackupManifest.Directory('no_copied_files', removed_files=['foo', 'bar', 'notqux'])
         ]))
 
-    assert set(destination_path.iterdir()) == {
-        destination_path / 'Modified.txt', destination_path / 'file2',
-        destination_path / 'my directory', destination_path / 'something', destination_path / 'nonexistent_directory'}
+    assert dir_entries(destination_path) == \
+           {'Modified.txt', 'file2', 'my directory', 'something', 'nonexistent_directory'}
     assert (destination_path / 'Modified.txt').read_text() == 'this is modified.txt'
     assert (destination_path / 'file2').read_text() == ''
-    assert set((destination_path / 'my directory').iterdir()) == {destination_path / 'my directory' / 'modified1.baz'}
+    assert dir_entries(destination_path / 'my directory') == {'modified1.baz'}
     assert (destination_path / 'my directory' / 'modified1.baz').read_text() == 'foo bar qux'
-    assert set((destination_path / 'something').iterdir()) == {destination_path / 'something' / 'qwerty'}
-    assert set((destination_path / 'something' / 'qwerty').iterdir()) == \
-           {destination_path / 'something' / 'qwerty' / 'wtoeiur'}
+    assert dir_entries(destination_path / 'something') == {'qwerty'}
+    assert dir_entries(destination_path / 'something' / 'qwerty') == {'wtoeiur'}
     assert (destination_path / 'something' / 'qwerty' / 'wtoeiur').read_text() == 'content'
-    assert set((destination_path / 'nonexistent_directory').iterdir()) == set()
+    assert dir_entries(destination_path / 'nonexistent_directory') == set()
 
     assert results == expected_results
     assert manifest == expected_manifest
@@ -298,14 +298,11 @@ def test_do_backup(tmpdir) -> None:
     disappear = next(d for d in actual_manifest.root.subdirectories if d.name == 'disappear')
     assert disappear == BackupManifest.Directory('disappear', removed_files=['to-be REmoved'])
 
-    assert set(destination_path.iterdir()) == \
-           {destination_path / 'why why why', destination_path / 'new', destination_path / 'amazing_code_proj'}
+    assert dir_entries(destination_path) == {'why why why', 'new', 'amazing_code_proj'}
     assert (destination_path / 'why why why').read_text() == 'some gibberish'
     assert (destination_path / 'new').read_text() == '   x   '
-    assert set((destination_path / 'amazing_code_proj').iterdir()) == \
-           {destination_path / 'amazing_code_proj' / 'README.md', destination_path / 'amazing_code_proj' / 'src'}
-    assert set((destination_path / 'amazing_code_proj' / 'src').iterdir()) == \
-           {destination_path / 'amazing_code_proj' / 'src' / 'mylib.py'}
+    assert dir_entries(destination_path / 'amazing_code_proj') == {'README.md', 'src'}
+    assert dir_entries(destination_path / 'amazing_code_proj' / 'src') == {'mylib.py'}
 
 
 def test_compile_exclude_pattern() -> None:
