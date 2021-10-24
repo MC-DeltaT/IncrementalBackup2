@@ -1,4 +1,3 @@
-from argparse import ArgumentTypeError
 from datetime import datetime, timezone
 from pathlib import Path
 import re
@@ -18,6 +17,9 @@ __all__ = [
     'COMMAND_NAME',
     'entrypoint',
 ]
+
+
+# TODO? use some sort of customisable logger instead of printing straight to the console for info and warnings
 
 
 COMMAND_NAME = 'backup'
@@ -142,7 +144,7 @@ def read_previous_backups(target_path: Path, /) -> List[BackupMetadata]:
             else:
                 backups.append(metadata)
         else:
-            print_warning(f'Found directory in target directory that is not a backup: "{directory.name}"')
+            print_warning(f'Found directory in target directory that is not a valid backup: "{directory.name}"')
 
     print(f'Read {len(backups)} previous backups')
 

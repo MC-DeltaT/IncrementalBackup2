@@ -51,6 +51,8 @@ def test_backup_target_is_file(tmpdir) -> None:
 
 
 def test_backup_new_target(tmpdir) -> None:
+    # Target directory doesn't exist.
+
     tmpdir = Path(tmpdir)
 
     source_path = tmpdir / '\u1246\uA76D3fje_s\xDDrC\u01FC'
@@ -112,6 +114,8 @@ def test_backup_new_target(tmpdir) -> None:
 
 
 def test_backup_no_previous_backups(tmpdir) -> None:
+    # Target directory exists but is empty.
+
     tmpdir = Path(tmpdir)
 
     source_path = tmpdir / 'rubbish\xC2with' / '\u5647\uBDC1\u9C87 chars'
@@ -174,8 +178,42 @@ def test_backup_no_previous_backups(tmpdir) -> None:
 
 
 def test_backup_some_previous_backups(tmpdir) -> None:
+    # Target directory has some previous backups.
+
     tmpdir = Path(tmpdir)
 
+    source_path = tmpdir / 'this\u865Cneeds\u4580to\u9B93bebackedup'
+    source_path.mkdir()
     # TODO
 
+    target_path = tmpdir / 'put the data here!'
+    target_path.mkdir()
+
+    backup1_path = target_path / 'sadhf8o3947yfqgfaw'
+    backup1_path.mkdir()
+    (backup1_path / 'start.json').write_text('{"start_time": "2021-06-20T03:37:27.435676+00:00"}', encoding='utf8')
+    # TODO
+
+    backup2_path = target_path / 'gsel45o8ise45ytq87'
+    backup2_path.mkdir()
+    (backup2_path / 'start.json').write_text('{"start_time": "2021-07-01T13:52:21.983451+00:00"}', encoding='utf8')
+    # TODO
+
+    backup3_path = target_path / 'O9I763i7gto87TGi73'
+    backup3_path.mkdir()
+    (backup3_path / 'start.json').write_text('{"start_time": "2021-09-18T09:47:11.879254+00:00"}', encoding='utf8')
+    # TODO
+
+    exit_code = script_main((PROGRAM_NAME_ARG, 'backup', str(source_path), str(target_path), '--exclude-pattern=/temp/'))
+
+    assert exit_code == 0
+
+    # TODO
+    assert False
+
+
+def test_backup_some_invalid_backups(tmpdir) -> None:
+    # Target directory has some previous backups and invalid/not backups.
+
+    # TODO
     assert False
