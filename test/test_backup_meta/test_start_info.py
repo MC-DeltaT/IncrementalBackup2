@@ -5,6 +5,8 @@ import pytest
 from incremental_backup.meta.start_info import BackupStartInfo, BackupStartInfoParseError, read_backup_start_info, \
     write_backup_start_info
 
+from helpers import AssertFilesystemUnmodified
+
 
 def test_write_backup_start_info(tmpdir) -> None:
     path = tmpdir / 'start_info.json'
@@ -18,16 +20,14 @@ def test_write_backup_start_info(tmpdir) -> None:
 
 def test_read_backup_start_info_valid(tmpdir) -> None:
     path = tmpdir / 'start_info_valid.json'
-    contents = '{"start_time": "2020-12-30T09:34:10.123456+00:00"}'
     with open(path, 'w', encoding='utf8') as file:
-        file.write(contents)
-    actual = read_backup_start_info(path)
+        file.write('{"start_time": "2020-12-30T09:34:10.123456+00:00"}')
+
+    with AssertFilesystemUnmodified(tmpdir):
+        actual = read_backup_start_info(path)
+
     expected = BackupStartInfo(datetime(2020, 12, 30, 9, 34, 10, 123456, tzinfo=timezone.utc))
     assert actual == expected
-
-    with open(path, 'r', encoding='utf8') as file:
-        contents_after = file.read()
-    assert contents_after == contents
 
 
 def test_read_backup_start_info_invalid(tmpdir) -> None:
@@ -47,18 +47,17 @@ def test_read_backup_start_info_invalid(tmpdir) -> None:
         path = tmpdir / f'start_info_invalid_{i}.json'
         with open(path, 'w', encoding='utf8') as file:
             file.write(data)
-        with pytest.raises(BackupStartInfoParseError):
-            read_backup_start_info(path)
 
-        with open(path, 'r', encoding='utf8') as file:
-            contents_after = file.read()
-        assert contents_after == data
+        with AssertFilesystemUnmodified(tmpdir):
+            with pytest.raises(BackupStartInfoParseError):
+                read_backup_start_info(path)
 
 
 def test_read_backup_start_info_nonexistent(tmpdir) -> None:
     path = tmpdir / 'start_info_nonexistent.json'
-    with pytest.raises(FileNotFoundError):
-        read_backup_start_info(path)
+    with AssertFilesystemUnmodified(tmpdir):
+        with pytest.raises(FileNotFoundError):
+            read_backup_start_info(path)
 
 
 def test_write_read_backup_start_info(tmpdir) -> None:

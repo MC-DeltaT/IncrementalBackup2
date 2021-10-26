@@ -11,12 +11,10 @@ from incremental_backup.meta.manifest import BackupManifest
 from incremental_backup.meta.metadata import BackupMetadata
 from incremental_backup.meta.start_info import BackupStartInfo
 
-from helpers import dir_entries
+from helpers import AssertFilesystemUnmodified, dir_entries
 
 
 def test_scan_filesystem_no_excludes(tmpdir) -> None:
-    tmpdir = Path(tmpdir)
-
     time = datetime.now(timezone.utc)
     (tmpdir / 'a').mkdir()
     (tmpdir / 'a' / 'aA').mkdir()
@@ -34,7 +32,8 @@ def test_scan_filesystem_no_excludes(tmpdir) -> None:
 
     # Note sure how to test error situations.
 
-    root, paths_skipped = scan_filesystem(tmpdir, ())
+    with AssertFilesystemUnmodified(tmpdir):
+        root, paths_skipped = scan_filesystem(tmpdir, ())
 
     MODIFY_TIME_TOLERANCE = 5       # Seconds
 
@@ -71,8 +70,6 @@ def test_scan_filesystem_no_excludes(tmpdir) -> None:
 
 
 def test_scan_filesystem_some_excludes(tmpdir) -> None:
-    tmpdir = Path(tmpdir)
-
     exclude_patterns = (r'.*/\.git/', '/temp/', '/un\xEFi\uC9F6c\u91F5ode\\.txt', r'.*\.bin')
     exclude_patterns = tuple(map(compile_exclude_pattern, exclude_patterns))
 
@@ -93,7 +90,8 @@ def test_scan_filesystem_some_excludes(tmpdir) -> None:
     (tmpdir / 'Code' / 'project' / '.git' / 'somefile').touch()
     (tmpdir / 'empty').mkdir()
 
-    root, paths_skipped = scan_filesystem(tmpdir, exclude_patterns)
+    with AssertFilesystemUnmodified(tmpdir):
+        root, paths_skipped = scan_filesystem(tmpdir, exclude_patterns)
 
     MODIFY_TIME_TOLERANCE = 5       # Seconds
 
@@ -122,8 +120,6 @@ def test_scan_filesystem_some_excludes(tmpdir) -> None:
 
 
 def test_execute_backup_plan(tmpdir) -> None:
-    tmpdir = Path(tmpdir)
-
     source_path = tmpdir / 'source'
     source_path.mkdir()
     (source_path / 'Modified.txt').write_text('this is modified.txt')
@@ -176,8 +172,9 @@ def test_execute_backup_plan(tmpdir) -> None:
     copy_errors: List[Tuple[Path, Path, OSError]] = []
     on_copy_error = lambda s, d, e: copy_errors.append((s, d, e))
 
-    results, manifest = execute_backup_plan(plan, source_path, destination_path,
-                                            on_mkdir_error=on_mkdir_error, on_copy_error=on_copy_error)
+    with AssertFilesystemUnmodified(source_path):
+        results, manifest = execute_backup_plan(plan, source_path, destination_path,
+                                                on_mkdir_error=on_mkdir_error, on_copy_error=on_copy_error)
 
     (destination_path / 'something' / 'uh oh').unlink(missing_ok=False)
 
@@ -223,8 +220,6 @@ def test_execute_backup_plan(tmpdir) -> None:
 
 
 def test_do_backup(tmpdir) -> None:
-    tmpdir = Path(tmpdir)
-
     source_path = tmpdir / 'source'
     source_path.mkdir()
     (source_path / 'why why why').write_text('some gibberish')      # Existing modified
@@ -268,7 +263,8 @@ def test_do_backup(tmpdir) -> None:
                 BackupSum.Directory('.git', files=[BackupSum.File('config', backup_past)]),
                 BackupSum.Directory('src', files=[
                     BackupSum.File('main.py', backup_future), BackupSum.File('mylib.py', backup_past)])
-            ])
+            ]),
+            BackupSum.Directory('.git', files=[BackupSum.File('git file', backup_past)])
         ]))
 
     destination_path = tmpdir / 'destination'
@@ -279,7 +275,8 @@ def test_do_backup(tmpdir) -> None:
 
     # Not sure how to test error situations.
 
-    actual_results, actual_manifest = do_backup(source_path, destination_path, exclude_patterns, backup_sum)
+    with AssertFilesystemUnmodified(source_path):
+        actual_results, actual_manifest = do_backup(source_path, destination_path, exclude_patterns, backup_sum)
 
     expected_results = BackupResults(False, files_copied=4, files_removed=2)
 
@@ -287,7 +284,7 @@ def test_do_backup(tmpdir) -> None:
 
     assert set(actual_manifest.root.copied_files) == {'new', 'why why why'}
     assert actual_manifest.root.removed_files == ['removed.file']
-    assert actual_manifest.root.removed_directories == []
+    assert set(actual_manifest.root.removed_directories) == {'.git'}
     assert len(actual_manifest.root.subdirectories) == 2
     amazing_code_proj = next(d for d in actual_manifest.root.subdirectories if d.name == 'amazing_code_proj')
     assert amazing_code_proj == BackupManifest.Directory('amazing_code_proj',

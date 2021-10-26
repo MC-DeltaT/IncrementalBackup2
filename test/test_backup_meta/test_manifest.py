@@ -3,6 +3,8 @@ import pytest
 from incremental_backup.meta.manifest import BackupManifest, BackupManifestParseError, read_backup_manifest, \
     write_backup_manifest
 
+from helpers import AssertFilesystemUnmodified
+
 
 def test_backup_manifest_directory_init() -> None:
     directory = BackupManifest.Directory('NotSure_how_m4ny_M\u2390re names-I can think OF')
@@ -105,7 +107,10 @@ def test_read_backup_manifest_valid(tmpdir) -> None:
     ]"""
     with open(path, 'w', encoding='utf8') as file:
         file.write(contents)
-    actual = read_backup_manifest(path)
+
+    with AssertFilesystemUnmodified(tmpdir):
+        actual = read_backup_manifest(path)
+
     expected = BackupManifest(BackupManifest.Directory('', copied_files=['myfile675'], subdirectories=[
         BackupManifest.Directory('dir1', copied_files=['running', 'out']),
         BackupManifest.Directory('of', removed_directories=['name', 'ideas'], subdirectories=[
@@ -116,33 +121,23 @@ def test_read_backup_manifest_valid(tmpdir) -> None:
     ]))
     assert actual == expected
 
-    with open(path, 'r', encoding='utf8') as file:
-        contents_after = file.read()
-    assert contents_after == contents
-
 
 def test_read_backup_manifest_empty(tmpdir) -> None:
     path = tmpdir / 'manifest_empty_1.json'
-    contents = '[]'
     with open(path, 'w', encoding='utf8') as file:
-        file.write(contents)
-    actual = read_backup_manifest(path)
+        file.write('[]')
+    with AssertFilesystemUnmodified(tmpdir):
+        actual = read_backup_manifest(path)
     expected = BackupManifest()
     assert actual == expected
-    with open(path, 'r', encoding='utf8') as file:
-        contents_after = file.read()
-    assert contents_after == contents
 
     path = tmpdir / 'manifest_empty_2.json'
-    contents = '[{"n": ""}]'
     with open(path, 'w', encoding='utf8') as file:
-        file.write(contents)
-    actual = read_backup_manifest(path)
+        file.write('[{"n": ""}]')
+    with AssertFilesystemUnmodified(tmpdir):
+        actual = read_backup_manifest(path)
     expected = BackupManifest()
     assert actual == expected
-    with open(path, 'r', encoding='utf8') as file:
-        contents_after = file.read()
-    assert contents_after == contents
 
 
 def test_read_backup_manifest_invalid(tmpdir) -> None:
@@ -166,25 +161,25 @@ def test_read_backup_manifest_invalid(tmpdir) -> None:
         '[{"n": "", "cf": ["f1", "f2", 42]}]',
         '[{"n": "", "rf": ["ab", True]}]',
         '[{"n": "", "rd": ["bar", null, "qux"]}]',
-        '[{"n": "", "cf": ["f1"], "rf": ["f2"], "extra": "value"}]'
+        '[{"n": "", "cf": ["f1"], "rf": ["f2"], "extra": "value"}]',
+        '[{n: "", "cf": ["f1"]}]'
     )
 
     for i, data in enumerate(datas):
         path = tmpdir / f'manifest_invalid_{i}.json'
         with open(path, 'w', encoding='utf8') as file:
             file.write(data)
-        with pytest.raises(BackupManifestParseError):
-            read_backup_manifest(path)
 
-        with open(path, 'r', encoding='utf8') as file:
-            contents_after = file.read()
-        assert contents_after == data
+        with AssertFilesystemUnmodified(tmpdir):
+            with pytest.raises(BackupManifestParseError):
+                read_backup_manifest(path)
 
 
 def test_read_backup_manifest_nonexistent(tmpdir) -> None:
     path = tmpdir / 'manifest_nonexistent.json'
-    with pytest.raises(FileNotFoundError):
-        read_backup_manifest(path)
+    with AssertFilesystemUnmodified(tmpdir):
+        with pytest.raises(FileNotFoundError):
+            read_backup_manifest(path)
 
 
 def test_read_backup_manifest_directory_reentry(tmpdir) -> None:
@@ -197,14 +192,13 @@ def test_read_backup_manifest_directory_reentry(tmpdir) -> None:
     ]"""
     with open(path, 'w', encoding='utf8') as file:
         file.write(contents)
-    actual = read_backup_manifest(path)
+
+    with AssertFilesystemUnmodified(tmpdir):
+        actual = read_backup_manifest(path)
+
     expected = BackupManifest(BackupManifest.Directory('', subdirectories=[
         BackupManifest.Directory('mydir',
             copied_files=['copied_file1', 'cf2'], removed_files=['rf1', 'removed_f_2'],
             removed_directories=['rdir1', 'removed_dir1']),
     ]))
     assert actual == expected
-
-    with open(path, 'r', encoding='utf8') as file:
-        contents_after = file.read()
-    assert contents_after == contents

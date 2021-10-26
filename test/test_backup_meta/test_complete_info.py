@@ -5,6 +5,8 @@ import pytest
 from incremental_backup.meta.complete_info import BackupCompleteInfo, BackupCompleteInfoParseError, \
     read_backup_complete_info, write_backup_complete_info
 
+from helpers import AssertFilesystemUnmodified
+
 
 def test_write_backup_complete_info(tmpdir) -> None:
     path = tmpdir / 'complete_info.json'
@@ -18,16 +20,14 @@ def test_write_backup_complete_info(tmpdir) -> None:
 
 def test_read_backup_complete_info_valid(tmpdir) -> None:
     path = tmpdir / 'complete_info_valid.json'
-    contents = '{"end_time": "2020-12-30T09:34:10.123456+00:00", "paths_skipped": false}'
     with open(path, 'w', encoding='utf8') as file:
-        file.write(contents)
-    actual = read_backup_complete_info(path)
+        file.write('{"end_time": "2020-12-30T09:34:10.123456+00:00", "paths_skipped": false}')
+
+    with AssertFilesystemUnmodified(tmpdir):
+        actual = read_backup_complete_info(path)
+
     expected = BackupCompleteInfo(datetime(2020, 12, 30, 9, 34, 10, 123456, tzinfo=timezone.utc), False)
     assert actual == expected
-
-    with open(path, 'r', encoding='utf8') as file:
-        contents_after = file.read()
-    assert contents_after == contents
 
 
 def test_read_backup_complete_info_invalid(tmpdir) -> None:
@@ -47,18 +47,17 @@ def test_read_backup_complete_info_invalid(tmpdir) -> None:
         path = tmpdir / f'complete_info_invalid_{i}.json'
         with open(path, 'w', encoding='utf8') as file:
             file.write(data)
-        with pytest.raises(BackupCompleteInfoParseError):
-            read_backup_complete_info(path)
 
-        with open(path, 'r', encoding='utf8') as file:
-            contents_after = file.read()
-        assert contents_after == data
+        with AssertFilesystemUnmodified(tmpdir):
+            with pytest.raises(BackupCompleteInfoParseError):
+                read_backup_complete_info(path)
 
 
 def test_read_backup_complete_info_nonexistent(tmpdir) -> None:
     path = tmpdir / 'backup_complete_info.json'
-    with pytest.raises(FileNotFoundError):
-        read_backup_complete_info(path)
+    with AssertFilesystemUnmodified(tmpdir):
+        with pytest.raises(FileNotFoundError):
+            read_backup_complete_info(path)
 
 
 def test_write_read_backup_complete_info(tmpdir) -> None:

@@ -3,6 +3,8 @@ import pytest
 from incremental_backup.meta.structure import BACKUP_NAME_LENGTH, BackupDirectoryCreationError, \
     create_new_backup_directory, generate_backup_name
 
+from helpers import AssertFilesystemUnmodified
+
 
 def test_generate_backup_name() -> None:
     names = [generate_backup_name() for _ in range(24356)]
@@ -16,16 +18,17 @@ def test_create_new_backup_directory_nonexistent(tmpdir) -> None:
     target_dir = tmpdir / 'target_dir'
     create_new_backup_directory(target_dir)
     assert target_dir.exists()
-    entries = target_dir.listdir()
+    entries = list(target_dir.iterdir())
     assert len(entries) == 1
-    name = entries[0].basename
+    name = entries[0].name
     assert len(name) == BACKUP_NAME_LENGTH
     assert name.isalnum()
 
 
 def test_create_new_backup_directory_invalid(tmpdir) -> None:
     target_dir = tmpdir / 'target_dir'
-    target_dir.ensure()     # Note: creates file, not directory
+    target_dir.touch()
 
-    with pytest.raises(BackupDirectoryCreationError):
-        create_new_backup_directory(target_dir)
+    with AssertFilesystemUnmodified(tmpdir):
+        with pytest.raises(BackupDirectoryCreationError):
+            create_new_backup_directory(target_dir)
