@@ -316,18 +316,58 @@ def test_backup_some_previous_backups(tmpdir) -> None:
     assert dir1.removed_directories == []
     assert dir1.subdirectories == []
     dir2 = next(d for d in manifest.root.subdirectories if d.name == 'dir2')
-    assert dir2.copied_files == []
-    assert dir2.removed_files == ['\uF000\uBAA4\u3404\xEA\uAEF1']
-    assert dir2.removed_directories == []
-    assert len(dir2.subdirectories) == 1
-    dir2_1 = dir2.subdirectories[0]
-    assert dir2_1 == BackupManifest.Directory('dir2_\u45631', copied_files=['myfile.myfile'])
+    assert dir2 == BackupManifest.Directory('dir2', removed_files=['\uF000\uBAA4\u3404\xEA\uAEF1'], subdirectories=[
+        BackupManifest.Directory('dir2_\u45631', copied_files=['myfile.myfile'])
+    ])
     new_dir = next(d for d in manifest.root.subdirectories if d.name == 'new_dir!')
     assert new_dir == BackupManifest.Directory('new_dir!', copied_files=['new file'])
 
 
 def test_backup_some_invalid_backups(tmpdir) -> None:
     # Target directory has some previous backups and invalid/not backups.
+
+    target_path = tmpdir / 'foo \u115A\xBA\u7AD9bar\u82C5\u5C70'
+    target_path.mkdir()
+
+    # Missing start information.
+    invalid1 = target_path / '439587AGP7G3789t'
+    invalid1.mkdir()
+    # TODO
+
+    # Missing manifest.
+    invalid2 = target_path / '859tfhgsidth574shg'
+    invalid2.mkdir()
+    # TODO
+
+    # Malformed start information.
+    invalid3 = target_path / '9f648506Hh067H6'
+    invalid3.mkdir()
+    # TODO
+
+    # Malformed manifest.
+    invalid4 = target_path / '87y0hH78H6Tg8450'
+    invalid4.mkdir()
+    # TODO
+
+    # Directory name not alphanumeric.
+    invalid5 = target_path / 'not @lph&numer!c'
+    invalid5.mkdir()
+
+    # Not a directory.
+    invalid6 = target_path / '78034rg086a7wtf'
+    invalid6.write_text('hey this isnt a backup directory!')
+
+    backup1 = target_path / '8P63B97637g36G6'
+    backup1.mkdir()
+    # TODO
+
+    backup2 = target_path / '67G55965675g567'
+    backup2.mkdir()
+    # TODO
+
+    source_path = tmpdir / '\uBDD6-D-\uE13D_\uBF42'
+    source_path.mkdir()
+    # TODO
 
     # TODO
     assert False
