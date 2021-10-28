@@ -5,15 +5,14 @@ import pytest
 from incremental_backup.meta.manifest import BackupManifest
 from incremental_backup.meta.metadata import BackupMetadata, read_backup_metadata
 from incremental_backup.meta.start_info import BackupStartInfo
-from incremental_backup.meta.structure import MANIFEST_FILENAME, START_INFO_FILENAME
 
 from helpers import AssertFilesystemUnmodified
 
 
 def test_read_backup_metadata_ok(tmpdir) -> None:
     backup_dir = tmpdir / 'a65jh8t7opui7sa'
-    start_info_path = backup_dir / START_INFO_FILENAME
-    manifest_path = backup_dir / MANIFEST_FILENAME
+    start_info_path = backup_dir / 'start.json'
+    manifest_path = backup_dir / 'manifest.json'
 
     backup_dir.mkdir()
     with open(start_info_path, 'w', encoding='utf8') as file:
@@ -44,7 +43,7 @@ def test_read_backup_metadata_nonexistent_dir(tmpdir) -> None:
 
 def test_read_backup_metadata_missing_file(tmpdir) -> None:
     backup_dir = tmpdir / '12lk789xcx542'
-    manifest_path = backup_dir / MANIFEST_FILENAME
+    manifest_path = backup_dir / 'manifest.json'
 
     backup_dir.mkdir()
     with open(manifest_path, 'w', encoding='utf8') as file:

@@ -11,7 +11,7 @@ from incremental_backup.meta.manifest import BackupManifest
 from incremental_backup.meta.metadata import BackupMetadata
 from incremental_backup.meta.start_info import BackupStartInfo
 
-from helpers import AssertFilesystemUnmodified, dir_entries
+from helpers import AssertFilesystemUnmodified, dir_entries, unordered_equal
 
 
 def test_scan_filesystem_no_excludes(tmpdir) -> None:
@@ -282,9 +282,9 @@ def test_do_backup(tmpdir) -> None:
 
     assert actual_results == expected_results
 
-    assert set(actual_manifest.root.copied_files) == {'new', 'why why why'}
+    assert unordered_equal(actual_manifest.root.copied_files, ('new', 'why why why'))
     assert actual_manifest.root.removed_files == ['removed.file']
-    assert set(actual_manifest.root.removed_directories) == {'.git'}
+    assert actual_manifest.root.removed_directories == ['.git']
     assert len(actual_manifest.root.subdirectories) == 2
     amazing_code_proj = next(d for d in actual_manifest.root.subdirectories if d.name == 'amazing_code_proj')
     assert amazing_code_proj == BackupManifest.Directory('amazing_code_proj',

@@ -3,7 +3,7 @@ from hashlib import md5
 from operator import xor
 from os import PathLike
 from pathlib import Path
-from typing import Set
+from typing import Hashable, Sequence, Set
 
 
 __all__ = [
@@ -11,7 +11,8 @@ __all__ = [
     'compute_file_hash',
     'compute_filesystem_hash',
     'compute_directory_hash',
-    'dir_entries'
+    'dir_entries',
+    'unordered_equal'
 ]
 
 
@@ -28,6 +29,12 @@ class AssertFilesystemUnmodified:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.hash_after = compute_filesystem_hash(self.path)
         assert self.hash_after == self.hash_before
+
+
+def unordered_equal(sequence1: Sequence[Hashable], sequence2: Sequence[Hashable]) -> bool:
+    """Checks if two sequences contain the same items, ignoring ordering."""
+
+    return len(sequence1) == len(sequence2) and set(sequence1) == set(sequence2)
 
 
 def dir_entries(path: Path, /) -> Set[str]:
