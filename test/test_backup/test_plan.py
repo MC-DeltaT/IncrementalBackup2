@@ -25,6 +25,8 @@ def test_backup_plan_init() -> None:
 
 
 def test_backup_plan_new() -> None:
+    # Typical input data: nonempty backup sum, nonempty source tree.
+
     backup1 = BackupMetadata(
         '324t9uagfkjhds', BackupStartInfo(datetime(2010, 1, 8, 12, 34, 22, tzinfo=timezone.utc)), None)
     backup2 = BackupMetadata(
@@ -104,7 +106,9 @@ def test_backup_plan_new() -> None:
     assert actual_plan == expected_plan
 
 
-def test_backup_plan_new_empty_sum(tmpdir) -> None:
+def test_backup_plan_new_empty_sum() -> None:
+    # Empty backup sum and nonempty source tree.
+
     source_tree = filesystem.Directory('',
         files=[
             filesystem.File('1 file', datetime(1999, 3, 2, 1, 2, 55, tzinfo=timezone.utc)),
@@ -124,7 +128,7 @@ def test_backup_plan_new_empty_sum(tmpdir) -> None:
             filesystem.Directory('LAST_dir',
                 files=[filesystem.File('qux', datetime(2020, 2, 20, 20, 20, 20, 42, tzinfo=timezone.utc))])
         ])
-    backup_sum = BackupSum.from_backups(())
+    backup_sum = BackupSum()
 
     actual_plan = BackupPlan.new(source_tree, backup_sum)
 
@@ -137,5 +141,35 @@ def test_backup_plan_new_empty_sum(tmpdir) -> None:
                 ]),
             BackupPlan.Directory('LAST_dir', copied_files=['qux'], contains_copied_files=True)
         ]))
+
+    assert actual_plan == expected_plan
+
+
+def test_backup_plan_new_all_removed() -> None:
+    # Nonempty backup sum and empty source tree.
+
+    source_tree = filesystem.Directory('', files=[], subdirectories=[])
+
+    backup1 = BackupMetadata(
+        '6759rt6rt6rt6', BackupStartInfo(datetime(2010, 3, 5, 12, 49, 56, tzinfo=timezone.utc)), None)
+    backup2 = BackupMetadata(
+        '5436eli8frfcz', BackupStartInfo(datetime(2010, 5, 1, 23, 4, 2, tzinfo=timezone.utc)), None)
+
+    backup_sum = BackupSum(BackupSum.Directory('',
+        files=[BackupSum.File('foo.bmp', backup1), BackupSum.File('bar', backup2)],
+        subdirectories=[
+            BackupSum.Directory('dir1', files=[
+                BackupSum.File('dir1_file1.jpeg', backup2), BackupSum.File('dir1_file2', backup1)]),
+            BackupSum.Directory('dir2', files=[BackupSum.File('dir2_file1.xlsx', backup1)], subdirectories=[
+                BackupSum.Directory('dir1_dir1', files=[BackupSum.File('some file', backup2)], subdirectories=[
+                    BackupSum.Directory('last directory!', files=[BackupSum.File('last_FILE.file', backup2)])
+                ])
+            ])
+        ]))
+
+    actual_plan = BackupPlan.new(source_tree, backup_sum)
+
+    expected_plan = BackupPlan(BackupPlan.Directory(
+        '', removed_files=['foo.bmp', 'bar'], removed_directories=['dir1', 'dir2'], contains_removed_items=True))
 
     assert actual_plan == expected_plan

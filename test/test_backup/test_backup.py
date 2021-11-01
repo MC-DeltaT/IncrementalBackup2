@@ -3,6 +3,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Tuple
 
+import pytest
+
 from incremental_backup.backup.backup import BackupResults, compile_exclude_pattern, do_backup, execute_backup_plan, \
     is_path_excluded, scan_filesystem
 from incremental_backup.backup.plan import BackupPlan
@@ -35,14 +37,12 @@ def test_scan_filesystem_no_excludes(tmpdir) -> None:
     with AssertFilesystemUnmodified(tmpdir):
         root, paths_skipped = scan_filesystem(tmpdir, ())
 
-    MODIFY_TIME_TOLERANCE = 5       # Seconds
-
     assert not paths_skipped
 
     assert root.name == ''
     assert len(root.files) == 1 and len(root.subdirectories) == 3
     file = root.files[0]
-    assert file.name == 'file.txt' and abs((file.last_modified - time).total_seconds()) < MODIFY_TIME_TOLERANCE
+    assert file.name == 'file.txt' and abs((file.last_modified - time).total_seconds()) < FILE_MODIFY_TIME_TOLERANCE
     a = next(d for d in root.subdirectories if d.name == 'a')
     assert a.files == [] and len(a.subdirectories) == 2
     aa = next(d for d in a.subdirectories if d.name == 'aA')
@@ -54,9 +54,9 @@ def test_scan_filesystem_no_excludes(tmpdir) -> None:
     ba = next(d for d in b.subdirectories if d.name == 'ba')
     assert len(ba.files) == 2 and ba.subdirectories == []
     file_ba_1 = next(f for f in ba.files if f.name == 'file_ba_1.jpg')
-    assert abs((file_ba_1.last_modified - time).total_seconds()) < MODIFY_TIME_TOLERANCE
+    assert abs((file_ba_1.last_modified - time).total_seconds()) < FILE_MODIFY_TIME_TOLERANCE
     file_ba_2 = next(f for f in ba.files if f.name == 'FILE_ba_2.txt')
-    assert abs((file_ba_2.last_modified - time).total_seconds()) < MODIFY_TIME_TOLERANCE
+    assert abs((file_ba_2.last_modified - time).total_seconds()) < FILE_MODIFY_TIME_TOLERANCE
     bb = next(d for d in b.subdirectories if d.name == 'bb')
     assert bb.files == [] and len(bb.subdirectories) == 1
     bba = next(d for d in bb.subdirectories if d.name == 'bba')
@@ -64,7 +64,7 @@ def test_scan_filesystem_no_excludes(tmpdir) -> None:
     bbaa = next(d for d in bba.subdirectories if d.name == 'bbaa')
     assert len(bbaa.files) == 1 and bbaa.subdirectories == []
     file_bbaa = bbaa.files[0]
-    assert file_bbaa.name == 'file\u4569_bbaa' and abs((file_bbaa.last_modified - time).total_seconds()) < MODIFY_TIME_TOLERANCE
+    assert file_bbaa.name == 'file\u4569_bbaa' and abs((file_bbaa.last_modified - time).total_seconds()) < FILE_MODIFY_TIME_TOLERANCE
     c = next(d for d in root.subdirectories if d.name == 'C')
     assert c.files == [] and c.subdirectories == []
 
@@ -93,28 +93,26 @@ def test_scan_filesystem_some_excludes(tmpdir) -> None:
     with AssertFilesystemUnmodified(tmpdir):
         root, paths_skipped = scan_filesystem(tmpdir, exclude_patterns)
 
-    MODIFY_TIME_TOLERANCE = 5       # Seconds
-
     assert not paths_skipped
 
     assert root.name == ''
     assert len(root.files) == 1 and len(root.subdirectories) == 2
     foo_jpg = next(f for f in root.files if f.name == 'foo.jpg')
-    assert abs((foo_jpg.last_modified - time).total_seconds()) < MODIFY_TIME_TOLERANCE
+    assert abs((foo_jpg.last_modified - time).total_seconds()) < FILE_MODIFY_TIME_TOLERANCE
     code = next(d for d in root.subdirectories if d.name == 'Code')
     assert len(code.files) == 0 and len(code.subdirectories) == 1
     project = next(d for d in code.subdirectories if d.name == 'project')
     assert len(project.files) == 1 and len(project.subdirectories) == 2
     readme = next(f for f in project.files if f.name == 'README')
-    assert abs((readme.last_modified - time).total_seconds()) < MODIFY_TIME_TOLERANCE
+    assert abs((readme.last_modified - time).total_seconds()) < FILE_MODIFY_TIME_TOLERANCE
     src = next(d for d in project.subdirectories if d.name == 'src')
     assert len(src.files) == 1 and len(src.subdirectories) == 0
     main_cpp = next(f for f in src.files if f.name == 'main.cpp')
-    assert abs((main_cpp.last_modified - time).total_seconds()) < MODIFY_TIME_TOLERANCE
+    assert abs((main_cpp.last_modified - time).total_seconds()) < FILE_MODIFY_TIME_TOLERANCE
     bin_ = next(d for d in project.subdirectories if d.name == 'bin')
     assert len(bin_.files) == 1 and len(bin_.subdirectories) == 0
     program_exe = next(f for f in bin_.files if f.name == 'Program.exe')
-    assert abs((program_exe.last_modified - time).total_seconds()) < MODIFY_TIME_TOLERANCE
+    assert abs((program_exe.last_modified - time).total_seconds()) < FILE_MODIFY_TIME_TOLERANCE
     empty = next(d for d in root.subdirectories if d.name == 'empty')
     assert len(empty.files) == 0 and len(empty.subdirectories) == 0
 
@@ -173,8 +171,8 @@ def test_execute_backup_plan(tmpdir) -> None:
     on_copy_error = lambda s, d, e: copy_errors.append((s, d, e))
 
     with AssertFilesystemUnmodified(source_path):
-        results, manifest = execute_backup_plan(plan, source_path, destination_path,
-                                                on_mkdir_error=on_mkdir_error, on_copy_error=on_copy_error)
+        actual_results, actual_manifest = execute_backup_plan(
+            plan, source_path, destination_path, on_mkdir_error=on_mkdir_error, on_copy_error=on_copy_error)
 
     (destination_path / 'something' / 'uh oh').unlink(missing_ok=False)
 
@@ -203,8 +201,8 @@ def test_execute_backup_plan(tmpdir) -> None:
     assert (destination_path / 'something' / 'qwerty' / 'wtoeiur').read_text() == 'content'
     assert dir_entries(destination_path / 'nonexistent_directory') == set()
 
-    assert results == expected_results
-    assert manifest == expected_manifest
+    assert actual_results == expected_results
+    assert actual_manifest == expected_manifest
 
     assert len(mkdir_errors) == 1
     assert mkdir_errors[0][0] == destination_path / 'something' / 'uh oh'
@@ -217,6 +215,33 @@ def test_execute_backup_plan(tmpdir) -> None:
     assert copy_errors[1][0] == source_path / 'nonexistent_directory' / 'flower'
     assert copy_errors[1][1] == destination_path / 'nonexistent_directory' / 'flower'
     assert isinstance(copy_errors[1][2], FileNotFoundError)
+
+
+def test_execute_backup_plan_empty_plan(tmpdir) -> None:
+    # Empty backup plan and empty source directory.
+
+    source_path = tmpdir / 'source'
+    source_path.mkdir()
+
+    destination_path = tmpdir / 'destination'
+    destination_path.mkdir()
+
+    plan = BackupPlan()
+
+    on_mkdir_error = lambda p, e: pytest.fail(f'Unexpected mkdir error: {p=} {e=}')
+    on_copy_error = lambda s, d, e: pytest.fail(f'Unexpected copy error: {s=} {d=} {e=}')
+
+    with AssertFilesystemUnmodified(source_path):
+        actual_results, actual_manifest = execute_backup_plan(
+            plan, source_path, destination_path, on_mkdir_error=on_mkdir_error, on_copy_error=on_copy_error)
+
+    expected_results = BackupResults(False, 0, 0)
+    expected_manifest = BackupManifest()
+
+    assert actual_results == expected_results
+    assert actual_manifest == expected_manifest
+
+    assert dir_entries(destination_path) == set()
 
 
 def test_do_backup(tmpdir) -> None:
@@ -233,7 +258,7 @@ def test_do_backup(tmpdir) -> None:
     (source_path / 'foo').mkdir()
     (source_path / 'foo' / 'bar.avi').write_text('ignoreme!')       # New, but excluded
     (source_path / 'amazing_code_proj').mkdir()
-    (source_path / 'amazing_code_proj' / '.git').mkdir()        # Existing, but excluded -> removed, hm
+    (source_path / 'amazing_code_proj' / '.git').mkdir()        # Existing, but excluded -> removed, hmm
     (source_path / 'amazing_code_proj' / '.git' / 'config').touch()     # Existing modified, but excluded
     (source_path / 'amazing_code_proj' / '.git' / 'objects').mkdir()
     (source_path / 'amazing_code_proj' / '.git' / 'objects' / 'something').touch()      # New, but excluded
@@ -246,7 +271,7 @@ def test_do_backup(tmpdir) -> None:
     backup_past = BackupMetadata(
         '43q86y55wysh', BackupStartInfo(datetime(2018, 2, 4, 6, 9, 19, tzinfo=timezone.utc)), None)
     backup_future = BackupMetadata(
-        '43q86y55wysh', BackupStartInfo(datetime.now(timezone.utc) + timedelta(days=1)), None)
+        '590tgyerhgdd', BackupStartInfo(datetime.now(timezone.utc) + timedelta(days=1)), None)
     backup_sum = BackupSum(BackupSum.Directory('',
         files=[
             BackupSum.File('why why why', backup_past),
@@ -275,11 +300,24 @@ def test_do_backup(tmpdir) -> None:
 
     # Not sure how to test error situations.
 
+    excludes: List[Path] = []
+    on_exclude = lambda p: excludes.append(p)
+
+    on_listdir_error = lambda p, e: pytest.fail(f'Unexpected listdir error: {p=} {e=}')
+    on_metadata_error = lambda p, e: pytest.fail(f'Unexpected metadata error: {p=} {e=}')
+    on_mkdir_error = lambda p, e: pytest.fail(f'Unexpected mkdir error: {p=} {e=}')
+    on_copy_error = lambda s, d, e: pytest.fail(f'Unexpected copy error: {s=} {d=} {e=}')
+
     with AssertFilesystemUnmodified(source_path):
-        actual_results, actual_manifest = do_backup(source_path, destination_path, exclude_patterns, backup_sum)
+        actual_results, actual_manifest = do_backup(
+            source_path, destination_path, exclude_patterns, backup_sum,
+            on_exclude=on_exclude,
+            on_listdir_error=on_listdir_error, on_metadata_error=on_metadata_error,
+            on_mkdir_error=on_mkdir_error, on_copy_error=on_copy_error)
+
+    assert unordered_equal(excludes, [source_path / 'foo' / 'bar.avi', source_path / 'amazing_code_proj' / '.git'])
 
     expected_results = BackupResults(False, files_copied=4, files_removed=2)
-
     assert actual_results == expected_results
 
     assert unordered_equal(actual_manifest.root.copied_files, ('new', 'why why why'))
@@ -395,3 +433,7 @@ def test_is_path_excluded_advanced() -> None:
     assert not is_path_excluded('/foo.git/', patterns)
     assert not is_path_excluded('/.git.bar/', patterns)
     assert not is_path_excluded('/__pycache__/yeah/man/', patterns)
+
+
+# Tolerance on file last modification time for testing scan_filesystem().
+FILE_MODIFY_TIME_TOLERANCE = 5      # Seconds

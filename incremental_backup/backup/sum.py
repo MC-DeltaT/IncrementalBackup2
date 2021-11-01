@@ -29,7 +29,7 @@ class BackupSum:
         files: List['BackupSum.File'] = field(default_factory=list)
         subdirectories: List['BackupSum.Directory'] = field(default_factory=list)
 
-    root: Directory
+    root: Directory = field(default_factory=lambda: BackupSum.Directory(''))
     """The root of the reconstructed file/directory structure.
         This object represents the backup source directory.
     """
@@ -42,16 +42,16 @@ class BackupSum:
                 be meaningless.
         """
 
-        root = BackupSum.Directory('')
+        backup_sum = cls()
 
         backups_sorted = sorted(backups, key=lambda b: b.start_info.start_time)
 
         # List of all directories. Parent will always occur before child in list.
-        directories: List[BackupSum.Directory] = [root]
+        directories: List[BackupSum.Directory] = [backup_sum.root]
 
         for backup in backups_sorted:
             search_stack: List[Union[BackupManifest.Directory, None]] = [backup.manifest.root]
-            sum_stack = [root]
+            sum_stack = [backup_sum.root]
             is_root = True
             while search_stack:
                 search_directory = search_stack.pop()
@@ -103,4 +103,4 @@ class BackupSum:
             nonempty_map[id(directory)] = nonempty
             directory.subdirectories = nonempty_subdirectories
 
-        return cls(root)
+        return backup_sum

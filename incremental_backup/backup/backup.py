@@ -2,6 +2,7 @@ import os.path
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import partial
+from os import PathLike
 import os.path
 from pathlib import Path
 import re
@@ -31,8 +32,8 @@ class BackupResults:
     files_removed: int
 
 
-def do_backup(source_path: Path, destination_path: Path, exclude_patterns: Iterable[re.Pattern], backup_sum: BackupSum,
-              *,
+def do_backup(source_path: PathLike, destination_path: PathLike, exclude_patterns: Iterable[re.Pattern],
+              backup_sum: BackupSum, *,
               on_exclude: Optional[Callable[[Path], None]] = None,
               on_listdir_error: Optional[Callable[[Path, OSError], None]] = None,
               on_metadata_error: Optional[Callable[[Path, OSError], None]] = None,
@@ -55,7 +56,7 @@ def do_backup(source_path: Path, destination_path: Path, exclude_patterns: Itera
     return results, manifest
 
 
-def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_path: Path, *,
+def execute_backup_plan(backup_plan: BackupPlan, source_path: PathLike, destination_path: PathLike, *,
                         on_mkdir_error: Optional[Callable[[Path, OSError], None]] = None,
                         on_copy_error: Optional[Callable[[Path, Path, OSError], None]] = None) \
         -> Tuple[BackupResults, BackupManifest]:
@@ -78,6 +79,9 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
             argument is the destination path, third argument is the raised exception.
         :return: First element is the backup results, second element is the backup manifest.
     """
+
+    source_path = Path(source_path)
+    destination_path = Path(destination_path)
 
     if on_mkdir_error is None:
         on_mkdir_error = lambda p, e: None
@@ -138,7 +142,7 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
                              if not mkdir_failed or d.contains_removed_items]
 
         # Only need to create and fill in the manifest entry if there is anything to put in it. I.e. if there are copied
-        # files or removed file/directories to be recorded, or child entries. This may not always be true if creating
+        # files or removed files/directories to be recorded, or child entries. This may not always be true if creating
         # the destination directory failed.
         if copied_files or search_directory.removed_files or search_directory.removed_directories or children_to_visit:
             if is_root:
@@ -165,7 +169,7 @@ def execute_backup_plan(backup_plan: BackupPlan, source_path: Path, destination_
     return results, manifest
 
 
-def scan_filesystem(path: Path, exclude_patterns: Iterable[re.Pattern],
+def scan_filesystem(path: PathLike, /, exclude_patterns: Iterable[re.Pattern],
                     on_exclude: Optional[Callable[[Path], None]] = None, *,
                     on_listdir_error: Optional[Callable[[Path, OSError], None]] = None,
                     on_metadata_error: Optional[Callable[[Path, OSError], None]] = None) \
@@ -186,6 +190,8 @@ def scan_filesystem(path: Path, exclude_patterns: Iterable[re.Pattern],
             directory at `path`). Second element indicates if any paths were skipped due to I/O errors (does not include
             paths matched by `exclude_patterns`).
     """
+
+    path = Path(path)
 
     if on_exclude is None:
         on_exclude = lambda p: None

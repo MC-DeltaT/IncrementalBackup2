@@ -45,7 +45,7 @@ def test_write_backup_manifest(tmpdir) -> None:
         actual = file.read()
 
     expected = \
-"""[
+'''[
 {
 "n": "",
 "cf": [
@@ -89,14 +89,14 @@ def test_write_backup_manifest(tmpdir) -> None:
 "bazinga"
 ]
 }
-]"""
+]'''
 
     assert actual == expected
 
 
 def test_read_backup_manifest_valid(tmpdir) -> None:
     path = tmpdir / 'manifest_valid.json'
-    contents = """[
+    contents = '''[
         {"n": "", "cf": ["myfile675"], "rf": []},
         {"n": "dir1", "cf": ["running", "out"]},
         "^1",
@@ -104,7 +104,7 @@ def test_read_backup_manifest_valid(tmpdir) -> None:
         {"n": "yeah", "cf": ["I", "am"]},
         "^2",
         {"n": "finally", "rd": ["barz", "wumpus"], "rf": ["w\x23o\x64r\x79l\u8794d\u1234"]}
-    ]"""
+    ]'''
     with open(path, 'w', encoding='utf8') as file:
         file.write(contents)
 
@@ -162,7 +162,8 @@ def test_read_backup_manifest_invalid(tmpdir) -> None:
         '[{"n": "", "rf": ["ab", True]}]',
         '[{"n": "", "rd": ["bar", null, "qux"]}]',
         '[{"n": "", "cf": ["f1"], "rf": ["f2"], "extra": "value"}]',
-        '[{n: "", "cf": ["f1"]}]'
+        '[{n: "", "cf": ["f1"]}]',
+        '[{"n": "", "cf": ["something"]}, {"n": "mydir", '
     )
 
     for i, data in enumerate(datas):
@@ -184,12 +185,12 @@ def test_read_backup_manifest_nonexistent(tmpdir) -> None:
 
 def test_read_backup_manifest_directory_reentry(tmpdir) -> None:
     path = tmpdir / 'manifest_reentrant.json'
-    contents = """[
+    contents = '''[
         {"n": ""},
         {"n": "mydir", "cf": ["copied_file1"], "rf": ["rf1"], "rd": ["rdir1"]},
         "^1",
         {"n": "mydir", "rd": ["removed_dir1"], "cf": ["cf2"], "rf": ["removed_f_2"]}
-    ]"""
+    ]'''
     with open(path, 'w', encoding='utf8') as file:
         file.write(contents)
 

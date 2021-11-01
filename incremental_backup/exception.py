@@ -1,6 +1,3 @@
-from abc import ABC
-
-
 __all__ = [
     'FatalArgumentError',
     'FatalError',
@@ -8,7 +5,7 @@ __all__ = [
 ]
 
 
-class FatalError(ABC, Exception):
+class FatalError(Exception):
     """High-level, unrecoverable application error. Prefer not use this class itself, create a specific subclass.
         This type of error probably shouldn't be caught except at the highest scope."""
 
@@ -28,7 +25,7 @@ class FatalArgumentError(FatalError):
     def __init__(self, message: str, usage: str) -> None:
         """
             :param message: Specific description of the error.
-            :param usage: Program usage info string, to show the user the correct usage.
+            :param usage: Program usage information string to display to the user.
         """
 
         super().__init__(message)
@@ -36,4 +33,4 @@ class FatalArgumentError(FatalError):
 
 
 class FatalRuntimeError(FatalError):
-    """Indicates an unrecoverable error only detectable at runtime (e.g. I/O error)."""
+    """Indicates an unrecoverable error that can't be detected in advance (e.g. I/O error)."""

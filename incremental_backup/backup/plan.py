@@ -81,8 +81,8 @@ class BackupPlan:
                     backed_up_file = next(
                         (f for f in backup_sum_directory.files if path_name_equal(f.name, current_file.name)), None)
                     # File never backed up or modified since last backup.
-                    if backed_up_file is None \
-                            or current_file.last_modified > backed_up_file.last_backup.start_info.start_time:
+                    if (backed_up_file is None
+                            or current_file.last_modified > backed_up_file.last_backup.start_info.start_time):
                         plan_directory.copied_files.append(current_file.name)
 
                 plan_directory.removed_files.extend(

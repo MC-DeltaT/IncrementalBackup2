@@ -41,7 +41,7 @@ def script_entrypoint() -> NoReturn:
 
 
 def script_main(arguments: Sequence[str], /) -> int:
-    """Intermediate entrypoint function which is handy for testing purposes.
+    """Intermediate entrypoint function which may be handy for testing purposes.
 
         :param arguments: The program command line arguments.
         :return: Process exit code.

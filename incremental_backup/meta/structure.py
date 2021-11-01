@@ -11,7 +11,7 @@ __all__ = [
     'create_new_backup_directory',
     'DATA_DIRECTORY_NAME',
     'generate_backup_name',
-    'LOG_FILENAME',
+    # 'LOG_FILENAME',
     'MANIFEST_FILENAME',
     'START_INFO_FILENAME'
 ]
@@ -26,8 +26,8 @@ START_INFO_FILENAME = 'start.json'
 COMPLETE_INFO_FILENAME = 'completion.json'
 """The name of the backup completion information file within a backup directory."""
 
-LOG_FILENAME = 'log.txt'
-"""The name of the application log file within a backup directory."""
+# LOG_FILENAME = 'log.txt'
+# """The name of the application log file within a backup directory."""
 
 DATA_DIRECTORY_NAME = 'data'
 """The name of the backup data directory within a backup directory."""
@@ -41,7 +41,7 @@ BACKUP_DIRECTORY_CREATION_RETRIES = 20
 
 def generate_backup_name() -> str:
     """Generates a (very likely) unique name for a backup.
-        The name has length `BACKUP_NAME_LENGTH` and consists of only lowercase alphabetic characters and digits.
+        The name has length `BACKUP_NAME_LENGTH` and consists of only lowercase ASCII alphabetic characters and digits.
     """
 
     chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -50,7 +50,7 @@ def generate_backup_name() -> str:
 
 
 def create_new_backup_directory(target_directory: PathLike, /) -> str:
-    """Creates a new backup directory in the given directory.
+    """Creates a new backup directory in the given directory (which may not necessarily exist).
         Will try up to `BACKUP_DIRECTORY_CREATION_RETRIES` to create a new directory before failing.
 
         :return: Name of the new backup directory.

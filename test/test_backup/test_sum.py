@@ -7,7 +7,7 @@ from incremental_backup.meta.start_info import BackupStartInfo
 
 
 def test_backup_sum_empty() -> None:
-    backup_sum = BackupSum.from_backups(())
+    backup_sum = BackupSum()
     assert backup_sum == BackupSum(BackupSum.Directory('', [], []))
 
     backup_sum = BackupSum.from_backups((

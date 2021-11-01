@@ -19,6 +19,7 @@ __all__ = [
 ]
 
 
+# TODO? make this module into a class
 # TODO? use some sort of customisable logger instead of printing straight to the console for info and warnings
 
 
@@ -33,7 +34,7 @@ def add_arg_subparser(subparser, /) -> None:
     parser.add_argument('source_dir', action='store', type=Path, help='Directory to back up.')
     parser.add_argument('target_dir', action='store', type=Path, help='Directory to back up into.')
     parser.add_argument(
-        '--exclude-pattern', action='append', type=compile_exclude_pattern, required=False,
+        '--exclude', action='append', type=compile_exclude_pattern, required=False,
         help='Path pattern(s) to exclude. Can be specified more than once')
 
 
@@ -46,7 +47,7 @@ def entrypoint(arguments, /) -> None:
 
     source_path: Path = arguments.source_dir
     target_path: Path = arguments.target_dir
-    exclude_patterns: Sequence[re.Pattern] = arguments.exclude_pattern or ()
+    exclude_patterns: Sequence[re.Pattern] = arguments.exclude or ()
 
     validate_source_directory(source_path)
     validate_target_directory(target_path)
@@ -124,12 +125,12 @@ def read_previous_backups(target_path: Path, /) -> List[BackupMetadata]:
         start_info_path = directory / START_INFO_FILENAME
         manifest_path = directory / MANIFEST_FILENAME
         # Note: do not check for length of backup name, in case we change it in the future.
-        return directory.name.isalnum() and start_info_path.is_file() and manifest_path.is_file()
-
-    if not target_path.exists():
-        return []
+        return (directory.name.isascii() and directory.name.isalnum() and start_info_path.is_file()
+                and manifest_path.is_file())
 
     try:
+        if not target_path.exists():
+            return []
         subdirectories = [d for d in target_path.iterdir() if d.is_dir()]
     except OSError as e:
         raise FatalRuntimeError(f'Failed to enumerate previous backups: {e}') from e

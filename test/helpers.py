@@ -1,9 +1,12 @@
+from datetime import datetime
 from functools import reduce
 from hashlib import md5
 from operator import xor
-from os import PathLike
+from os import PathLike, utime
 from pathlib import Path
-from typing import Hashable, Sequence, Set
+import subprocess
+import sys
+from typing import Hashable, Optional, Sequence, Set
 
 
 __all__ = [
@@ -12,7 +15,9 @@ __all__ = [
     'compute_filesystem_hash',
     'compute_directory_hash',
     'dir_entries',
-    'unordered_equal'
+    'run_application',
+    'unordered_equal',
+    'write_file_with_mtime'
 ]
 
 
@@ -96,3 +101,17 @@ def compute_filesystem_hash(path: Path, /) -> bytes:
         return compute_directory_hash(path)
     else:
         raise ValueError('Path not file or directory')
+
+
+def write_file_with_mtime(file: Path, contents: str, m_a_time: datetime, encoding: Optional[str] = None) -> None:
+    """Writes text to a file and sets the last modified and access times."""
+
+    file.write_text(contents, encoding=encoding)
+    timestamp = m_a_time.timestamp()
+    utime(file, (timestamp, timestamp))
+
+
+def run_application(arguments: Sequence[str]) -> subprocess.CompletedProcess:
+    """Runs the incremental backup program with the given arguments in a new process and returns the results."""
+    return subprocess.run(
+        [sys.executable, './incremental_backup.py'] + list(arguments), capture_output=True, encoding='utf8')
