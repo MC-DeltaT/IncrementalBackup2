@@ -11,8 +11,9 @@ It might cause the application to behave in an unexpected manner (although I hav
 
 The target directory is where the backup command stores all the backup data it creates.
 
-Each backup is fully contained within its own directory. These directories are named with 16 random ASCII alphanumeric characters.  
-The contents of a backup directory is described in the _Backup Directory Structure_ section.
+Each backup is fully contained within its own directory.
+These directories are named with 16 random lowercase ASCII alphanumeric characters.  
+The contents of a backup directory is described in the _Backup Directory_ section.
 
 ## Backup Directory
 
@@ -68,7 +69,7 @@ Each of `cf`, `rf`, and `rd` are only present if they are nonempty, to save spac
 
 A string entry represents backtracking the current search directory to one of its ancestors.  
 Such an entry has the format `^n`, where `n` is an integer greater than 0, specifying the number of single backtracks to perform.  
-This shall never cause a backtrack past the backup source directory.
+This shall never cause a backtrack past the backup source directory.  
 The format of these entries allows multiple backtracks at once while using as little file space as possible.
 To save even more space, trailing backtrack entries are not stored in the manifest, as they are not required.
 

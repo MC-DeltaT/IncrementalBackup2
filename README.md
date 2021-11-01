@@ -6,7 +6,8 @@ by Reece Jones
 
 Unlike Linux, which has awesome tools like rsync, Windows does not seem to have a good selection of free backup tools.
 There is the Windows system image backup, but that does full backups only. There is also File History, but that is janky and largely opaque.
-Thus, I created this tool. Some of its design goals:
+
+Thus, I created this tool. Some of its design goals are:
 
  - free, open source
  - as simple as possible (no installation, no GUI, no fluff)
@@ -78,7 +79,7 @@ To start using this application, you probably want to have a look at `BackupUsag
 With your working directory as the project root directory:
 
 ```
-python3 -m pytest ./
+python3 -m pytest .
 ```
 
 This runs a suite of unit and integration tests.
