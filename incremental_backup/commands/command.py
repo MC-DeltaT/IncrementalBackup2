@@ -9,7 +9,7 @@ __all__ = [
 
 class Command(ABC):
     """Contains the functionality for one "command" of the incremental backup tool.
-        A command is a specific mode of operation, i.e. backup, restore, etc. The principle is the same as git commands,
+        A command is a specific mode of operation, i.e. backup, restore, etc. The principle is the same as Git commands,
         e.g. "git add", "git commit".
     """
 

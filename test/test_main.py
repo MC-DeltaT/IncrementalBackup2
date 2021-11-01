@@ -259,7 +259,7 @@ def test_backup_some_previous_backups(tmpdir) -> None:
 
     start_time = datetime.now(timezone.utc)
     with AssertFilesystemUnmodified(source_path):
-        process = run_application(('backup', str(source_path), str(target_path), '--exclude=/temp/'))
+        process = run_application(('backup', str(source_path), str(target_path), '--exclude', '/temp/'))
     end_time = datetime.now(timezone.utc)
 
     assert process.returncode == 0

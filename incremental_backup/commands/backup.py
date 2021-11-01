@@ -75,8 +75,8 @@ class BackupCommand(Command):
         parser.add_argument('source_dir', action='store', type=Path, help='Directory to back up.')
         parser.add_argument('target_dir', action='store', type=Path, help='Directory to back up into.')
         parser.add_argument(
-            '--exclude', action='append', type=compile_exclude_pattern, required=False,
-            help='Path pattern(s) to exclude. Can be specified more than once')
+            '--exclude', nargs='+', type=compile_exclude_pattern, required=False,
+            help='Path patterns to exclude.')
 
     def _validate_source_directory(self) -> None:
         """Validates the backup source directory.
