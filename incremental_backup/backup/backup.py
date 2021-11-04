@@ -1,285 +1,300 @@
-import os.path
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from functools import partial
 from os import PathLike
-import os.path
 from pathlib import Path
-import re
-import shutil
-from typing import Callable, Iterable, List, Optional, Tuple
+from typing import Callable, Iterable, Optional, Sequence
 
-from ..meta import BackupManifest
-from ..utility import filesystem
-from .plan import BackupPlan
+from ..meta import BackupCompleteInfo, BackupDirectoryCreationError, BackupManifest, \
+    BackupMetadata, BackupStartInfo, COMPLETE_INFO_FILENAME, create_new_backup_directory, \
+    DATA_DIRECTORY_NAME, MANIFEST_FILENAME, read_backups, ReadBackupsCallbacks, START_INFO_FILENAME, \
+    write_backup_complete_info, write_backup_manifest, write_backup_start_info
+from .exclude import ExcludePattern
+from .filesystem import scan_filesystem, ScanFilesystemCallbacks
+from .plan import BackupPlan, execute_backup_plan, ExecuteBackupPlanCallbacks
 from .sum import BackupSum
 
 
 __all__ = [
+    'BackupCallbacks',
+    'BackupError',
+    'BackupOperation',
     'BackupResults',
-    'compile_exclude_pattern',
-    'do_backup',
-    'execute_backup_plan',
-    'is_path_excluded',
-    'scan_filesystem'
+    'perform_backup'
 ]
 
 
-@dataclass
+@dataclass(frozen=True)
 class BackupResults:
-    paths_skipped: bool
+    backup_path: Path
+    start_info: BackupStartInfo
+    manifest: BackupManifest
+    complete_info: BackupCompleteInfo
     files_copied: int
     files_removed: int
 
 
-def do_backup(source_path: PathLike, destination_path: PathLike, exclude_patterns: Iterable[re.Pattern],
-              backup_sum: BackupSum, *,
-              on_exclude: Optional[Callable[[Path], None]] = None,
-              on_listdir_error: Optional[Callable[[Path, OSError], None]] = None,
-              on_metadata_error: Optional[Callable[[Path, OSError], None]] = None,
-              on_mkdir_error: Optional[Callable[[Path, OSError], None]] = None,
-              on_copy_error: Optional[Callable[[Path, Path, OSError], None]] = None) \
-        -> Tuple[BackupResults, BackupManifest]:
-    """Performs a backup operation, consisting of scanning the source filesystem, constructing the backup plan, and
-        enacting the backup plan.
+@dataclass(frozen=True)
+class BackupCallbacks:
+    """Callbacks/hooks for events that occur during `perform_backup()`."""
 
-        Please see `scan_filesystem()`, `BackupPlan`, and `execute_backup_plan()` for more details.
+    on_before_read_previous_backups: Callable[[], None] = lambda: None
+    """Called just before reading previous backups from the target directory."""
+
+    read_backups: ReadBackupsCallbacks = ReadBackupsCallbacks()
+    """Callbacks for `read_backups()`."""
+
+    on_after_read_previous_backups: Callable[[Sequence[BackupMetadata]], None] = lambda backups: None
+    """Called just after the previous backups have been read from the target directory.
+        Argument is the collection of backup metadatas (in arbitrary order)."""
+
+    on_before_initialise_backup: Callable[[], None] = lambda: None
+    """Called just before creating and initialising the new backup directory."""
+
+    on_created_backup_directory: Callable[[Path], None] = lambda path: None
+    """Called just after creating the new backup directory.
+        Argument is the path to the directory."""
+
+    on_before_scan_source: Callable[[], None] = lambda: None
+    """Called just before scanning the source directory."""
+
+    scan: ScanFilesystemCallbacks = ScanFilesystemCallbacks()
+    """Callbacks for `scan_filesystem()`."""
+
+    on_before_copy_files: Callable[[], None] = lambda: None
+    """Called just before copying files to the backup."""
+
+    execute: ExecuteBackupPlanCallbacks = ExecuteBackupPlanCallbacks()
+    """Callbacks for `execute_backup_plan()`."""
+
+    on_before_save_metadata: Callable[[], None] = lambda: None
+    """Called just before saving the manifest and completion information to file."""
+
+    on_write_complete_info_error: Callable[[Path, OSError], None] = lambda path, error: None
+    """Called when writing the backup completion information file fails.
+        First argument is the path to the file, second argument is the raised exception."""
+
+
+def perform_backup(source_directory: PathLike, target_directory: PathLike, exclude_patterns: Iterable[ExcludePattern],
+                   callbacks: BackupCallbacks = BackupCallbacks()) -> BackupResults:
+    """Performs the entire operation of creating a new backup, including creating the backup directory, copying files,
+        and saving metadata.
+
+        :param source_directory: Directory to back up.
+        :param target_directory: Directory to create the new backup in, and where ay previous backups are read from.
+        :param exclude_patterns: Patterns to match paths which will be excluded from the backup.
+        :param callbacks: Callbacks/hooks for certain events during execution. See `BackupCallbacks`.
+        :return: Metadata and summary information for the backup operation.
+        :except BackupError: If an error occurs that prevents the backup operation from creating a valid backup.
     """
 
-    source_tree, paths_skipped = scan_filesystem(
-        source_path, exclude_patterns, on_exclude,
-        on_listdir_error=on_listdir_error, on_metadata_error=on_metadata_error)
-    backup_plan = BackupPlan.new(source_tree, backup_sum)
-    results, manifest = execute_backup_plan(backup_plan, source_path, destination_path,
-                                            on_mkdir_error=on_mkdir_error, on_copy_error=on_copy_error)
-    results.paths_skipped |= paths_skipped
-    return results, manifest
+    return BackupOperation(source_directory, target_directory, exclude_patterns, callbacks).perform_backup()
 
 
-def execute_backup_plan(backup_plan: BackupPlan, source_path: PathLike, destination_path: PathLike, *,
-                        on_mkdir_error: Optional[Callable[[Path, OSError], None]] = None,
-                        on_copy_error: Optional[Callable[[Path, Path, OSError], None]] = None) \
-        -> Tuple[BackupResults, BackupManifest]:
-    """Enacts a backup plan, copying files and creating the backup manifest.
+class BackupOperation:
+    """Implementation of the backup creation operation."""
 
-        If a file cannot be backup up (i.e. copied), it is ignored and excluded from the manifest.
+    def __init__(self, source_directory: PathLike, target_directory: PathLike,
+                 exclude_patterns: Iterable[ExcludePattern], callbacks: BackupCallbacks = BackupCallbacks()) -> None:
+        self.source_directory = Path(source_directory)
+        self.target_directory = Path(target_directory)
+        self.exclude_patterns = tuple(exclude_patterns)
+        self.callbacks = callbacks
 
-        If a directory cannot be created, no files will be backed up into it or its (planned) child directories.
-        Any files planned to be backed up within it will not be copied and will be excluded from the manifest.
-        However, any removed files or directories within it will still be recorded in the manifest.
+        self._init_working_data()
 
-        :param backup_plan: The backup plan to enact. Should be based off `source_path`, otherwise the results will be
-            nonsense.
-        :param source_path: The backup source directory; where files are copied from.
-        :param destination_path: The location to copy files to. This directory itself represents the backup source
-            directory.
-        :param on_mkdir_error: Called when an error is raised creating a directory. First argument is the directory
-            path, second argument is the raised exception.
-        :param on_copy_error: Called when an error is raised copying a file. First argument is the source path, second
-            argument is the destination path, third argument is the raised exception.
-        :return: First element is the backup results, second element is the backup manifest.
+    def perform_backup(self) -> BackupResults:
+        """Creates a new backup.
+
+            :except BackupError: If an error occurs that prevents the backup operation from creating a valid backup.
+        """
+
+        self._init_working_data()
+
+        self._validate_source_directory()
+        self._validate_target_directory()
+
+        self._read_previous_backups()
+        backup_sum = BackupSum.from_backups(self.previous_backups)
+
+        (self.callbacks.on_before_initialise_backup)()
+        self._create_backup_directory()
+        data_path = self._create_data_directory(self.backup_path)
+        self._create_start_info()
+
+        backup_plan = self._compute_backup_plan(backup_sum)
+        self._back_up_files(data_path, backup_plan)
+
+        (self.callbacks.on_before_save_metadata)()
+        self._save_manifest()
+        self._save_complete_info()
+
+        return BackupResults(
+            self.backup_path, self.start_info, self.manifest, self.complete_info, self.files_copied, self.files_removed)
+
+    def _init_working_data(self) -> None:
+        """Initialises various shared data used by and operated on by the methods in this class."""
+
+        self.previous_backups: Optional[Sequence[BackupMetadata]] = []
+        self.backup_path: Optional[Path] = None
+        self.start_info: Optional[BackupStartInfo] = None
+        self.manifest: Optional[BackupManifest] = None
+        self.complete_info: Optional[BackupCompleteInfo] = None
+        self.paths_skipped: Optional[bool] = None
+        self.files_copied: Optional[int] = None
+        self.files_removed: Optional[int] = None
+
+    def _validate_source_directory(self) -> None:
+        """Validates the backup source directory.
+            Should mostly prevent other parts of the backup operation from failing strangely for invalid inputs.
+
+            :except BackupError: If the source directory is not an accessible directory.
+        """
+
+        try:
+            if not self.source_directory.exists():
+                raise BackupError('Source directory not found')
+            if not self.source_directory.is_dir():
+                raise BackupError('Source directory is not a directory')
+        except OSError as e:
+            raise BackupError(f'Failed to query source directory: {e}') from e
+
+    def _validate_target_directory(self) -> None:
+        """Validates the backup target directory.
+            Should mostly prevent other parts of the backup operation from failing strangely for invalid inputs.
+
+            :except BackupError: If the target directory is inaccessible, or exists and is not a directory.
+        """
+
+        try:
+            if self.target_directory.exists() and not self.target_directory.is_dir():
+                raise BackupError('Target directory is not a directory')
+        except OSError as e:
+            raise BackupError(f'Failed to query target directory: {e}') from e
+
+    def _read_previous_backups(self) -> None:
+        """Reads existing backups' metadata from the backup target directory.
+
+            If any backup's metadata cannot be read, skips that backup.
+
+            :except BackupError: If the target directory cannot be enumerated.
+        """
+
+        (self.callbacks.on_before_read_previous_backups)()
+
+        try:
+            if not self.target_directory.exists():
+                backups = []
+            else:
+                backups = read_backups(self.target_directory, self.callbacks.read_backups)
+        except OSError as e:
+            raise BackupError(f'Failed to enumerate target directory: {e}') from e
+        backups = tuple(backups)
+        self.previous_backups = backups
+
+        (self.callbacks.on_after_read_previous_backups)(backups)
+
+    def _create_backup_directory(self) -> None:
+        """Creates a new backup directory within the target directory.
+
+            :except BackupError: If the directory could not be created.
+        """
+
+        try:
+            backup_name = create_new_backup_directory(self.target_directory)
+        except BackupDirectoryCreationError as e:
+            raise BackupError(str(e)) from e
+
+        backup_path = self.target_directory / backup_name
+        self.backup_path = backup_path
+
+        (self.callbacks.on_created_backup_directory)(backup_path)
+
+    @staticmethod
+    def _create_data_directory(backup_path: Path, /) -> Path:
+        """Creates the backup data directory (directory which contains the copied files).
+
+            :return: Path to the created directory.
+            :except BackupError: If the directory could not be created.
+        """
+
+        path = backup_path / DATA_DIRECTORY_NAME
+        try:
+            path.mkdir(parents=True, exist_ok=False)
+        except OSError as e:
+            raise BackupError(f'Failed to create backup data directory: {e}') from e
+        return path
+
+    def _create_start_info(self) -> None:
+        """Creates and writes the backup start information to file within the backup directory.
+
+            :except BackupError: If the file could not be written to.
+        """
+
+        start_info = BackupStartInfo(datetime.now(timezone.utc))
+        self.start_info = start_info
+        file_path = self.backup_path / START_INFO_FILENAME
+        try:
+            write_backup_start_info(file_path, start_info)
+        except OSError as e:
+            raise BackupError(f'Failed to write backup start information file: {e}') from e
+
+    def _compute_backup_plan(self, backup_sum: BackupSum) -> BackupPlan:
+        """Scans the source directory and generates the backup plan."""
+
+        (self.callbacks.on_before_scan_source)()
+        scan_results = scan_filesystem(self.source_directory, self.exclude_patterns, self.callbacks.scan)
+        self.paths_skipped = self.paths_skipped or scan_results.paths_skipped
+        backup_plan = BackupPlan.new(scan_results.tree, backup_sum)
+        return backup_plan
+
+    def _back_up_files(self, destination_path: PathLike, backup_plan: BackupPlan) -> None:
+        """Backs up files from the source directory to the backup directory according to the backup plan."""
+
+        (self.callbacks.on_before_copy_files)()
+        execute_results = execute_backup_plan(backup_plan, self.source_directory, destination_path, self.callbacks.execute)
+
+        self.paths_skipped = self.paths_skipped or execute_results.paths_skipped
+        self.manifest = execute_results.manifest
+        self.complete_info = BackupCompleteInfo(datetime.now(timezone.utc), self.paths_skipped)
+        self.files_copied = execute_results.files_copied
+        self.files_removed = execute_results.files_removed
+
+    def _save_manifest(self) -> None:
+        """Writes the backup manifest to file within the backup directory.
+
+            :except BackupError: If the file could not be written to.
+        """
+
+        file_path = self.backup_path / MANIFEST_FILENAME
+        try:
+            write_backup_manifest(file_path, self.manifest)
+        except OSError as e:
+            raise BackupError(f'Failed to write backup manifest file: {e}') from e
+
+    def _save_complete_info(self) -> None:
+        """Writes the backup completion information to file within the backup directory.
+
+            It is not a fatal error if this operation fails, since the completion information is not required by the
+            application at this time."""
+
+        file_path = self.backup_path / COMPLETE_INFO_FILENAME
+        try:
+            write_backup_complete_info(file_path, self.complete_info)
+        except OSError as e:
+            # Not fatal since the completion info isn't currently used by the software.
+            (self.callbacks.on_write_complete_info_error)(file_path, e)
+
+
+class BackupError(Exception):
+    """Raised when creating a backup fails such that a valid backup cannot be produced.
+
+        Some cases when this exception is raised:
+         - The source directory cannot be accessed at all.
+         - A new backup directory couldn't be created.
+         - Writing the backup start information file failed.
+         - Writing the backup manifest file failed.
     """
 
-    source_path = Path(source_path)
-    destination_path = Path(destination_path)
-
-    if on_mkdir_error is None:
-        on_mkdir_error = lambda p, e: None
-    if on_copy_error is None:
-        on_copy_error = lambda s, d, e: None
-
-    results = BackupResults(False, 0, 0)
-    manifest = BackupManifest()
-    search_stack: List[Callable[[], None]] = []
-    manifest_stack = [manifest.root]
-    path_segments: List[str] = []
-    is_root = True
-
-    def pop_manifest_node() -> None:
-        del manifest_stack[-1]
-
-    def pop_path_segment() -> None:
-        del path_segments[-1]
-
-    def visit_directory(search_directory: BackupPlan.Directory, /, mkdir_failed: bool) -> None:
-        if not is_root:
-            path_segments.append(search_directory.name)
-            search_stack.append(pop_path_segment)
-
-        copied_files: List[str] = []
-
-        # Once we fail to create a destination directory, or the current directory doesn't contain any more files to
-        # copy, no need to try to create the destination directory or copy any files.
-        if (not mkdir_failed) and search_directory.contains_copied_files:
-            relative_directory_path = Path(*path_segments)
-            destination_directory_path = destination_path / relative_directory_path
-
-            try:
-                destination_directory_path.mkdir(parents=True, exist_ok=True)
-            except OSError as e:
-                results.paths_skipped = True
-                mkdir_failed = True
-
-                on_mkdir_error(destination_directory_path, e)
-            else:
-                for file in search_directory.copied_files:
-                    relative_file_path = relative_directory_path / file
-                    source_file_path = source_path / relative_file_path
-                    destination_file_path = destination_path / relative_file_path
-                    try:
-                        shutil.copy2(source_file_path, destination_file_path)
-                    except OSError as e:
-                        results.paths_skipped = True
-                        on_copy_error(source_file_path, destination_file_path, e)
-                    else:
-                        copied_files.append(file)
-                        results.files_copied += 1
-
-        # Keep searching through child directories if:
-        #   a) destination directory was created successfully, or
-        #   b) destination directory creation failed, but there are still removed items to be recorded in the manifest.
-        children_to_visit = [d for d in reversed(search_directory.subdirectories)
-                             if not mkdir_failed or d.contains_removed_items]
-
-        # Only need to create and fill in the manifest entry if there is anything to put in it. I.e. if there are copied
-        # files or removed files/directories to be recorded, or child entries. This may not always be true if creating
-        # the destination directory failed.
-        if copied_files or search_directory.removed_files or search_directory.removed_directories or children_to_visit:
-            if is_root:
-                manifest_directory = manifest.root
-            else:
-                manifest_directory = BackupManifest.Directory(search_directory.name)
-                manifest_stack[-1].subdirectories.append(manifest_directory)
-                manifest_stack.append(manifest_directory)
-                search_stack.append(pop_manifest_node)
-
-            manifest_directory.copied_files = copied_files
-            manifest_directory.removed_files = search_directory.removed_files
-            results.files_removed += len(search_directory.removed_files)
-            manifest_directory.removed_directories = search_directory.removed_directories
-
-        # Need to use partial instead of lambda to avoid name rebinding issues.
-        search_stack.extend(partial(visit_directory, d, mkdir_failed) for d in children_to_visit)
-
-    search_stack.append(partial(visit_directory, backup_plan.root, False))
-    while search_stack:
-        search_stack.pop()()
-        is_root = False
-
-    return results, manifest
-
-
-def scan_filesystem(path: PathLike, /, exclude_patterns: Iterable[re.Pattern],
-                    on_exclude: Optional[Callable[[Path], None]] = None, *,
-                    on_listdir_error: Optional[Callable[[Path, OSError], None]] = None,
-                    on_metadata_error: Optional[Callable[[Path, OSError], None]] = None) \
-        -> Tuple[filesystem.Directory, bool]:
-    """Produces a tree representation of the filesystem at a given directory.
-
-        If any paths cannot be accessed for any reason, they will be skipped and excluded from the constructed tree.
-
-        :param path: The path of the directory to scan.
-        :param exclude_patterns: Compiled exclude patterns. If a directory or file matches any of these, it and its
-            descendents are not included in the scan.
-        :param on_exclude: Called when a file or directory is matched by `exclude_patterns` and is excluded.
-        :param on_listdir_error: Called when an error is raised when requesting the entries in a directory. First
-            argument is the directory path, second argument is the raised exception.
-        :param on_metadata_error: Called when an error is raised when requesting file or directory metadata. First
-            argument is the path of the file/directory being queried, second argument is the raised exception.
-        :return: First element is the root of the tree representation of the filesystem (the root represents the
-            directory at `path`). Second element indicates if any paths were skipped due to I/O errors (does not include
-            paths matched by `exclude_patterns`).
-    """
-
-    path = Path(path)
-
-    if on_exclude is None:
-        on_exclude = lambda p: None
-    if on_listdir_error is None:
-        on_listdir_error = lambda p, e: None
-    if on_metadata_error is None:
-        on_metadata_error = lambda p, e: None
-
-    paths_skipped = False
-    root = filesystem.Directory('')
-    search_stack: List[Callable[[], None]] = []
-    path_segments: List[str] = []
-    tree_node_stack = [root]
-    is_root = True
-
-    def pop_path_segment() -> None:
-        del path_segments[-1]
-
-    def pop_tree_node() -> None:
-        del tree_node_stack[-1]
-
-    def visit_directory(search_directory: Path, /) -> None:
-        if is_root:
-            directory_path = '/'
-        else:
-            path_segments.append(os.path.normcase(search_directory.name))
-            search_stack.append(pop_path_segment)
-            directory_path = '/' + '/'.join(path_segments) + '/'
-
-        if is_path_excluded(directory_path, exclude_patterns):
-            on_exclude(search_directory)
-        else:
-            if is_root:
-                tree_node = root
-            else:
-                # Pretty sure it is impossible to re-enter a directory during the search.
-                tree_node = filesystem.Directory(search_directory.name)
-                tree_node_stack[-1].subdirectories.append(tree_node)
-                tree_node_stack.append(tree_node)
-                search_stack.append(pop_tree_node)
-
-            try:
-                children = list(search_directory.iterdir())
-            except OSError as e:
-                on_listdir_error(search_directory, e)
-            else:
-                files: List[filesystem.File] = []
-                subdirectories: List[Path] = []
-                for child in children:
-                    try:
-                        if child.is_file():
-                            file_path = directory_path + os.path.normcase(child.name)
-                            if is_path_excluded(file_path, exclude_patterns):
-                                on_exclude(child)
-                            else:
-                                last_modified = datetime.fromtimestamp(os.path.getmtime(child), tz=timezone.utc)
-                                files.append(filesystem.File(child.name, last_modified))
-                        elif child.is_dir():
-                            subdirectories.append(child)
-                    except OSError as e:
-                        on_metadata_error(child, e)
-
-                tree_node.files.extend(files)
-                # Need to use partial instead of lambda to avoid name rebinding issues.
-                search_stack.extend(partial(visit_directory, d) for d in reversed(subdirectories))
-
-    search_stack.append(partial(visit_directory, path))
-    while search_stack:
-        search_stack.pop()()
-        is_root = False
-
-    return root, paths_skipped
-
-
-def compile_exclude_pattern(pattern: str, /) -> re.Pattern:
-    """Compiles a path exclude pattern provided by the user into a regex object (for performance reasons, so we don't
-        have to recompile patterns on every call to `is_path_excluded()`."""
-
-    return re.compile(pattern, re.DOTALL)
-
-
-def is_path_excluded(path: str, exclude_patterns: Iterable[re.Pattern], /) -> bool:
-    """Checks if a path is matched by any path exclude pattern.
-
-        :param path: The path in question. Should be an absolute POSIX-style path, where the root is the backup source
-            directory. Paths that are directories should end in a forward slash ('/'). Paths that are files should not
-            end in a forward slash. Path components should be normalised with `os.path.normcase()`.
-        :param exclude_patterns: Compiled path exclude patterns, from `compile_exclude_pattern()`.
-    """
-
-    return any(pattern.fullmatch(path) for pattern in exclude_patterns)
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import argparse
 from typing import ClassVar
 
 
@@ -16,7 +17,7 @@ class Command(ABC):
     COMMAND_STRING: ClassVar[str]
     """Name of the command as specified in the command line arguments."""
 
-    def __init__(self, arguments, /) -> None:
+    def __init__(self, arguments: argparse.Namespace, /) -> None:
         """
             :param arguments: The parsed command line arguments object acquired from argparse.
         """

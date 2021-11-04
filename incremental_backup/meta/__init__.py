@@ -1,5 +1,4 @@
 from .complete_info import *
 from .manifest import *
-from .metadata import *
+from .meta import *
 from .start_info import *
-from .structure import *

@@ -1,13 +1,21 @@
 from dataclasses import dataclass, field
 from functools import partial
+from os import PathLike
+from pathlib import Path
+import shutil
 from typing import Callable, List, Optional
 
-from ..utility import filesystem, path_name_equal
+from ..meta import BackupManifest
+from ..utility import path_name_equal
+from . import filesystem
 from .sum import BackupSum
 
 
 __all__ = [
-    'BackupPlan'
+    'BackupPlan',
+    'execute_backup_plan',
+    'ExecuteBackupPlanCallbacks',
+    'ExecuteBackupPlanResults'
 ]
 
 
@@ -115,3 +123,134 @@ class BackupPlan:
             directory.subdirectories = nonempty_subdirectories
 
         return plan
+
+
+@dataclass(frozen=True)
+class ExecuteBackupPlanResults:
+    manifest: BackupManifest
+    paths_skipped: bool
+    files_copied: int
+    files_removed: int
+
+
+@dataclass(frozen=True)
+class ExecuteBackupPlanCallbacks:
+    """Callbacks/hooks for events that occur in `execute_backup_plan()`."""
+
+    on_mkdir_error: Callable[[Path, OSError], None] = lambda path, error: None
+    """Called when an error is raised creating a directory.
+        First argument is the directory path, second argument is the raised exception."""
+
+    on_copy_error: Callable[[Path, Path, OSError], None] = lambda src, dest, error: None
+    """Called when an error is raised copying a file.
+        First argument is the source path, second argument is the destination path, third argument is the raised
+        exception."""
+
+
+def execute_backup_plan(backup_plan: BackupPlan, source_directory: PathLike, destination_directory: PathLike,
+                        callbacks: ExecuteBackupPlanCallbacks = ExecuteBackupPlanCallbacks()) \
+        -> ExecuteBackupPlanResults:
+    """Enacts a backup plan, copying files and creating the backup manifest.
+
+        If a file cannot be backup up (i.e. copied), it is ignored and excluded from the manifest.
+
+        If a directory cannot be created, no files will be backed up into it or its (planned) child directories.
+        Any files planned to be backed up within it will not be copied and will be excluded from the manifest.
+        However, any removed files or directories within it will still be recorded in the manifest.
+
+        :param backup_plan: The backup plan to enact. Should be based off `source_path`, otherwise the results will be
+            nonsense.
+        :param source_directory: The backup source directory; where files are copied from.
+        :param destination_directory: The location to copy files to. This directory itself represents the backup source
+            directory.
+        :param callbacks: Callbacks/hooks for certain events during execution. See `ExecuteBackupPlanCallbacks`.
+    """
+
+    source_directory = Path(source_directory)
+    destination_directory = Path(destination_directory)
+
+    manifest = BackupManifest()
+    paths_skipped = False
+    files_copied = 0
+    files_removed = 0
+    search_stack: List[Callable[[], None]] = []
+    manifest_stack = [manifest.root]
+    path_segments: List[str] = []
+    is_root = True
+
+    def pop_manifest_node() -> None:
+        del manifest_stack[-1]
+
+    def pop_path_segment() -> None:
+        del path_segments[-1]
+
+    def visit_directory(search_directory: BackupPlan.Directory, /, mkdir_failed: bool) -> None:
+        nonlocal paths_skipped
+        nonlocal files_copied
+        nonlocal files_removed
+
+        if not is_root:
+            path_segments.append(search_directory.name)
+            search_stack.append(pop_path_segment)
+
+        copied_files: List[str] = []
+
+        # Once we fail to create a destination directory, or the current directory doesn't contain any more files to
+        # copy, no need to try to create the destination directory or copy any files.
+        if (not mkdir_failed) and search_directory.contains_copied_files:
+            relative_directory_path = Path(*path_segments)
+            destination_directory_path = destination_directory / relative_directory_path
+
+            try:
+                destination_directory_path.mkdir(parents=True, exist_ok=True)
+            except OSError as e:
+                paths_skipped = True
+                mkdir_failed = True
+
+                (callbacks.on_mkdir_error)(destination_directory_path, e)
+            else:
+                for file in search_directory.copied_files:
+                    relative_file_path = relative_directory_path / file
+                    source_file_path = source_directory / relative_file_path
+                    destination_file_path = destination_directory / relative_file_path
+                    try:
+                        shutil.copy2(source_file_path, destination_file_path)
+                    except OSError as e:
+                        paths_skipped = True
+                        (callbacks.on_copy_error)(source_file_path, destination_file_path, e)
+                    else:
+                        copied_files.append(file)
+                        files_copied += 1
+
+        # Keep searching through child directories if:
+        #   a) destination directory was created successfully, or
+        #   b) destination directory creation failed, but there are still removed items to be recorded in the manifest.
+        children_to_visit = [d for d in reversed(search_directory.subdirectories)
+                             if not mkdir_failed or d.contains_removed_items]
+
+        # Only need to create and fill in the manifest entry if there is anything to put in it. I.e. if there are copied
+        # files or removed files/directories to be recorded, or child entries. This may not always be true if creating
+        # the destination directory failed.
+        if copied_files or search_directory.removed_files or search_directory.removed_directories or children_to_visit:
+            if is_root:
+                manifest_directory = manifest.root
+            else:
+                manifest_directory = BackupManifest.Directory(search_directory.name)
+                manifest_stack[-1].subdirectories.append(manifest_directory)
+                manifest_stack.append(manifest_directory)
+                search_stack.append(pop_manifest_node)
+
+            manifest_directory.copied_files = copied_files
+            manifest_directory.removed_files = search_directory.removed_files
+            files_removed += len(search_directory.removed_files)
+            manifest_directory.removed_directories = search_directory.removed_directories
+
+        # Need to use partial instead of lambda to avoid name rebinding issues.
+        search_stack.extend(partial(visit_directory, d, mkdir_failed) for d in children_to_visit)
+
+    search_stack.append(partial(visit_directory, backup_plan.root, False))
+    while search_stack:
+        search_stack.pop()()
+        is_root = False
+
+    return ExecuteBackupPlanResults(manifest, paths_skipped, files_copied, files_removed)

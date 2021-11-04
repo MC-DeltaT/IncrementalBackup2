@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from incremental_backup.backup.sum import BackupSum
 from incremental_backup.meta.manifest import BackupManifest
-from incremental_backup.meta.metadata import BackupMetadata
+from incremental_backup.meta.meta import BackupMetadata
 from incremental_backup.meta.start_info import BackupStartInfo
 
 

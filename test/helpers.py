@@ -6,14 +6,14 @@ from os import PathLike, utime
 from pathlib import Path
 import subprocess
 import sys
-from typing import Hashable, Optional, Sequence, Set
+from typing import Any, List, Optional, Sequence, Set
 
 
 __all__ = [
     'AssertFilesystemUnmodified',
+    'compute_directory_hash',
     'compute_file_hash',
     'compute_filesystem_hash',
-    'compute_directory_hash',
     'dir_entries',
     'run_application',
     'unordered_equal',
@@ -36,10 +36,22 @@ class AssertFilesystemUnmodified:
         assert self.hash_after == self.hash_before
 
 
-def unordered_equal(sequence1: Sequence[Hashable], sequence2: Sequence[Hashable]) -> bool:
+def unordered_equal(sequence1: Sequence[Any], sequence2: Sequence[Any]) -> bool:
     """Checks if two sequences contain the same items, ignoring ordering."""
 
-    return len(sequence1) == len(sequence2) and set(sequence1) == set(sequence2)
+    if len(sequence1) != len(sequence2):
+        return False
+
+    # Check 1-to-1 correspondence of items between sequences without hashing.
+    in_sequence1: List[bool] = [False for _ in range(len(sequence2))]
+    for item1 in sequence1:
+        for i, item2 in enumerate(sequence2):
+            if item1 == item2 and not in_sequence1[i]:
+                in_sequence1[i] = True
+                break
+        else:
+            return False
+    return True
 
 
 def dir_entries(path: Path, /) -> Set[str]:

@@ -2,8 +2,7 @@ import argparse
 import sys
 from typing import Mapping, NoReturn, Sequence, Type
 
-from .commands import BackupCommand, Command
-from .exception import FatalArgumentError, FatalError
+from .commands import BackupCommand, Command, CommandArgumentError, CommandError
 from .utility import print_error
 
 
@@ -35,11 +34,11 @@ def script_main(arguments: Sequence[str], /) -> int:
     try:
         api_entrypoint(arguments)
         return EXIT_CODE_SUCCESS
-    except FatalArgumentError as e:
+    except CommandArgumentError as e:
         print(e.usage, file=sys.stderr)
         print(e.message, file=sys.stderr)
         return EXIT_CODE_INVALID_ARGUMENTS
-    except FatalError as e:
+    except CommandError as e:
         print_error(str(e))
         return EXIT_CODE_GENERAL_ERROR
     except Exception as e:
@@ -51,8 +50,8 @@ def api_entrypoint(arguments: Sequence[str], /) -> None:
     """API-level entrypoint of the incremental backup program.
 
         :param arguments: The program command line arguments. Should not include the "program name" zeroth argument.
-        :except FatalArgumentError: If the command line arguments are invalid.
-        :except FatalError: If some other fatal error occurs.
+        :except CommandArgumentError: If the command line arguments are invalid.
+        :except CommandError: If some other fatal error occurs.
     """
 
     arg_parser = get_argument_parser()
@@ -82,7 +81,7 @@ class ArgumentParser(argparse.ArgumentParser):
 
     def error(self, message: str) -> NoReturn:
         full_message = f'{self.prog}: error: {message}'     # Same as base ArgumentParser
-        raise FatalArgumentError(full_message, self.format_usage())
+        raise CommandArgumentError(full_message, self.format_usage())
 
 
 COMMAND_CLASSES: Sequence[Type[Command]] = (

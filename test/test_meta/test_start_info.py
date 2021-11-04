@@ -12,16 +12,14 @@ def test_write_backup_start_info(tmpdir) -> None:
     path = tmpdir / 'start_info.json'
     start_info = BackupStartInfo(datetime(2021, 8, 13, 16, 54, 33, 1234, tzinfo=timezone.utc))
     write_backup_start_info(path, start_info)
-    with open(path, 'r', encoding='utf8') as file:
-        data = file.read()
+    data = path.read_text(encoding='utf8')
     expected = '{\n    "start_time": "2021-08-13T16:54:33.001234+00:00"\n}'
     assert data == expected
 
 
 def test_read_backup_start_info_valid(tmpdir) -> None:
     path = tmpdir / 'start_info_valid.json'
-    with open(path, 'w', encoding='utf8') as file:
-        file.write('{"start_time": "2020-12-30T09:34:10.123456+00:00"}')
+    path.write_text('{"start_time": "2020-12-30T09:34:10.123456+00:00"}', encoding='utf8')
 
     with AssertFilesystemUnmodified(tmpdir):
         actual = read_backup_start_info(path)
@@ -45,8 +43,7 @@ def test_read_backup_start_info_invalid(tmpdir) -> None:
 
     for i, data in enumerate(datas):
         path = tmpdir / f'start_info_invalid_{i}.json'
-        with open(path, 'w', encoding='utf8') as file:
-            file.write(data)
+        path.write_text(data, encoding='utf8')
 
         with AssertFilesystemUnmodified(tmpdir):
             with pytest.raises(BackupStartInfoParseError):

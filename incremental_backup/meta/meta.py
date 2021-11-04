@@ -1,0 +1,189 @@
+from dataclasses import dataclass
+from os import PathLike
+from pathlib import Path
+import random
+from typing import Callable, List, Union
+
+from .manifest import BackupManifest, BackupManifestParseError, read_backup_manifest
+from .start_info import BackupStartInfo, BackupStartInfoParseError, read_backup_start_info
+
+
+__all__ = [
+    'BACKUP_DIRECTORY_CREATION_RETRIES',
+    'BACKUP_NAME_LENGTH',
+    'BackupDirectoryCreationError',
+    'BackupMetadata',
+    'COMPLETE_INFO_FILENAME',
+    'create_new_backup_directory',
+    'DATA_DIRECTORY_NAME',
+    'generate_backup_name',
+    'check_if_probably_backup',
+    'MANIFEST_FILENAME',
+    'read_backup_metadata',
+    'read_backups',
+    'ReadBackupsCallbacks',
+    'START_INFO_FILENAME'
+]
+
+
+MANIFEST_FILENAME = 'manifest.json'
+"""The name of the backup manifest file within a backup directory."""
+
+START_INFO_FILENAME = 'start.json'
+"""The name of the backup start information file within a backup directory."""
+
+COMPLETE_INFO_FILENAME = 'completion.json'
+"""The name of the backup completion information file within a backup directory."""
+
+DATA_DIRECTORY_NAME = 'data'
+"""The name of the backup data directory within a backup directory."""
+
+
+def check_if_probably_backup(directory: PathLike, /) -> bool:
+    """Checks if a directory is likely to be a backup directory.
+
+        If the directory is a valid backup, and is accessible, then this function will return `True`.
+        If the directory is not a valid backup, then this function will probably return `False`, but may return `True`.
+
+        :except OSError: If querying the directory or its contents failed (excluding if the directory or its expected
+            contents don't exist).
+    """
+
+    directory = Path(directory)
+
+    start_info_path = directory / START_INFO_FILENAME
+    manifest_path = directory / MANIFEST_FILENAME
+    # Do not check for exact length of backup name, in case we change it in the future.
+    name = directory.name
+    return (directory.is_dir() and len(name) >= 10 and name.isascii() and name.isalnum() and start_info_path.is_file()
+            and manifest_path.is_file())
+
+
+@dataclass(frozen=True)
+class BackupMetadata:
+    """All useful metadata for a backup."""
+
+    name: str
+    start_info: BackupStartInfo
+    manifest: BackupManifest
+
+    # Backup completion information is not here because it is currently not read by the application.
+
+
+def read_backup_metadata(backup_directory: PathLike, /) -> BackupMetadata:
+    """Reads the metadata of a backup, i.e. the name, start information, and manifest.
+
+        :except OSError: If a metadata file could not be read.
+        :except BackupStartInfoParseError: If the backup start information file could not be parsed.
+        :except BackupManifestParseError: If the backup manifest file could not be parsed.
+    """
+
+    backup_directory = Path(backup_directory)
+    name = backup_directory.name
+    start_info = read_backup_start_info(backup_directory / START_INFO_FILENAME)
+    manifest = read_backup_manifest(backup_directory / MANIFEST_FILENAME)
+    return BackupMetadata(name, start_info, manifest)
+
+
+@dataclass(frozen=True)
+class ReadBackupsCallbacks:
+    on_query_entry_error: Callable[[Path, OSError], None] = lambda path, error: None
+    """Called when querying an entry in the target directory fails.
+        First argument is the path to the file/directory, second argument is the raised exception."""
+
+    on_invalid_backup: Callable[[Path, Union[None, BackupStartInfoParseError, BackupManifestParseError]], None] = \
+        lambda path, error: None
+    """Called when a directory is found that is not a valid backup, possibly due to malformed metadata.
+        First argument is the path of the directory. Second argument is the metadata read exception (if applicable)."""
+
+    on_read_metadata_error: Callable[[Path, OSError], None] = lambda path, error: None
+    """Called when reading the metadata of a backup fails due to I/O errors.
+        First argument is the backup of the backup, second argument is the raised exception."""
+
+
+def read_backups(directory: PathLike, /, callbacks: ReadBackupsCallbacks = ReadBackupsCallbacks()) \
+        -> List[BackupMetadata]:
+    """Reads all backups present in a directory.
+
+        If a backup is not valid or cannot be read, it is skipped.
+
+        :except OSError: If the directory cannot be accessed.
+    """
+
+    directory = Path(directory)
+
+    subdirectories = list(directory.iterdir())
+
+    backups = []
+    for subdirectory in subdirectories:
+        try:
+            is_directory = subdirectory.is_dir()
+            is_probably_backup = is_directory and check_if_probably_backup(subdirectory)
+        except OSError as e:
+            (callbacks.on_query_entry_error)(subdirectory, e)
+        else:
+            if is_directory:
+                if is_probably_backup:
+                    try:
+                        metadata = read_backup_metadata(subdirectory)
+                    except (BackupStartInfoParseError, BackupManifestParseError) as e:
+                        (callbacks.on_invalid_backup)(subdirectory, e)
+                    except OSError as e:
+                        (callbacks.on_read_metadata_error)(subdirectory, e)
+                    else:
+                        backups.append(metadata)
+                else:
+                    (callbacks.on_invalid_backup)(subdirectory, None)
+            # Ignore files, we don't care about them
+
+    return backups
+
+
+BACKUP_NAME_LENGTH = 16
+"""The length of a backup directory name."""
+
+
+def generate_backup_name() -> str:
+    """Generates a (very likely) unique name for a backup.
+        The name has length `BACKUP_NAME_LENGTH` and consists of only lowercase ASCII alphabetic characters and digits.
+    """
+
+    chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    name = ''.join(random.choices(chars, k=BACKUP_NAME_LENGTH))
+    return name
+
+
+BACKUP_DIRECTORY_CREATION_RETRIES = 20
+"""The number of times to retry creating a new backup directory before failing."""
+
+
+def create_new_backup_directory(target_directory: PathLike, /) -> str:
+    """Creates a new backup directory in the given directory (which may not necessarily exist).
+        Will try up to `BACKUP_DIRECTORY_CREATION_RETRIES` to create a new directory before failing.
+
+        :return: Name of the new backup directory.
+        :except BackupDirectoryCreationError: If the directory could not be created (due to filesystem errors or name
+            conflicts) within the required number of retries.
+    """
+
+    retries = BACKUP_DIRECTORY_CREATION_RETRIES
+    while True:
+        name = generate_backup_name()
+        path = Path(target_directory, name)
+        try:
+            path.mkdir(parents=True, exist_ok=False)
+        except OSError as e:
+            if retries <= 0:
+                raise BackupDirectoryCreationError(str(e)) from e
+            else:
+                retries -= 1
+        else:
+            return name
+
+
+class BackupDirectoryCreationError(Exception):
+    """Raised when creating a backup directory fails due to filesystem errors or name conflicts."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(f'Failed to create backup directory: {reason}')
+        self.reason = reason

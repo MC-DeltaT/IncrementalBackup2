@@ -1,2 +1,3 @@
-from .backup import BackupCommand
-from .command import Command
+from .backup import *
+from .command import *
+from .exception import *

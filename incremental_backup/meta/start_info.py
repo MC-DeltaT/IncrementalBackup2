@@ -13,7 +13,7 @@ __all__ = [
 ]
 
 
-@dataclass
+@dataclass(frozen=True)
 class BackupStartInfo:
     """Information pertaining to the start of a backup operation."""
 

@@ -1,11 +1,11 @@
 __all__ = [
-    'FatalArgumentError',
-    'FatalError',
-    'FatalRuntimeError'
+    'CommandArgumentError',
+    'CommandError',
+    'CommandRuntimeError'
 ]
 
 
-class FatalError(Exception):
+class CommandError(Exception):
     """High-level, unrecoverable application error. Prefer not use this class itself, create a specific subclass.
         This type of error probably shouldn't be caught except at the highest scope."""
 
@@ -19,7 +19,7 @@ class FatalError(Exception):
         self.message = message
 
 
-class FatalArgumentError(FatalError):
+class CommandArgumentError(CommandError):
     """Indicates that command line arguments are invalid."""
 
     def __init__(self, message: str, usage: str) -> None:
@@ -32,5 +32,5 @@ class FatalArgumentError(FatalError):
         self.usage = usage
 
 
-class FatalRuntimeError(FatalError):
+class CommandRuntimeError(CommandError):
     """Indicates an unrecoverable error that can't be detected in advance (e.g. I/O error)."""

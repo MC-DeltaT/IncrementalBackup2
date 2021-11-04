@@ -41,8 +41,7 @@ def test_write_backup_manifest(tmpdir) -> None:
 
     write_backup_manifest(path, backup_manifest)
 
-    with open(path, 'r', encoding='utf8') as file:
-        actual = file.read()
+    actual = path.read_text(encoding='utf8')
 
     expected = \
 '''[
@@ -105,8 +104,7 @@ def test_read_backup_manifest_valid(tmpdir) -> None:
         "^2",
         {"n": "finally", "rd": ["barz", "wumpus"], "rf": ["w\x23o\x64r\x79l\u8794d\u1234"]}
     ]'''
-    with open(path, 'w', encoding='utf8') as file:
-        file.write(contents)
+    path.write_text(contents, encoding='utf8')
 
     with AssertFilesystemUnmodified(tmpdir):
         actual = read_backup_manifest(path)
@@ -124,16 +122,14 @@ def test_read_backup_manifest_valid(tmpdir) -> None:
 
 def test_read_backup_manifest_empty(tmpdir) -> None:
     path = tmpdir / 'manifest_empty_1.json'
-    with open(path, 'w', encoding='utf8') as file:
-        file.write('[]')
+    path.write_text('[]', encoding='utf8')
     with AssertFilesystemUnmodified(tmpdir):
         actual = read_backup_manifest(path)
     expected = BackupManifest()
     assert actual == expected
 
     path = tmpdir / 'manifest_empty_2.json'
-    with open(path, 'w', encoding='utf8') as file:
-        file.write('[{"n": ""}]')
+    path.write_text('[{"n": ""}]', encoding='utf8')
     with AssertFilesystemUnmodified(tmpdir):
         actual = read_backup_manifest(path)
     expected = BackupManifest()
@@ -168,8 +164,7 @@ def test_read_backup_manifest_invalid(tmpdir) -> None:
 
     for i, data in enumerate(datas):
         path = tmpdir / f'manifest_invalid_{i}.json'
-        with open(path, 'w', encoding='utf8') as file:
-            file.write(data)
+        path.write_text(data, encoding='utf8')
 
         with AssertFilesystemUnmodified(tmpdir):
             with pytest.raises(BackupManifestParseError):
@@ -191,8 +186,7 @@ def test_read_backup_manifest_directory_reentry(tmpdir) -> None:
         "^1",
         {"n": "mydir", "rd": ["removed_dir1"], "cf": ["cf2"], "rf": ["removed_f_2"]}
     ]'''
-    with open(path, 'w', encoding='utf8') as file:
-        file.write(contents)
+    path.write_text(contents, encoding='utf8')
 
     with AssertFilesystemUnmodified(tmpdir):
         actual = read_backup_manifest(path)

@@ -1,439 +1,431 @@
+from datetime import datetime, timezone
 import re
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import List, Tuple
 
 import pytest
 
-from incremental_backup.backup.backup import BackupResults, compile_exclude_pattern, do_backup, execute_backup_plan, \
-    is_path_excluded, scan_filesystem
-from incremental_backup.backup.plan import BackupPlan
-from incremental_backup.backup.sum import BackupSum
-from incremental_backup.meta.manifest import BackupManifest
-from incremental_backup.meta.metadata import BackupMetadata
-from incremental_backup.meta.start_info import BackupStartInfo
+from incremental_backup.backup.backup import BackupError, perform_backup
+from incremental_backup.backup.exclude import ExcludePattern
+from incremental_backup.meta.manifest import BackupManifest, read_backup_manifest
 
-from helpers import AssertFilesystemUnmodified, dir_entries, unordered_equal
+from helpers import AssertFilesystemUnmodified, dir_entries, unordered_equal, write_file_with_mtime
 
 
-def test_scan_filesystem_no_excludes(tmpdir) -> None:
-    time = datetime.now(timezone.utc)
-    (tmpdir / 'a').mkdir()
-    (tmpdir / 'a' / 'aA').mkdir()
-    (tmpdir / 'a' / 'ab').mkdir()
-    (tmpdir / 'b').mkdir()
-    (tmpdir / 'b' / 'ba').mkdir()
-    (tmpdir / 'b' / 'ba' / 'file_ba_1.jpg').touch()
-    (tmpdir / 'b' / 'ba' / 'FILE_ba_2.txt').touch()
-    (tmpdir / 'b' / 'bb').mkdir()
-    (tmpdir / 'b' / 'bb' / 'bba').mkdir()
-    (tmpdir / 'b' / 'bb' / 'bba' / 'bbaa').mkdir()
-    (tmpdir / 'b' / 'bb' / 'bba' / 'bbaa' / 'file\u4569_bbaa').touch()
-    (tmpdir / 'C').mkdir()
-    (tmpdir / 'file.txt').touch()
-
-    # Note sure how to test error situations.
-
+def test_perform_backup_nonexistent_source(tmpdir) -> None:
+    source_path = tmpdir / 'source'
+    target_path = tmpdir / 'target'
+    (target_path / 'gmnp98w4ygf97' / 'data').mkdir(parents=True)
+    (target_path / 'gmnp98w4ygf97' / 'data' / 'a file').write_text('uokhrg jsdhfg8a7i4yfgw')
     with AssertFilesystemUnmodified(tmpdir):
-        root, paths_skipped = scan_filesystem(tmpdir, ())
-
-    assert not paths_skipped
-
-    assert root.name == ''
-    assert len(root.files) == 1 and len(root.subdirectories) == 3
-    file = root.files[0]
-    assert file.name == 'file.txt' and abs((file.last_modified - time).total_seconds()) < FILE_MODIFY_TIME_TOLERANCE
-    a = next(d for d in root.subdirectories if d.name == 'a')
-    assert a.files == [] and len(a.subdirectories) == 2
-    aa = next(d for d in a.subdirectories if d.name == 'aA')
-    assert aa.files == [] and aa.subdirectories == []
-    ab = next(d for d in a.subdirectories if d.name == 'ab')
-    assert ab.files == [] and ab.subdirectories == []
-    b = next(d for d in root.subdirectories if d.name == 'b')
-    assert b.files == []
-    ba = next(d for d in b.subdirectories if d.name == 'ba')
-    assert len(ba.files) == 2 and ba.subdirectories == []
-    file_ba_1 = next(f for f in ba.files if f.name == 'file_ba_1.jpg')
-    assert abs((file_ba_1.last_modified - time).total_seconds()) < FILE_MODIFY_TIME_TOLERANCE
-    file_ba_2 = next(f for f in ba.files if f.name == 'FILE_ba_2.txt')
-    assert abs((file_ba_2.last_modified - time).total_seconds()) < FILE_MODIFY_TIME_TOLERANCE
-    bb = next(d for d in b.subdirectories if d.name == 'bb')
-    assert bb.files == [] and len(bb.subdirectories) == 1
-    bba = next(d for d in bb.subdirectories if d.name == 'bba')
-    assert bba.files == [] and len(bba.subdirectories) == 1
-    bbaa = next(d for d in bba.subdirectories if d.name == 'bbaa')
-    assert len(bbaa.files) == 1 and bbaa.subdirectories == []
-    file_bbaa = bbaa.files[0]
-    assert file_bbaa.name == 'file\u4569_bbaa' and abs((file_bbaa.last_modified - time).total_seconds()) < FILE_MODIFY_TIME_TOLERANCE
-    c = next(d for d in root.subdirectories if d.name == 'C')
-    assert c.files == [] and c.subdirectories == []
+        with pytest.raises(BackupError):
+            perform_backup(source_path, target_path, ())
 
 
-def test_scan_filesystem_some_excludes(tmpdir) -> None:
-    exclude_patterns = (r'.*/\.git/', '/temp/', '/un\xEFi\uC9F6c\u91F5ode\\.txt', r'.*\.bin')
-    exclude_patterns = tuple(map(compile_exclude_pattern, exclude_patterns))
-
-    time = datetime.now(timezone.utc)
-    (tmpdir / 'un\xEFi\uC9F6c\u91F5ode.txt').touch()
-    (tmpdir / 'foo.jpg').touch()
-    (tmpdir / 'temp').mkdir()
-    (tmpdir / 'temp' / 'a_file').touch()
-    (tmpdir / 'temp' / 'a_dir' / 'b_dir').mkdir(parents=True)
-    (tmpdir / 'Code' / 'project').mkdir(parents=True)
-    (tmpdir / 'Code' / 'project' / 'README').touch()
-    (tmpdir / 'Code' / 'project' / 'src').mkdir()
-    (tmpdir / 'Code' / 'project' / 'src' / 'main.cpp').touch()
-    (tmpdir / 'Code' / 'project' / 'bin').mkdir()
-    (tmpdir / 'Code' / 'project' / 'bin' / 'artifact.bin').touch()
-    (tmpdir / 'Code' / 'project' / 'bin' / 'Program.exe').touch()
-    (tmpdir / 'Code' / 'project' / '.git').mkdir()
-    (tmpdir / 'Code' / 'project' / '.git' / 'somefile').touch()
-    (tmpdir / 'empty').mkdir()
-
+def test_backup_source_is_file(tmpdir) -> None:
+    source_path = tmpdir / 'source'
+    source_path.write_text('hello world!')
+    target_path = tmpdir / 'target'
+    (target_path / '34gf98w34fgy' / 'data').mkdir(parents=True)
+    (target_path / '34gf98w34fgy' / 'data' / 'something').write_text('3w4g809uw58g039ghur')
     with AssertFilesystemUnmodified(tmpdir):
-        root, paths_skipped = scan_filesystem(tmpdir, exclude_patterns)
-
-    assert not paths_skipped
-
-    assert root.name == ''
-    assert len(root.files) == 1 and len(root.subdirectories) == 2
-    foo_jpg = next(f for f in root.files if f.name == 'foo.jpg')
-    assert abs((foo_jpg.last_modified - time).total_seconds()) < FILE_MODIFY_TIME_TOLERANCE
-    code = next(d for d in root.subdirectories if d.name == 'Code')
-    assert len(code.files) == 0 and len(code.subdirectories) == 1
-    project = next(d for d in code.subdirectories if d.name == 'project')
-    assert len(project.files) == 1 and len(project.subdirectories) == 2
-    readme = next(f for f in project.files if f.name == 'README')
-    assert abs((readme.last_modified - time).total_seconds()) < FILE_MODIFY_TIME_TOLERANCE
-    src = next(d for d in project.subdirectories if d.name == 'src')
-    assert len(src.files) == 1 and len(src.subdirectories) == 0
-    main_cpp = next(f for f in src.files if f.name == 'main.cpp')
-    assert abs((main_cpp.last_modified - time).total_seconds()) < FILE_MODIFY_TIME_TOLERANCE
-    bin_ = next(d for d in project.subdirectories if d.name == 'bin')
-    assert len(bin_.files) == 1 and len(bin_.subdirectories) == 0
-    program_exe = next(f for f in bin_.files if f.name == 'Program.exe')
-    assert abs((program_exe.last_modified - time).total_seconds()) < FILE_MODIFY_TIME_TOLERANCE
-    empty = next(d for d in root.subdirectories if d.name == 'empty')
-    assert len(empty.files) == 0 and len(empty.subdirectories) == 0
+        with pytest.raises(BackupError):
+            perform_backup(source_path, target_path, ())
 
 
-def test_execute_backup_plan(tmpdir) -> None:
+def test_backup_target_is_file(tmpdir) -> None:
     source_path = tmpdir / 'source'
     source_path.mkdir()
-    (source_path / 'Modified.txt').write_text('this is modified.txt')
-    (source_path / 'file2').touch()
-    (source_path / 'another file.docx').write_text('this is another file')
-    (source_path / 'my directory').mkdir()
-    (source_path / 'my directory' / 'modified1.baz').write_text('foo bar qux')
-    (source_path / 'my directory' / 'an unmodified file').write_text('qux bar foo')
-    (source_path / 'unmodified_dir').mkdir()
-    (source_path / 'unmodified_dir' / 'some_file.png').write_text('doesnt matter')
-    (source_path / 'unmodified_dir' / 'more files.md').write_text('doesnt matter2')
-    (source_path / 'unmodified_dir' / 'lastFile.jkl').write_text('doesnt matter3')
-    (source_path / 'something').mkdir()
-    (source_path / 'something' / 'qwerty').mkdir()
-    (source_path / 'something' / 'qwerty' / 'wtoeiur').write_text('content')
-    (source_path / 'something' / 'qwerty' / 'do not copy').write_text('magic contents')
-    (source_path / 'something' / 'uh oh').mkdir()
-    (source_path / 'something' / 'uh oh' / 'failure1').write_text('this file wont be copied!')
-    (source_path / 'something' / 'uh oh' / 'another_dir').mkdir()
-    (source_path / 'something' / 'uh oh' / 'another_dir' / 'failure__2.bin').write_text('something important')
+    (source_path / 'foo').write_text('some text here')
+    target_path = tmpdir / 'target'
+    target_path.write_text('hello world!')
+    with AssertFilesystemUnmodified(tmpdir):
+        with pytest.raises(BackupError):
+            perform_backup(source_path, target_path, ())
 
-    destination_path = tmpdir / 'destination'
-    destination_path.mkdir()
 
-    plan = BackupPlan(BackupPlan.Directory('',
-        copied_files=['Modified.txt', 'file2', 'nonexistent-file.yay'],
-        removed_files=['file removed'], removed_directories=['removed dir'],
-        contains_copied_files=True, contains_removed_items=True,
-        subdirectories=[
-            BackupPlan.Directory('my directory', copied_files=['modified1.baz'], removed_directories=['qux'],
-                                 contains_copied_files=True, contains_removed_items=True),
-            BackupPlan.Directory('something', contains_copied_files=True, subdirectories=[
-                BackupPlan.Directory('qwerty', copied_files=['wtoeiur'], contains_copied_files=True),
-                BackupPlan.Directory('uh oh', copied_files=['failure1'], contains_copied_files=True, subdirectories=[
-                    BackupPlan.Directory('another_dir', copied_files=['failure__2.bin'], contains_copied_files=True)
-                ])
-            ]),
-            BackupPlan.Directory('nonexistent_directory', copied_files=['flower'], removed_files=['zxcv'],
-                                 contains_copied_files=True, contains_removed_items=True),
-            BackupPlan.Directory('no_copied_files', removed_files=['foo', 'bar', 'notqux'], contains_removed_items=True)
-        ]))
+def test_backup_new_target(tmpdir) -> None:
+    # Target directory doesn't exist.
 
-    # Create this file to force a directory creation failure.
-    (destination_path / 'something').mkdir(parents=True)
-    (destination_path / 'something' / 'uh oh').touch()
+    source_path = tmpdir / '\u1246\uA76D3fje_s\xDDrC\u01FC'
+    source_path.mkdir()
+    (source_path / 'foo.txt').write_text('it is Sunday')
+    (source_path / 'bar').mkdir()
+    (source_path / 'bar' / 'qux').write_text('something just something')
 
-    mkdir_errors: List[Tuple[Path, OSError]] = []
-    on_mkdir_error = lambda p, e: mkdir_errors.append((p, e))
+    target_path = (tmpdir / 'mypath\uFDEA\uBDF3' / 'doesnt\xDFFEXIsT')
 
-    copy_errors: List[Tuple[Path, Path, OSError]] = []
-    on_copy_error = lambda s, d, e: copy_errors.append((s, d, e))
+    # TODO: test callbacks
 
+    start_time = datetime.now(timezone.utc)
     with AssertFilesystemUnmodified(source_path):
-        actual_results, actual_manifest = execute_backup_plan(
-            plan, source_path, destination_path, on_mkdir_error=on_mkdir_error, on_copy_error=on_copy_error)
+        results = perform_backup(source_path, target_path, ())
+    end_time = datetime.now(timezone.utc)
 
-    (destination_path / 'something' / 'uh oh').unlink(missing_ok=False)
+    # TODO: test results
 
-    expected_results = BackupResults(paths_skipped=True, files_copied=4, files_removed=5)
+    assert target_path.is_dir()
+    backups = list(target_path.iterdir())
+    assert len(backups) == 1
+    backup = backups[0]
+    assert backup.name.isascii() and backup.name.isalnum() and len(backup.name) >= 10
+    assert dir_entries(backup) == {'data', 'start.json', 'manifest.json', 'completion.json'}
+    assert dir_entries(backup / 'data') == {'foo.txt', 'bar'}
+    assert (backup / 'data' / 'foo.txt').read_text() == 'it is Sunday'
+    assert dir_entries(backup / 'data' / 'bar') == {'qux'}
+    assert (backup / 'data' / 'bar' / 'qux').read_text() == 'something just something'
 
-    expected_manifest = BackupManifest(BackupManifest.Directory('',
-        copied_files=['Modified.txt', 'file2'],
-        removed_files=['file removed'], removed_directories=['removed dir'],
-        subdirectories=[
-            BackupManifest.Directory('my directory', copied_files=['modified1.baz'], removed_directories=['qux']),
-            BackupManifest.Directory('something', subdirectories=[
-                BackupManifest.Directory('qwerty', copied_files=['wtoeiur'])
-            ]),
-            BackupManifest.Directory('nonexistent_directory', removed_files=['zxcv']),
-            BackupManifest.Directory('no_copied_files', removed_files=['foo', 'bar', 'notqux'])
-        ]))
+    actual_start_info = (backup / 'start.json').read_text(encoding='utf8')
+    match = re.fullmatch('{\n    "start_time": "(.+)"\n}', actual_start_info)
+    assert match
+    actual_start_time = datetime.fromisoformat(match.group(1))
+    assert abs((start_time - actual_start_time).total_seconds()) < METADATA_TIME_TOLERANCE
 
-    assert dir_entries(destination_path) == \
-           {'Modified.txt', 'file2', 'my directory', 'something', 'nonexistent_directory'}
-    assert (destination_path / 'Modified.txt').read_text() == 'this is modified.txt'
-    assert (destination_path / 'file2').read_text() == ''
-    assert dir_entries(destination_path / 'my directory') == {'modified1.baz'}
-    assert (destination_path / 'my directory' / 'modified1.baz').read_text() == 'foo bar qux'
-    assert dir_entries(destination_path / 'something') == {'qwerty'}
-    assert dir_entries(destination_path / 'something' / 'qwerty') == {'wtoeiur'}
-    assert (destination_path / 'something' / 'qwerty' / 'wtoeiur').read_text() == 'content'
-    assert dir_entries(destination_path / 'nonexistent_directory') == set()
+    actual_complete_info = (backup / 'completion.json').read_text(encoding='utf8')
+    match = re.fullmatch('{\n    "end_time": "(.+)",\n    "paths_skipped": false\n}', actual_complete_info)
+    assert match
+    actual_end_time = datetime.fromisoformat(match.group(1))
+    assert abs((end_time - actual_end_time).total_seconds()) < METADATA_TIME_TOLERANCE
 
-    assert actual_results == expected_results
+    expected_manifest = \
+'''[
+{
+"n": "",
+"cf": [
+"foo.txt"
+]
+},
+{
+"n": "bar",
+"cf": [
+"qux"
+]
+}
+]'''
+    actual_manifest = (backup / 'manifest.json').read_text(encoding='utf8')
     assert actual_manifest == expected_manifest
 
-    assert len(mkdir_errors) == 1
-    assert mkdir_errors[0][0] == destination_path / 'something' / 'uh oh'
-    assert isinstance(mkdir_errors[0][1], FileExistsError)
 
-    assert len(copy_errors) == 2
-    assert copy_errors[0][0] == source_path / 'nonexistent-file.yay'
-    assert copy_errors[0][1] == destination_path / 'nonexistent-file.yay'
-    assert isinstance(copy_errors[0][2], FileNotFoundError)
-    assert copy_errors[1][0] == source_path / 'nonexistent_directory' / 'flower'
-    assert copy_errors[1][1] == destination_path / 'nonexistent_directory' / 'flower'
-    assert isinstance(copy_errors[1][2], FileNotFoundError)
+def test_backup_no_previous_backups(tmpdir) -> None:
+    # Target directory exists but is empty.
 
+    source_path = tmpdir / 'rubbish\xC2with' / '\u5647\uBDC1\u9C87 chars'
+    source_path.mkdir(parents=True)
+    (source_path / 'it\uAF87.\u78FAis').write_text('Wednesday my dudes')
+    (source_path / '\x55\u6677\u8899\u0255').mkdir()
+    (source_path / '\x55\u6677\u8899\u0255' / 'funky file name').write_text('<^ funky <> file <> data ^>')
 
-def test_execute_backup_plan_empty_plan(tmpdir) -> None:
-    # Empty backup plan and empty source directory.
+    target_path = (tmpdir / 'I  lik\uCECE  tr\uAAAAins')
+    target_path.mkdir()
 
-    source_path = tmpdir / 'source'
-    source_path.mkdir()
+    # TODO: test callbacks
 
-    destination_path = tmpdir / 'destination'
-    destination_path.mkdir()
-
-    plan = BackupPlan()
-
-    on_mkdir_error = lambda p, e: pytest.fail(f'Unexpected mkdir error: {p=} {e=}')
-    on_copy_error = lambda s, d, e: pytest.fail(f'Unexpected copy error: {s=} {d=} {e=}')
-
+    start_time = datetime.now(timezone.utc)
     with AssertFilesystemUnmodified(source_path):
-        actual_results, actual_manifest = execute_backup_plan(
-            plan, source_path, destination_path, on_mkdir_error=on_mkdir_error, on_copy_error=on_copy_error)
+        results = perform_backup(source_path, target_path, ())
+    end_time = datetime.now(timezone.utc)
 
-    expected_results = BackupResults(False, 0, 0)
-    expected_manifest = BackupManifest()
+    # TODO: test results
 
-    assert actual_results == expected_results
+    assert target_path.is_dir()
+    backups = list(target_path.iterdir())
+    assert len(backups) == 1
+    backup = backups[0]
+    assert backup.name.isascii() and backup.name.isalnum() and len(backup.name) >= 10
+    assert dir_entries(backup) == {'data', 'start.json', 'manifest.json', 'completion.json'}
+
+    assert dir_entries(backup / 'data') == {'it\uAF87.\u78FAis', '\x55\u6677\u8899\u0255'}
+    assert (backup / 'data' / 'it\uAF87.\u78FAis').read_text() == 'Wednesday my dudes'
+    assert dir_entries(backup / 'data' / '\x55\u6677\u8899\u0255') == {'funky file name'}
+    assert (backup / 'data' / '\x55\u6677\u8899\u0255' / 'funky file name').read_text() == '<^ funky <> file <> data ^>'
+
+    start_info = (backup / 'start.json').read_text(encoding='utf8')
+    match = re.fullmatch('{\n    "start_time": "(.+)"\n}', start_info)
+    assert match
+    actual_start_time = datetime.fromisoformat(match.group(1))
+    assert abs((start_time - actual_start_time).total_seconds()) < METADATA_TIME_TOLERANCE
+
+    complete_info = (backup / 'completion.json').read_text(encoding='utf8')
+    match = re.fullmatch('{\n    "end_time": "(.+)",\n    "paths_skipped": false\n}', complete_info)
+    assert match
+    actual_end_time = datetime.fromisoformat(match.group(1))
+    assert abs((end_time - actual_end_time).total_seconds()) < METADATA_TIME_TOLERANCE
+
+    expected_manifest = \
+'''[
+{
+"n": "",
+"cf": [
+"it\uAF87.\u78FAis"
+]
+},
+{
+"n": "\x55\u6677\u8899\u0255",
+"cf": [
+"funky file name"
+]
+}
+]'''
+    actual_manifest = (backup / 'manifest.json').read_text(encoding='utf8')
     assert actual_manifest == expected_manifest
 
-    assert dir_entries(destination_path) == set()
 
+def test_backup_some_previous_backups(tmpdir) -> None:
+    # Target directory has some previous backups.
 
-def test_do_backup(tmpdir) -> None:
-    source_path = tmpdir / 'source'
+    target_path = tmpdir / 'put the data here!'
+    target_path.mkdir()
+
+    backup1_path = target_path / 'sadhf8o3947yfqgfaw'
+    backup1_path.mkdir()
+    (backup1_path / 'start.json').write_text('{"start_time": "2021-06-20T03:37:27.435676+00:00"}', encoding='utf8')
+    (backup1_path / 'manifest.json').write_text(
+        '''[{"n": "", "cf": ["root\uA63Bfile1.mp4", "ro\u2983ot_fi\x90le2.exe"]},
+            {"n": "dir1\u1076\u0223", "cf": ["dir1\u1076\u0223_file1", "dir1\u1076\u0223_file@@.tij"]},
+            {"n": "dirXYZ", "cf": ["dirXYZ_file.ino"]}]''',
+        encoding='utf8')
+    (backup1_path / 'data').mkdir()
+    (backup1_path / 'data' / 'root\uA63Bfile1.mp4').write_text('rootfile1.mp4 backup1')
+    (backup1_path / 'data' / 'ro\u2983ot_fi\x90le2.exe').write_text('root_file2.exe backup1')
+    (backup1_path / 'data' / 'dir1\u1076\u0223').mkdir()
+    (backup1_path / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file1').write_text('dir1_file1 backup1')
+    (backup1_path / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file@@.tij').write_text('dir1_file@@.tij backup1')
+    (backup1_path / 'data' / 'dir1\u1076\u0223' / 'dirXYZ').mkdir()
+    (backup1_path / 'data' / 'dir1\u1076\u0223' / 'dirXYZ' / 'dirXYZ_file.ino').write_text('dirXYZ_file.ino backup1')
+    (backup1_path / 'completion.json').write_text(
+        '{"end_time": "2021-06-20T03:38:28.435676+00:00", "paths_skipped": false}', encoding='utf8')
+
+    backup2_path = target_path / 'gsel45o8ise45ytq87'
+    backup2_path.mkdir()
+    (backup2_path / 'start.json').write_text('{"start_time": "2021-07-01T13:52:21.983451+00:00"}', encoding='utf8')
+    (backup2_path / 'manifest.json').write_text(
+        '''[{"n": "", "cf": ["root_file3.txt"], "rf": ["root\uA63Bfile1.mp4"]},
+            {"n": "dir1\u1076\u0223", "cf": ["dir1\u1076\u0223_file1"]},
+            "^1",
+            {"n": "temp", "cf": ["x.y"]}]''',
+        encoding='utf8')
+    (backup2_path / 'data').mkdir()
+    (backup2_path / 'data' / 'root_file3.txt').write_text('root_file3.txt backup2')
+    (backup2_path / 'data' / 'dir1\u1076\u0223').mkdir()
+    (backup2_path / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file1').write_text('dir1_file1 backup2')
+    (backup2_path / 'data' / 'temp').mkdir()
+    (backup2_path / 'data' / 'temp' / 'x.y').write_text('x.y backup2')
+    (backup2_path / 'completion.json').write_text(
+        '{"start_time": "2021-07-01T13:55:46.983451+00:00", "paths_skipped": false}', encoding='utf8')
+
+    backup3_path = target_path / '0345guyes8yfg73'
+    backup3_path.mkdir()
+    (backup3_path / 'start.json').write_text('{"start_time": "2021-09-18T09:47:11.879254+00:00"}', encoding='utf8')
+    (backup3_path / 'manifest.json').write_text(
+        '''[{"n": "", "cf": ["root\uA63Bfile1.mp4", "ro\u2983ot_fi\x90le2.exe"]},
+            {"n": "dir2", "cf": ["\uF000\uBAA4\u3404\xEA\uAEF1"]},
+            "^1",
+            {"n": "dir1\u1076\u0223", "rd": ["dirXYZ"]}]''',
+        encoding='utf8')
+    (backup3_path / 'data').mkdir()
+    (backup3_path / 'data' / 'root\uA63Bfile1.mp4').write_text('rootfile1.mp4 backup3')
+    (backup3_path / 'data' / 'ro\u2983ot_fi\x90le2.exe').write_text('root_file2.exe backup3')
+    (backup3_path / 'data' / 'dir2').mkdir()
+    (backup3_path / 'data' / 'dir2' / '\uF000\uBAA4\u3404\xEA\uAEF1').write_text('foobar backup3')
+    (backup3_path / 'completion.json').write_text(
+        '{"start_time": "2021-09-18T09:48:07.879254+00:00", "paths_skipped": false}', encoding='utf8')
+
+    source_path = tmpdir / 'this\u865Cneeds\u4580to\u9B93bebackedup'
     source_path.mkdir()
-    (source_path / 'why why why').write_text('some gibberish')      # Existing modified
-    (source_path / 'akrhjbgd').write_text('190234856 19243857 123746809 9045')      # Existing unmodified
-    (source_path / 'new').write_text('   x   ')     # New
-    (source_path / 'empty').mkdir()
-    (source_path / 'no_changes').mkdir()
-    (source_path / 'no_changes' / 'a file').write_text('f00_b4r_qu*')       # Existing unmodified
-    (source_path / 'no_changes' / 'still_no_changes').mkdir()
-    (source_path / 'no_changes' / 'still_no_changes' / 'un.modified').write_text('the same')    # Existing unmodified
-    (source_path / 'foo').mkdir()
-    (source_path / 'foo' / 'bar.avi').write_text('ignoreme!')       # New, but excluded
-    (source_path / 'amazing_code_proj').mkdir()
-    (source_path / 'amazing_code_proj' / '.git').mkdir()        # Existing, but excluded -> removed, hmm
-    (source_path / 'amazing_code_proj' / '.git' / 'config').touch()     # Existing modified, but excluded
-    (source_path / 'amazing_code_proj' / '.git' / 'objects').mkdir()
-    (source_path / 'amazing_code_proj' / '.git' / 'objects' / 'something').touch()      # New, but excluded
-    (source_path / 'amazing_code_proj' / 'README.md').write_text('A really COOL project')       # New
-    (source_path / 'amazing_code_proj' / 'src').mkdir()
-    (source_path / 'amazing_code_proj' / 'src' / 'main.py').write_text('from mylib import foo ; foo("hello world")')    # Existing unmodified
-    (source_path / 'amazing_code_proj' / 'src' / 'mylib.py').write_text('def foo(x): print(x)')     # Existing modified
-    (source_path / 'disappear').mkdir()
+    write_file_with_mtime(source_path / 'root\uA63Bfile1.mp4', 'rootfile1.mp4 backup3',
+                          datetime(2021, 9, 5, 0, 43, 16, tzinfo=timezone.utc))     # Existing unmodified
+    # ro\u2983ot_fi\x90le2.exe removed
+    (source_path / 'root_file3.txt').write_text('root_file3.txt new content')   # Existing modified
+    (source_path / 'dir1\u1076\u0223').mkdir()  # Existing
+    write_file_with_mtime(source_path / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file1', 'dir1_file1 backup2',
+                          datetime(2021, 7, 1, 9, 32, 59, tzinfo=timezone.utc))     # Existing unmodified
+    (source_path / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file@@.tij').write_text('something NEW')  # Existing modified
+    (source_path / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file3').write_text('dir1_file3 new')      # New
+    # dir2 / \uF000\uBAA4\u3404\xEA\uAEF1 removed
+    (source_path / 'dir2' / 'dir2_\u45631').mkdir(parents=True)     # New
+    (source_path / 'dir2' / 'dir2_\u45631' / 'myfile.myfile').write_text('myfile and also mycontents')  # New
+    (source_path / 'temp').mkdir()      # Existing, excluded (removed)
+    # temp / x.y removed
+    (source_path / 'temp' / '\u7669.\u5AAB').write_text('magic')    # New, excluded
+    (source_path / 'new_dir!').mkdir()      # New
+    (source_path / 'new_dir!' / 'new file').write_text('its a new file!')       # New
 
-    backup_past = BackupMetadata(
-        '43q86y55wysh', BackupStartInfo(datetime(2018, 2, 4, 6, 9, 19, tzinfo=timezone.utc)), None)
-    backup_future = BackupMetadata(
-        '590tgyerhgdd', BackupStartInfo(datetime.now(timezone.utc) + timedelta(days=1)), None)
-    backup_sum = BackupSum(BackupSum.Directory('',
-        files=[
-            BackupSum.File('why why why', backup_past),
-            BackupSum.File('akrhjbgd', backup_future),
-            BackupSum.File('removed.file', backup_past)
-        ],
-        subdirectories=[
-            BackupSum.Directory('no_changes', files=[BackupSum.File('a file', backup_future)],
-                subdirectories=[
-                    BackupSum.Directory('still_no_changes', files=[BackupSum.File('un.modified', backup_future)])
-                ]),
-            BackupSum.Directory('disappear', files=[BackupSum.File('to-be REmoved', backup_past)]),
-            BackupSum.Directory('amazing_code_proj', subdirectories=[
-                BackupSum.Directory('.git', files=[BackupSum.File('config', backup_past)]),
-                BackupSum.Directory('src', files=[
-                    BackupSum.File('main.py', backup_future), BackupSum.File('mylib.py', backup_past)])
-            ]),
-            BackupSum.Directory('.git', files=[BackupSum.File('git file', backup_past)])
-        ]))
+    exclude_patterns = ('/temp/',)
+    exclude_patterns = tuple(map(ExcludePattern, exclude_patterns))
 
-    destination_path = tmpdir / 'destination'
-    destination_path.mkdir()
+    # TODO: test callbacks
 
-    exclude_patterns = ('/foo/bar.avi', r'.*/\.git/')
-    exclude_patterns = tuple(map(compile_exclude_pattern, exclude_patterns))
-
-    # Not sure how to test error situations.
-
-    excludes: List[Path] = []
-    on_exclude = lambda p: excludes.append(p)
-
-    on_listdir_error = lambda p, e: pytest.fail(f'Unexpected listdir error: {p=} {e=}')
-    on_metadata_error = lambda p, e: pytest.fail(f'Unexpected metadata error: {p=} {e=}')
-    on_mkdir_error = lambda p, e: pytest.fail(f'Unexpected mkdir error: {p=} {e=}')
-    on_copy_error = lambda s, d, e: pytest.fail(f'Unexpected copy error: {s=} {d=} {e=}')
-
+    start_time = datetime.now(timezone.utc)
     with AssertFilesystemUnmodified(source_path):
-        actual_results, actual_manifest = do_backup(
-            source_path, destination_path, exclude_patterns, backup_sum,
-            on_exclude=on_exclude,
-            on_listdir_error=on_listdir_error, on_metadata_error=on_metadata_error,
-            on_mkdir_error=on_mkdir_error, on_copy_error=on_copy_error)
+        results = perform_backup(source_path, target_path, exclude_patterns)
+    end_time = datetime.now(timezone.utc)
 
-    assert unordered_equal(excludes, [source_path / 'foo' / 'bar.avi', source_path / 'amazing_code_proj' / '.git'])
+    # TODO: test results
 
-    expected_results = BackupResults(False, files_copied=4, files_removed=2)
-    assert actual_results == expected_results
+    backup = (set(target_path.iterdir()) - {backup1_path, backup2_path, backup3_path}).pop()
+    assert backup.name.isascii() and backup.name.isalnum() and len(backup.name) >= 10
+    assert dir_entries(backup) == {'data', 'start.json', 'manifest.json', 'completion.json'}
 
-    assert unordered_equal(actual_manifest.root.copied_files, ('new', 'why why why'))
-    assert actual_manifest.root.removed_files == ['removed.file']
-    assert actual_manifest.root.removed_directories == ['.git']
-    assert len(actual_manifest.root.subdirectories) == 2
-    amazing_code_proj = next(d for d in actual_manifest.root.subdirectories if d.name == 'amazing_code_proj')
-    assert amazing_code_proj == BackupManifest.Directory('amazing_code_proj',
-        copied_files=['README.md'], removed_directories=['.git'],
-        subdirectories=[
-            BackupManifest.Directory('src', copied_files=['mylib.py'])
-        ])
-    disappear = next(d for d in actual_manifest.root.subdirectories if d.name == 'disappear')
-    assert disappear == BackupManifest.Directory('disappear', removed_files=['to-be REmoved'])
+    assert dir_entries(backup / 'data') == {'root_file3.txt', 'dir1\u1076\u0223', 'dir2', 'new_dir!'}
+    assert (backup / 'data' / 'root_file3.txt').read_text() == 'root_file3.txt new content'
+    assert dir_entries(backup / 'data' / 'dir1\u1076\u0223') == \
+           {'dir1\u1076\u0223_file@@.tij', 'dir1\u1076\u0223_file3'}
+    assert (backup / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file@@.tij').read_text() == 'something NEW'
+    assert (backup / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file3').read_text() == 'dir1_file3 new'
+    assert dir_entries(backup / 'data' / 'dir2') == {'dir2_\u45631'}
+    assert dir_entries(backup / 'data' / 'dir2' / 'dir2_\u45631') == {'myfile.myfile'}
+    assert (backup / 'data' / 'dir2' / 'dir2_\u45631' / 'myfile.myfile').read_text() == 'myfile and also mycontents'
+    assert dir_entries(backup / 'data' / 'new_dir!') == {'new file'}
+    assert (backup / 'data' / 'new_dir!' / 'new file').read_text() == 'its a new file!'
 
-    assert dir_entries(destination_path) == {'why why why', 'new', 'amazing_code_proj'}
-    assert (destination_path / 'why why why').read_text() == 'some gibberish'
-    assert (destination_path / 'new').read_text() == '   x   '
-    assert dir_entries(destination_path / 'amazing_code_proj') == {'README.md', 'src'}
-    assert dir_entries(destination_path / 'amazing_code_proj' / 'src') == {'mylib.py'}
+    start_info = (backup / 'start.json').read_text(encoding='utf8')
+    match = re.fullmatch('{\n    "start_time": "(.+)"\n}', start_info)
+    assert match
+    actual_start_time = datetime.fromisoformat(match.group(1))
+    assert abs((start_time - actual_start_time).total_seconds()) < METADATA_TIME_TOLERANCE
 
+    complete_info = (backup / 'completion.json').read_text(encoding='utf8')
+    match = re.fullmatch('{\n    "end_time": "(.+)",\n    "paths_skipped": false\n}', complete_info)
+    assert match
+    actual_end_time = datetime.fromisoformat(match.group(1))
+    assert abs((end_time - actual_end_time).total_seconds()) < METADATA_TIME_TOLERANCE
 
-def test_compile_exclude_pattern() -> None:
-    p1 = compile_exclude_pattern('')
-    assert isinstance(p1, re.Pattern)
-    assert p1.pattern == ''
-    assert p1.flags == re.UNICODE | re.DOTALL
-
-    p2 = compile_exclude_pattern('/foo/bar/dir/')
-    assert isinstance(p2, re.Pattern)
-    assert p2.pattern == '/foo/bar/dir/'
-    assert p2.flags == re.UNICODE | re.DOTALL
-
-    p3 = compile_exclude_pattern(r'/a/file\.txt')
-    assert isinstance(p3, re.Pattern)
-    assert p3.pattern == r'/a/file\.txt'
-    assert p3.flags == re.UNICODE | re.DOTALL
-
-    p4 = compile_exclude_pattern(r'.*/\.git/')
-    assert isinstance(p4, re.Pattern)
-    assert p4.pattern == r'.*/\.git/'
-    assert p4.flags == re.UNICODE | re.DOTALL
-
-
-def test_is_path_excluded_no_patterns() -> None:
-    assert not is_path_excluded('/', ())
-    assert not is_path_excluded('/foo/bar', ())
-    assert not is_path_excluded('/some/Directory/FILE', ())
-    assert not is_path_excluded('/longer/path/to/file/with/un\u1234ico\u7685de\xFA.jpg', ())
+    # Don't think it's feasible to check the manifest without parsing it, because filesystem ordering is not guaranteed.
+    manifest = read_backup_manifest(backup / 'manifest.json')
+    assert manifest.root.copied_files == ['root_file3.txt']
+    assert manifest.root.removed_files == ['ro\u2983ot_fi\x90le2.exe']
+    assert manifest.root.removed_directories == ['temp']
+    assert len(manifest.root.subdirectories) == 3
+    dir1 = next(d for d in manifest.root.subdirectories if d.name == 'dir1\u1076\u0223')
+    assert unordered_equal(dir1.copied_files, ('dir1\u1076\u0223_file@@.tij', 'dir1\u1076\u0223_file3'))
+    assert dir1.removed_files == []
+    assert dir1.removed_directories == []
+    assert dir1.subdirectories == []
+    dir2 = next(d for d in manifest.root.subdirectories if d.name == 'dir2')
+    assert dir2 == BackupManifest.Directory('dir2', removed_files=['\uF000\uBAA4\u3404\xEA\uAEF1'], subdirectories=[
+        BackupManifest.Directory('dir2_\u45631', copied_files=['myfile.myfile'])
+    ])
+    new_dir = next(d for d in manifest.root.subdirectories if d.name == 'new_dir!')
+    assert new_dir == BackupManifest.Directory('new_dir!', copied_files=['new file'])
 
 
-def test_is_path_excluded_ascii_paths() -> None:
-    patterns = ('/foo/dir_b/some_dir/', '/path/to/file', r'/path/to/file_with_ext\.jpg', r'/\$RECYCLE\.BIN/')
-    patterns = tuple(map(compile_exclude_pattern, patterns))
+def test_backup_some_invalid_backups(tmpdir) -> None:
+    # Target directory has some previous backups and invalid/not backups.
 
-    assert is_path_excluded('/foo/dir_b/some_dir/', patterns)
-    assert is_path_excluded('/path/to/file', patterns)
-    assert is_path_excluded('/path/to/file_with_ext.jpg', patterns)
-    assert is_path_excluded('/$RECYCLE.BIN/', patterns)
-    assert not is_path_excluded('/foo/dir_b/some_dir', patterns)
-    assert not is_path_excluded('/foo', patterns)
-    assert not is_path_excluded('/foo/', patterns)
-    assert not is_path_excluded('/foo/dir_b/some_dir/qux/', patterns)
-    assert not is_path_excluded('/foo/dir_b/some_dir/qux', patterns)
-    assert not is_path_excluded('/path/to/file/', patterns)
-    assert not is_path_excluded('/path/to/file_with_ext', patterns)
-    assert not is_path_excluded('/ayy', patterns)
-    assert not is_path_excluded('/a/b/c/d/e/f/', patterns)
+    target_path = tmpdir / 'foo \u115A\xBA\u7AD9bar\u82C5\u5C70'
+    target_path.mkdir()
+
+    # Missing start information.
+    invalid1 = target_path / '9458guysd9gyw37'
+    invalid1.mkdir()
+    (invalid1 / 'manifest.json').write_text('[{"n": ""}]', encoding='utf8')
+    (invalid1 / 'completion.json').write_text(
+        '{"end_time": "2021-04-05T17:33:03.435734+00:00", "paths_skipped": false}', encoding='utf8')
+
+    # Missing manifest.
+    invalid2 = target_path / '859tfhgsidth574shg'
+    invalid2.mkdir()
+    (invalid2 / 'start.json').write_text('{"start_time": "2021-02-18T14:33:03.435734+00:00"}', encoding='utf8')
+    (invalid2 / 'completion.json').write_text(
+        '{"end_time": "2021-02-18T17:33:03.234723+00:00", "paths_skipped": false}', encoding='utf8')
+
+    # Malformed start information.
+    invalid3 = target_path / '90435fgjwf43fy43'
+    invalid3.mkdir()
+    (invalid3 / 'start.json').write_text('{"start_time": ', encoding='utf8')
+    (invalid3 / 'manifest.json').write_text('[{"n": "", "cf": ["foo.txt"]}]', encoding='utf8')
+    (invalid3 / 'completion.json').write_text(
+        '{"end_time": "2021-02-03T04:55:44.123654+00:00", "paths_skipped": true}', encoding='utf8')
+
+    # Malformed manifest.
+    invalid4 = target_path / '038574tq374gfh'
+    invalid4.mkdir()
+    (invalid4 / 'start.json').write_text('{"start_time": "2021-01-11T14:28:41.435734+00:00"}', encoding='utf8')
+    (invalid4 / 'manifest.json').write_text('', encoding='utf8')
+    (invalid4 / 'completion.json').write_text(
+        '{"end_time": "2021-01-11T17:33:03.203463+00:00", "paths_skipped": false}', encoding='utf8')
+
+    # Directory name not alphanumeric.
+    invalid5 = target_path / 'not @lph&numer!c'
+    invalid5.mkdir()
+
+    # Not a directory.
+    invalid6 = target_path / '78034rg086a7wtf'
+    invalid6.write_text('hey this isnt a backup directory!')
+
+    backup1 = target_path / '83547tgwyedfg'
+    backup1.mkdir()
+    (backup1 / 'data').mkdir()
+    (backup1 / 'data' / 'foo.txt').write_text('foo.txt backup1')
+    (backup1 / 'data' / 'bar').mkdir()
+    (backup1 / 'data' / 'bar' / 'qux.png').write_text('qux.png backup1')
+    (backup1 / 'start.json').write_text('{"start_time": "2021-01-01T01:01:01.000001+00:00"}', encoding='utf8')
+    (backup1 / 'manifest.json').write_text(
+        '[{"n": "", "cf": ["foo.txt"]}, {"n": "bar", "cf": ["qux.png"]}]', encoding='utf8')
+    (backup1 / 'completion.json').write_text(
+        '{"end_time": "2021-01-01T02:02:02.000002+00:00", "paths_skipped": false}', encoding='utf8')
+
+    backup2 = target_path / '6789345g3w4ywfd'
+    backup2.mkdir()
+    (backup2 / 'data').mkdir()
+    (backup2 / 'data' / 'dir').mkdir()
+    (backup2 / 'data' / 'dir' / 'file').write_text('file backup2')
+    (backup2 / 'start.json').write_text('{"start_time": "2021-04-06T08:10:12.141618+00:00"}', encoding='utf8')
+    (backup2 / 'manifest.json').write_text(
+        '[{"n": "", "rf": ["foo.txt"]}, {"n": "dir", "cf": ["file"]}]', encoding='utf8')
+    (backup2 / 'completion.json').write_text(
+        '{"end_time": "2021-04-06T08:11:02.247678+00:00", "paths_skipped": false}', encoding='utf8')
+
+    source_path = tmpdir / '\uBDD6-D-\uE13D_\uBF42'
+    source_path.mkdir()
+    (source_path / 'new.txt').write_text('new.txt NEW')     # New
+    # bar removed
+    (source_path / 'dir').mkdir()
+    write_file_with_mtime(source_path / 'dir' / 'file', 'file backup2',
+                          datetime(2021, 4, 5, 9, 32, 59, tzinfo=timezone.utc))     # Existing unmodified
+
+    # TODO: test callbacks
+
+    start_time = datetime.now(timezone.utc)
+    with AssertFilesystemUnmodified(source_path):
+        results = perform_backup(source_path, target_path, ())
+    end_time = datetime.now(timezone.utc)
+
+    # TODO: test results
+
+    backup = (set(target_path.iterdir()) -
+              {invalid1, invalid2, invalid3, invalid4, invalid5, invalid6, backup1, backup2}).pop()
+    assert backup.name.isascii() and backup.name.isalnum() and len(backup.name) >= 10
+    assert dir_entries(backup) == {'data', 'start.json', 'manifest.json', 'completion.json'}
+
+    assert dir_entries(backup / 'data') == {'new.txt'}
+    assert (backup / 'data' / 'new.txt').read_text() == 'new.txt NEW'
+
+    start_info = (backup / 'start.json').read_text(encoding='utf8')
+    match = re.fullmatch('{\n    "start_time": "(.+)"\n}', start_info)
+    assert match
+    actual_start_time = datetime.fromisoformat(match.group(1))
+    assert abs((start_time - actual_start_time).total_seconds()) < METADATA_TIME_TOLERANCE
+
+    complete_info = (backup / 'completion.json').read_text(encoding='utf8')
+    match = re.fullmatch('{\n    "end_time": "(.+)",\n    "paths_skipped": false\n}', complete_info)
+    assert match
+    actual_end_time = datetime.fromisoformat(match.group(1))
+    assert abs((end_time - actual_end_time).total_seconds()) < METADATA_TIME_TOLERANCE
+
+    actual_manifest = (backup / 'manifest.json').read_text(encoding='utf8')
+    expected_manifest = \
+'''[
+{
+"n": "",
+"cf": [
+"new.txt"
+],
+"rd": [
+"bar"
+]
+}
+]'''
+
+    assert actual_manifest == expected_manifest
 
 
-def test_is_path_excluded_case_sensitivity() -> None:
-    patterns = ('/all/lowercase', '/ALL/UPPERCASE/', '/mixd/CASE/Path')
-    patterns = tuple(map(compile_exclude_pattern, patterns))
-
-    assert is_path_excluded('/all/lowercase', patterns)
-    assert is_path_excluded('/ALL/UPPERCASE/', patterns)
-    assert is_path_excluded('/mixd/CASE/Path', patterns)
-    assert not is_path_excluded('/ALL/LOWERCASE', patterns)
-    assert not is_path_excluded('/all/uppercase', patterns)
-    assert not is_path_excluded('/MIXD/case/pATH', patterns)
-    assert not is_path_excluded('/All/lowercase', patterns)
-    assert not is_path_excluded('/ALL/UPPERCASe/', patterns)
-    assert not is_path_excluded('/MIXd/CaSe/PaTH', patterns)
-
-
-def test_is_path_excluded_unicode_paths() -> None:
-    patterns = ('/dir\n/with/U\u6A72n\xDFiC\u6D42o\u5B4Dd\xFFE/', '/\u3764\u3245\u6475/qux/\u023Ffile\\.pdf',
-                '/un\xEFi\uC9F6c\u91F5ode\\.txt')
-    patterns = tuple(map(compile_exclude_pattern, patterns))
-
-    assert is_path_excluded('/dir\n/with/U\u6A72n\xDFiC\u6D42o\u5B4Dd\xFFE/', patterns)
-    assert is_path_excluded('/\u3764\u3245\u6475/qux/\u023Ffile.pdf', patterns)
-    assert is_path_excluded('/un\xEFi\uC9F6c\u91F5ode.txt', patterns)
-    assert not is_path_excluded('/dir\n/with/U\u6A72n\xDFiC\u6D42o\u5B4Dd\xFFE', patterns)
-    assert not is_path_excluded('/dir\n/with/U\u6A72n\xDFiC\u6D42o\u5B4Dd\x00E/', patterns)
-    assert not is_path_excluded('/dir/with/U\u6A72n\xDFiC\u6D42o\u5B4Dd\xFFE/', patterns)
-    assert not is_path_excluded('/\u3764\u3245\u6475/qux/\u023Ffile.pdf/', patterns)
-    assert not is_path_excluded('/\u3764\u3245a/qux/\u023Ffile.pdf', patterns)
-
-
-def test_is_path_excluded_advanced() -> None:
-    patterns = (r'.*/\.git/', r'.*/__pycache__/')
-    patterns = tuple(map(compile_exclude_pattern, patterns))
-
-    assert is_path_excluded('/.git/', patterns)
-    assert is_path_excluded('/my/code/project/.git/', patterns)
-    assert is_path_excluded('/__pycache__/', patterns)
-    assert is_path_excluded('/i/do/coding/__pycache__/', patterns)
-    assert is_path_excluded('/i/do/coding/__pycache__/', patterns)
-    assert not is_path_excluded('/.git', patterns)
-    assert not is_path_excluded('/.git/magic/', patterns)
-    assert not is_path_excluded('/.git/file', patterns)
-    assert not is_path_excluded('/foo.git/', patterns)
-    assert not is_path_excluded('/.git.bar/', patterns)
-    assert not is_path_excluded('/__pycache__/yeah/man/', patterns)
-
-
-# Tolerance on file last modification time for testing scan_filesystem().
-FILE_MODIFY_TIME_TOLERANCE = 5      # Seconds
+METADATA_TIME_TOLERANCE = 5     # Seconds
