@@ -98,7 +98,7 @@ class BackupCommand(Command):
         print('Exclude patterns:')
         if self.exclude_patterns:
             for pattern in self.exclude_patterns:
-                print(f'  {pattern.pattern}')
+                print(f'  {pattern}')
         else:
             print('  <none>')
         print()

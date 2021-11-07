@@ -19,6 +19,9 @@ class ExcludePattern:
     def _compile_pattern(pattern: str, /) -> re.Pattern:
         return re.compile(pattern, re.DOTALL)
 
+    def __str__(self) -> str:
+        return self.pattern.pattern
+
 
 def is_path_excluded(path: str, exclude_patterns: Iterable[ExcludePattern], /) -> bool:
     """Checks if a path is matched by any path exclude pattern.
