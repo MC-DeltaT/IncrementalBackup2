@@ -147,9 +147,9 @@ def test_read_backups(tmpdir) -> None:
 
     invalid_paths: List[Tuple[Path, Exception]] = []
     callbacks = ReadBackupsCallbacks(
-        on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected query entry error: {path=} {error=}'),
+        on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
         on_invalid_backup=lambda path, error: invalid_paths.append((path, error)),
-        on_read_metadata_error=lambda path, error: pytest.fail(f'Unexpected read metadata error: {path=} {error=}')
+        on_read_metadata_error=lambda path, error: pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
     )
 
     with AssertFilesystemUnmodified(tmpdir):

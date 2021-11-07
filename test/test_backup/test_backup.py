@@ -1,45 +1,138 @@
 from datetime import datetime, timezone
-import re
 
 import pytest
 
-from incremental_backup.backup.backup import BackupError, perform_backup
+from incremental_backup.backup.backup import BackupCallbacks, BackupError, perform_backup
 from incremental_backup.backup.exclude import ExcludePattern
-from incremental_backup.meta.manifest import BackupManifest, read_backup_manifest
+from incremental_backup.backup.filesystem import ScanFilesystemCallbacks
+from incremental_backup.backup.plan import ExecuteBackupPlanCallbacks
+from incremental_backup.meta.manifest import BackupManifest, BackupManifestParseError, read_backup_manifest
+from incremental_backup.meta.meta import ReadBackupsCallbacks
+from incremental_backup.meta.start_info import BackupStartInfoParseError
 
 from helpers import AssertFilesystemUnmodified, dir_entries, unordered_equal, write_file_with_mtime
 
 
 def test_perform_backup_nonexistent_source(tmpdir) -> None:
     source_path = tmpdir / 'source'
+
     target_path = tmpdir / 'target'
     (target_path / 'gmnp98w4ygf97' / 'data').mkdir(parents=True)
     (target_path / 'gmnp98w4ygf97' / 'data' / 'a file').write_text('uokhrg jsdhfg8a7i4yfgw')
+
+    callbacks = BackupCallbacks(
+        on_before_read_previous_backups=lambda: pytest.fail('Unexpected on_before_read_previous_backups'),
+        read_backups=ReadBackupsCallbacks(
+            on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
+            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
+            on_read_metadata_error=lambda path, error:
+                pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
+        ),
+        on_after_read_previous_backups=lambda backups:
+            pytest.fail(f'Unexpected on_after_read_previous_backups: {backups=}'),
+        on_before_initialise_backup=lambda: pytest.fail('Unexpected on_before_initialise_backup'),
+        on_created_backup_directory=lambda path: pytest.fail(f'Unexpected on_create_backup_directory: {path=}'),
+        on_before_scan_source=lambda: pytest.fail('Unexpected on_before_scan_source'),
+        scan_source=ScanFilesystemCallbacks(
+            on_exclude=lambda path: pytest.fail(f'Unexpected on_exclude: {path=}'),
+            on_listdir_error=lambda path, error: pytest.fail(f'Unexpected on_listdir_error: {path=} {error=}'),
+            on_metadata_error=lambda path, error: pytest.fail(f'Unexpected on_metadata_error: {path=} {error=}')
+        ),
+        on_before_copy_files=lambda: pytest.fail('Unexpected on_before_copy_files'),
+        execute_plan=ExecuteBackupPlanCallbacks(
+            on_mkdir_error=lambda path, error: pytest.fail(f'Unexpected on_mkdir_error: {path=} {error=}'),
+            on_copy_error=lambda src, dest, error: pytest.fail(f'Unexpected on_copy_error: {src=} {dest=} {error}=')
+        ),
+        on_before_save_metadata=lambda: pytest.fail('Unexpected on_before_save_metadata'),
+        on_write_complete_info_error=lambda path, error:
+            pytest.fail(f'Unexpected on_write_complete_info_error: {path=} {error=}')
+    )
+
     with AssertFilesystemUnmodified(tmpdir):
         with pytest.raises(BackupError):
-            perform_backup(source_path, target_path, ())
+            perform_backup(source_path, target_path, (), callbacks)
 
 
 def test_backup_source_is_file(tmpdir) -> None:
     source_path = tmpdir / 'source'
     source_path.write_text('hello world!')
+
     target_path = tmpdir / 'target'
     (target_path / '34gf98w34fgy' / 'data').mkdir(parents=True)
     (target_path / '34gf98w34fgy' / 'data' / 'something').write_text('3w4g809uw58g039ghur')
+
+    callbacks = BackupCallbacks(
+        on_before_read_previous_backups=lambda: pytest.fail('Unexpected on_before_read_previous_backups'),
+        read_backups=ReadBackupsCallbacks(
+            on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
+            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
+            on_read_metadata_error=lambda path, error:
+                pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
+        ),
+        on_after_read_previous_backups=lambda backups:
+            pytest.fail(f'Unexpected on_after_read_previous_backups: {backups=}'),
+        on_before_initialise_backup=lambda: pytest.fail('Unexpected on_before_initialise_backup'),
+        on_created_backup_directory=lambda path: pytest.fail(f'Unexpected on_create_backup_directory: {path=}'),
+        on_before_scan_source=lambda: pytest.fail('Unexpected on_before_scan_source'),
+        scan_source=ScanFilesystemCallbacks(
+            on_exclude=lambda path: pytest.fail(f'Unexpected on_exclude: {path=}'),
+            on_listdir_error=lambda path, error: pytest.fail(f'Unexpected on_listdir_error: {path=} {error=}'),
+            on_metadata_error=lambda path, error: pytest.fail(f'Unexpected on_metadata_error: {path=} {error=}')
+        ),
+        on_before_copy_files=lambda: pytest.fail('Unexpected on_before_copy_files'),
+        execute_plan=ExecuteBackupPlanCallbacks(
+            on_mkdir_error=lambda path, error: pytest.fail(f'Unexpected on_mkdir_error: {path=} {error=}'),
+            on_copy_error=lambda src, dest, error: pytest.fail(f'Unexpected on_copy_error: {src=} {dest=} {error}=')
+        ),
+        on_before_save_metadata=lambda: pytest.fail('Unexpected on_before_save_metadata'),
+        on_write_complete_info_error=lambda path, error:
+            pytest.fail(f'Unexpected on_write_complete_info_error: {path=} {error=}')
+    )
+
     with AssertFilesystemUnmodified(tmpdir):
         with pytest.raises(BackupError):
-            perform_backup(source_path, target_path, ())
+            perform_backup(source_path, target_path, (), callbacks)
 
 
 def test_backup_target_is_file(tmpdir) -> None:
     source_path = tmpdir / 'source'
     source_path.mkdir()
     (source_path / 'foo').write_text('some text here')
+
     target_path = tmpdir / 'target'
     target_path.write_text('hello world!')
+
+    callbacks = BackupCallbacks(
+        on_before_read_previous_backups=lambda: pytest.fail('Unexpected on_before_read_previous_backups'),
+        read_backups=ReadBackupsCallbacks(
+            on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
+            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
+            on_read_metadata_error=lambda path, error:
+                pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
+        ),
+        on_after_read_previous_backups=lambda backups:
+            pytest.fail(f'Unexpected on_after_read_previous_backups: {backups=}'),
+        on_before_initialise_backup=lambda: pytest.fail('Unexpected on_before_initialise_backup'),
+        on_created_backup_directory=lambda path: pytest.fail(f'Unexpected on_create_backup_directory: {path=}'),
+        on_before_scan_source=lambda: pytest.fail('Unexpected on_before_scan_source'),
+        scan_source=ScanFilesystemCallbacks(
+            on_exclude=lambda path: pytest.fail(f'Unexpected on_exclude: {path=}'),
+            on_listdir_error=lambda path, error: pytest.fail(f'Unexpected on_listdir_error: {path=} {error=}'),
+            on_metadata_error=lambda path, error: pytest.fail(f'Unexpected on_metadata_error: {path=} {error=}')
+        ),
+        on_before_copy_files=lambda: pytest.fail('Unexpected on_before_copy_files'),
+        execute_plan=ExecuteBackupPlanCallbacks(
+            on_mkdir_error=lambda path, error: pytest.fail(f'Unexpected on_mkdir_error: {path=} {error=}'),
+            on_copy_error=lambda src, dest, error: pytest.fail(f'Unexpected on_copy_error: {src=} {dest=} {error}=')
+        ),
+        on_before_save_metadata=lambda: pytest.fail('Unexpected on_before_save_metadata'),
+        on_write_complete_info_error=lambda path, error:
+            pytest.fail(f'Unexpected on_write_complete_info_error: {path=} {error=}')
+    )
+
     with AssertFilesystemUnmodified(tmpdir):
         with pytest.raises(BackupError):
-            perform_backup(source_path, target_path, ())
+            perform_backup(source_path, target_path, (), callbacks)
 
 
 def test_backup_new_target(tmpdir) -> None:
@@ -53,39 +146,88 @@ def test_backup_new_target(tmpdir) -> None:
 
     target_path = (tmpdir / 'mypath\uFDEA\uBDF3' / 'doesnt\xDFFEXIsT')
 
-    # TODO: test callbacks
+    actual_callbacks = []
+
+    callbacks = BackupCallbacks(
+        on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
+        read_backups=ReadBackupsCallbacks(
+            on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
+            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
+            on_read_metadata_error=lambda path, error:
+                pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
+        ),
+        on_after_read_previous_backups=lambda backups:
+            actual_callbacks.append(('after_read_previous_backups', backups)),
+        on_before_initialise_backup=lambda: actual_callbacks.append('before_initialise_backup'),
+        on_created_backup_directory=lambda path: actual_callbacks.append(('created_backup_directory', path)),
+        on_before_scan_source=lambda: actual_callbacks.append('before_scan_source'),
+        scan_source=ScanFilesystemCallbacks(
+            on_exclude=lambda path: pytest.fail(f'Unexpected on_exclude: {path=}'),
+            on_listdir_error=lambda path, error: pytest.fail(f'Unexpected on_listdir_error: {path=} {error=}'),
+            on_metadata_error=lambda path, error: pytest.fail(f'Unexpected on_metadata_error: {path=} {error=}')
+        ),
+        on_before_copy_files=lambda: actual_callbacks.append('before_copy_files'),
+        execute_plan=ExecuteBackupPlanCallbacks(
+            on_mkdir_error=lambda path, error: pytest.fail(f'Unexpected on_mkdir_error: {path=} {error=}'),
+            on_copy_error=lambda src, dest, error: pytest.fail(f'Unexpected on_copy_error: {src=} {dest=} {error}=')
+        ),
+        on_before_save_metadata=lambda: actual_callbacks.append('before_save_metadata'),
+        on_write_complete_info_error=lambda path, error:
+            pytest.fail(f'Unexpected on_write_complete_info_error: {path=} {error=}')
+    )
 
     start_time = datetime.now(timezone.utc)
     with AssertFilesystemUnmodified(source_path):
-        results = perform_backup(source_path, target_path, ())
+        results = perform_backup(source_path, target_path, (), callbacks)
     end_time = datetime.now(timezone.utc)
 
-    # TODO: test results
-
     assert target_path.is_dir()
-    backups = list(target_path.iterdir())
-    assert len(backups) == 1
-    backup = backups[0]
-    assert backup.name.isascii() and backup.name.isalnum() and len(backup.name) >= 10
-    assert dir_entries(backup) == {'data', 'start.json', 'manifest.json', 'completion.json'}
-    assert dir_entries(backup / 'data') == {'foo.txt', 'bar'}
-    assert (backup / 'data' / 'foo.txt').read_text() == 'it is Sunday'
-    assert dir_entries(backup / 'data' / 'bar') == {'qux'}
-    assert (backup / 'data' / 'bar' / 'qux').read_text() == 'something just something'
+    backup_paths = list(target_path.iterdir())
+    assert len(backup_paths) == 1
+    backup_path = backup_paths[0]
 
-    actual_start_info = (backup / 'start.json').read_text(encoding='utf8')
-    match = re.fullmatch('{\n    "start_time": "(.+)"\n}', actual_start_info)
-    assert match
-    actual_start_time = datetime.fromisoformat(match.group(1))
+    assert actual_callbacks == [
+        'before_read_previous_backups',
+        ('after_read_previous_backups', ()),
+        'before_initialise_backup',
+        ('created_backup_directory', backup_path),
+        'before_scan_source',
+        'before_copy_files',
+        'before_save_metadata',
+    ]
+
+    expected_manifest = BackupManifest(
+        BackupManifest.Directory('', copied_files=['foo.txt'], subdirectories=[
+            BackupManifest.Directory('bar', copied_files=['qux'])
+        ]))
+
+    assert results.backup_path == backup_path
+    actual_start_time = results.start_info.start_time
     assert abs((start_time - actual_start_time).total_seconds()) < METADATA_TIME_TOLERANCE
-
-    actual_complete_info = (backup / 'completion.json').read_text(encoding='utf8')
-    match = re.fullmatch('{\n    "end_time": "(.+)",\n    "paths_skipped": false\n}', actual_complete_info)
-    assert match
-    actual_end_time = datetime.fromisoformat(match.group(1))
+    assert results.manifest == expected_manifest
+    actual_end_time = results.complete_info.end_time
     assert abs((end_time - actual_end_time).total_seconds()) < METADATA_TIME_TOLERANCE
+    assert not results.complete_info.paths_skipped
+    assert results.files_copied == 2
+    assert results.files_removed == 0
 
-    expected_manifest = \
+    assert backup_path.name.isascii() and backup_path.name.isalnum() and len(backup_path.name) >= 10
+    assert dir_entries(backup_path) == {'data', 'start.json', 'manifest.json', 'completion.json'}
+
+    assert dir_entries(backup_path / 'data') == {'foo.txt', 'bar'}
+    assert (backup_path / 'data' / 'foo.txt').read_text() == 'it is Sunday'
+    assert dir_entries(backup_path / 'data' / 'bar') == {'qux'}
+    assert (backup_path / 'data' / 'bar' / 'qux').read_text() == 'something just something'
+
+    actual_start_info_str = (backup_path / 'start.json').read_text(encoding='utf8')
+    expected_start_info_str = f'{{\n    "start_time": "{actual_start_time.isoformat()}"\n}}'
+    assert actual_start_info_str == expected_start_info_str
+
+    actual_complete_info_str = (backup_path / 'completion.json').read_text(encoding='utf8')
+    expected_complete_info_str = f'{{\n    "end_time": "{actual_end_time.isoformat()}",\n    "paths_skipped": false\n}}'
+    assert actual_complete_info_str == expected_complete_info_str
+
+    expected_manifest_str = \
 '''[
 {
 "n": "",
@@ -100,8 +242,8 @@ def test_backup_new_target(tmpdir) -> None:
 ]
 }
 ]'''
-    actual_manifest = (backup / 'manifest.json').read_text(encoding='utf8')
-    assert actual_manifest == expected_manifest
+    actual_manifest_str = (backup_path / 'manifest.json').read_text(encoding='utf8')
+    assert actual_manifest_str == expected_manifest_str
 
 
 def test_backup_no_previous_backups(tmpdir) -> None:
@@ -116,40 +258,89 @@ def test_backup_no_previous_backups(tmpdir) -> None:
     target_path = (tmpdir / 'I  lik\uCECE  tr\uAAAAins')
     target_path.mkdir()
 
-    # TODO: test callbacks
+    actual_callbacks = []
+
+    callbacks = BackupCallbacks(
+        on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
+        read_backups=ReadBackupsCallbacks(
+            on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
+            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
+            on_read_metadata_error=lambda path, error:
+                pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
+        ),
+        on_after_read_previous_backups=lambda backups:
+            actual_callbacks.append(('after_read_previous_backups', backups)),
+        on_before_initialise_backup=lambda: actual_callbacks.append('before_initialise_backup'),
+        on_created_backup_directory=lambda path: actual_callbacks.append(('created_backup_directory', path)),
+        on_before_scan_source=lambda: actual_callbacks.append('before_scan_source'),
+        scan_source=ScanFilesystemCallbacks(
+            on_exclude=lambda path: pytest.fail(f'Unexpected on_exclude: {path=}'),
+            on_listdir_error=lambda path, error: pytest.fail(f'Unexpected on_listdir_error: {path=} {error=}'),
+            on_metadata_error=lambda path, error: pytest.fail(f'Unexpected on_metadata_error: {path=} {error=}')
+        ),
+        on_before_copy_files=lambda: actual_callbacks.append('before_copy_files'),
+        execute_plan=ExecuteBackupPlanCallbacks(
+            on_mkdir_error=lambda path, error: pytest.fail(f'Unexpected on_mkdir_error: {path=} {error=}'),
+            on_copy_error=lambda src, dest, error: pytest.fail(f'Unexpected on_copy_error: {src=} {dest=} {error}=')
+        ),
+        on_before_save_metadata=lambda: actual_callbacks.append('before_save_metadata'),
+        on_write_complete_info_error=lambda path, error:
+            pytest.fail(f'Unexpected on_write_complete_info_error: {path=} {error=}')
+    )
 
     start_time = datetime.now(timezone.utc)
     with AssertFilesystemUnmodified(source_path):
-        results = perform_backup(source_path, target_path, ())
+        results = perform_backup(source_path, target_path, (), callbacks)
     end_time = datetime.now(timezone.utc)
 
-    # TODO: test results
-
     assert target_path.is_dir()
-    backups = list(target_path.iterdir())
-    assert len(backups) == 1
-    backup = backups[0]
-    assert backup.name.isascii() and backup.name.isalnum() and len(backup.name) >= 10
-    assert dir_entries(backup) == {'data', 'start.json', 'manifest.json', 'completion.json'}
+    backup_paths = list(target_path.iterdir())
+    assert len(backup_paths) == 1
+    backup_path = backup_paths[0]
 
-    assert dir_entries(backup / 'data') == {'it\uAF87.\u78FAis', '\x55\u6677\u8899\u0255'}
-    assert (backup / 'data' / 'it\uAF87.\u78FAis').read_text() == 'Wednesday my dudes'
-    assert dir_entries(backup / 'data' / '\x55\u6677\u8899\u0255') == {'funky file name'}
-    assert (backup / 'data' / '\x55\u6677\u8899\u0255' / 'funky file name').read_text() == '<^ funky <> file <> data ^>'
+    assert actual_callbacks == [
+        'before_read_previous_backups',
+        ('after_read_previous_backups', ()),
+        'before_initialise_backup',
+        ('created_backup_directory', backup_path),
+        'before_scan_source',
+        'before_copy_files',
+        'before_save_metadata',
+    ]
 
-    start_info = (backup / 'start.json').read_text(encoding='utf8')
-    match = re.fullmatch('{\n    "start_time": "(.+)"\n}', start_info)
-    assert match
-    actual_start_time = datetime.fromisoformat(match.group(1))
+    expected_manifest = BackupManifest(
+        BackupManifest.Directory('', copied_files=['it\uAF87.\u78FAis'], subdirectories=[
+            BackupManifest.Directory('\x55\u6677\u8899\u0255', copied_files=['funky file name'])
+        ]))
+
+    assert results.backup_path == backup_path
+    actual_start_time = results.start_info.start_time
     assert abs((start_time - actual_start_time).total_seconds()) < METADATA_TIME_TOLERANCE
-
-    complete_info = (backup / 'completion.json').read_text(encoding='utf8')
-    match = re.fullmatch('{\n    "end_time": "(.+)",\n    "paths_skipped": false\n}', complete_info)
-    assert match
-    actual_end_time = datetime.fromisoformat(match.group(1))
+    assert results.manifest == expected_manifest
+    actual_end_time = results.complete_info.end_time
     assert abs((end_time - actual_end_time).total_seconds()) < METADATA_TIME_TOLERANCE
+    assert not results.complete_info.paths_skipped
+    assert results.files_copied == 2
+    assert results.files_removed == 0
 
-    expected_manifest = \
+    assert backup_path.name.isascii() and backup_path.name.isalnum() and len(backup_path.name) >= 10
+    assert dir_entries(backup_path) == {'data', 'start.json', 'manifest.json', 'completion.json'}
+
+    assert dir_entries(backup_path / 'data') == {'it\uAF87.\u78FAis', '\x55\u6677\u8899\u0255'}
+    assert (backup_path / 'data' / 'it\uAF87.\u78FAis').read_text() == 'Wednesday my dudes'
+    assert dir_entries(backup_path / 'data' / '\x55\u6677\u8899\u0255') == {'funky file name'}
+    assert (backup_path / 'data' / '\x55\u6677\u8899\u0255' / 'funky file name').read_text() == \
+           '<^ funky <> file <> data ^>'
+
+    actual_start_info_str = (backup_path / 'start.json').read_text(encoding='utf8')
+    expected_start_info_str = f'{{\n    "start_time": "{actual_start_time.isoformat()}"\n}}'
+    assert actual_start_info_str == expected_start_info_str
+
+    actual_complete_info_str = (backup_path / 'completion.json').read_text(encoding='utf8')
+    expected_complete_info_str = f'{{\n    "end_time": "{actual_end_time.isoformat()}",\n    "paths_skipped": false\n}}'
+    assert actual_complete_info_str == expected_complete_info_str
+
+    expected_manifest_str = \
 '''[
 {
 "n": "",
@@ -164,8 +355,8 @@ def test_backup_no_previous_backups(tmpdir) -> None:
 ]
 }
 ]'''
-    actual_manifest = (backup / 'manifest.json').read_text(encoding='utf8')
-    assert actual_manifest == expected_manifest
+    actual_manifest_str = (backup_path / 'manifest.json').read_text(encoding='utf8')
+    assert actual_manifest_str == expected_manifest_str
 
 
 def test_backup_some_previous_backups(tmpdir) -> None:
@@ -251,60 +442,109 @@ def test_backup_some_previous_backups(tmpdir) -> None:
     exclude_patterns = ('/temp/',)
     exclude_patterns = tuple(map(ExcludePattern, exclude_patterns))
 
-    # TODO: test callbacks
+    actual_callbacks = []
+
+    callbacks = BackupCallbacks(
+        on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
+        read_backups=ReadBackupsCallbacks(
+            on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
+            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
+            on_read_metadata_error=lambda path, error:
+                pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
+        ),
+        on_after_read_previous_backups=lambda backups:
+            actual_callbacks.append(('after_read_previous_backups', backups)),
+        on_before_initialise_backup=lambda: actual_callbacks.append('before_initialise_backup'),
+        on_created_backup_directory=lambda path: actual_callbacks.append(('created_backup_directory', path)),
+        on_before_scan_source=lambda: actual_callbacks.append('before_scan_source'),
+        scan_source=ScanFilesystemCallbacks(
+            on_exclude=lambda path: actual_callbacks.append(('exclude', path)),
+            on_listdir_error=lambda path, error: pytest.fail(f'Unexpected on_listdir_error: {path=} {error=}'),
+            on_metadata_error=lambda path, error: pytest.fail(f'Unexpected on_metadata_error: {path=} {error=}')
+        ),
+        on_before_copy_files=lambda: actual_callbacks.append('before_copy_files'),
+        execute_plan=ExecuteBackupPlanCallbacks(
+            on_mkdir_error=lambda path, error: pytest.fail(f'Unexpected on_mkdir_error: {path=} {error=}'),
+            on_copy_error=lambda src, dest, error: pytest.fail(f'Unexpected on_copy_error: {src=} {dest=} {error}=')
+        ),
+        on_before_save_metadata=lambda: actual_callbacks.append('before_save_metadata'),
+        on_write_complete_info_error=lambda path, error:
+            pytest.fail(f'Unexpected on_write_complete_info_error: {path=} {error=}')
+    )
 
     start_time = datetime.now(timezone.utc)
     with AssertFilesystemUnmodified(source_path):
-        results = perform_backup(source_path, target_path, exclude_patterns)
+        results = perform_backup(source_path, target_path, exclude_patterns, callbacks)
     end_time = datetime.now(timezone.utc)
 
-    # TODO: test results
+    backup_path = (set(target_path.iterdir()) - {backup1_path, backup2_path, backup3_path}).pop()
 
-    backup = (set(target_path.iterdir()) - {backup1_path, backup2_path, backup3_path}).pop()
-    assert backup.name.isascii() and backup.name.isalnum() and len(backup.name) >= 10
-    assert dir_entries(backup) == {'data', 'start.json', 'manifest.json', 'completion.json'}
+    assert len(actual_callbacks) == 8
+    assert actual_callbacks[0] == 'before_read_previous_backups'
+    assert actual_callbacks[1][0] == 'after_read_previous_backups'
+    # I can't be bothered testing that all the metadata is the same, I assume it is otherwise other things will likely
+    # break anyway
+    assert unordered_equal(
+        [b.name for b in actual_callbacks[1][1]], ['sadhf8o3947yfqgfaw', 'gsel45o8ise45ytq87', '0345guyes8yfg73'])
+    assert actual_callbacks[2] == 'before_initialise_backup'
+    assert actual_callbacks[3] == ('created_backup_directory', backup_path)
+    assert actual_callbacks[4] == 'before_scan_source'
+    assert actual_callbacks[5] == ('exclude', source_path / 'temp')
+    assert actual_callbacks[6] == 'before_copy_files'
+    assert actual_callbacks[7] == 'before_save_metadata'
 
-    assert dir_entries(backup / 'data') == {'root_file3.txt', 'dir1\u1076\u0223', 'dir2', 'new_dir!'}
-    assert (backup / 'data' / 'root_file3.txt').read_text() == 'root_file3.txt new content'
-    assert dir_entries(backup / 'data' / 'dir1\u1076\u0223') == \
-           {'dir1\u1076\u0223_file@@.tij', 'dir1\u1076\u0223_file3'}
-    assert (backup / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file@@.tij').read_text() == 'something NEW'
-    assert (backup / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file3').read_text() == 'dir1_file3 new'
-    assert dir_entries(backup / 'data' / 'dir2') == {'dir2_\u45631'}
-    assert dir_entries(backup / 'data' / 'dir2' / 'dir2_\u45631') == {'myfile.myfile'}
-    assert (backup / 'data' / 'dir2' / 'dir2_\u45631' / 'myfile.myfile').read_text() == 'myfile and also mycontents'
-    assert dir_entries(backup / 'data' / 'new_dir!') == {'new file'}
-    assert (backup / 'data' / 'new_dir!' / 'new file').read_text() == 'its a new file!'
-
-    start_info = (backup / 'start.json').read_text(encoding='utf8')
-    match = re.fullmatch('{\n    "start_time": "(.+)"\n}', start_info)
-    assert match
-    actual_start_time = datetime.fromisoformat(match.group(1))
+    assert results.backup_path == backup_path
+    actual_start_time = results.start_info.start_time
     assert abs((start_time - actual_start_time).total_seconds()) < METADATA_TIME_TOLERANCE
-
-    complete_info = (backup / 'completion.json').read_text(encoding='utf8')
-    match = re.fullmatch('{\n    "end_time": "(.+)",\n    "paths_skipped": false\n}', complete_info)
-    assert match
-    actual_end_time = datetime.fromisoformat(match.group(1))
+    actual_end_time = results.complete_info.end_time
     assert abs((end_time - actual_end_time).total_seconds()) < METADATA_TIME_TOLERANCE
+    assert not results.complete_info.paths_skipped
+    assert results.files_copied == 5
+    assert results.files_removed == 2
 
-    # Don't think it's feasible to check the manifest without parsing it, because filesystem ordering is not guaranteed.
-    manifest = read_backup_manifest(backup / 'manifest.json')
-    assert manifest.root.copied_files == ['root_file3.txt']
-    assert manifest.root.removed_files == ['ro\u2983ot_fi\x90le2.exe']
-    assert manifest.root.removed_directories == ['temp']
-    assert len(manifest.root.subdirectories) == 3
-    dir1 = next(d for d in manifest.root.subdirectories if d.name == 'dir1\u1076\u0223')
+    actual_manifest = results.manifest
+    assert actual_manifest.root.copied_files == ['root_file3.txt']
+    assert actual_manifest.root.removed_files == ['ro\u2983ot_fi\x90le2.exe']
+    assert actual_manifest.root.removed_directories == ['temp']
+    assert len(actual_manifest.root.subdirectories) == 3
+    dir1 = next(d for d in actual_manifest.root.subdirectories if d.name == 'dir1\u1076\u0223')
     assert unordered_equal(dir1.copied_files, ('dir1\u1076\u0223_file@@.tij', 'dir1\u1076\u0223_file3'))
     assert dir1.removed_files == []
     assert dir1.removed_directories == []
     assert dir1.subdirectories == []
-    dir2 = next(d for d in manifest.root.subdirectories if d.name == 'dir2')
+    dir2 = next(d for d in actual_manifest.root.subdirectories if d.name == 'dir2')
     assert dir2 == BackupManifest.Directory('dir2', removed_files=['\uF000\uBAA4\u3404\xEA\uAEF1'], subdirectories=[
         BackupManifest.Directory('dir2_\u45631', copied_files=['myfile.myfile'])
     ])
-    new_dir = next(d for d in manifest.root.subdirectories if d.name == 'new_dir!')
+    new_dir = next(d for d in actual_manifest.root.subdirectories if d.name == 'new_dir!')
     assert new_dir == BackupManifest.Directory('new_dir!', copied_files=['new file'])
+
+    assert backup_path.name.isascii() and backup_path.name.isalnum() and len(backup_path.name) >= 10
+    assert dir_entries(backup_path) == {'data', 'start.json', 'manifest.json', 'completion.json'}
+
+    assert dir_entries(backup_path / 'data') == {'root_file3.txt', 'dir1\u1076\u0223', 'dir2', 'new_dir!'}
+    assert (backup_path / 'data' / 'root_file3.txt').read_text() == 'root_file3.txt new content'
+    assert dir_entries(backup_path / 'data' / 'dir1\u1076\u0223') == \
+           {'dir1\u1076\u0223_file@@.tij', 'dir1\u1076\u0223_file3'}
+    assert (backup_path / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file@@.tij').read_text() == 'something NEW'
+    assert (backup_path / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file3').read_text() == 'dir1_file3 new'
+    assert dir_entries(backup_path / 'data' / 'dir2') == {'dir2_\u45631'}
+    assert dir_entries(backup_path / 'data' / 'dir2' / 'dir2_\u45631') == {'myfile.myfile'}
+    assert (backup_path / 'data' / 'dir2' / 'dir2_\u45631' / 'myfile.myfile').read_text() == 'myfile and also mycontents'
+    assert dir_entries(backup_path / 'data' / 'new_dir!') == {'new file'}
+    assert (backup_path / 'data' / 'new_dir!' / 'new file').read_text() == 'its a new file!'
+
+    actual_start_info_str = (backup_path / 'start.json').read_text(encoding='utf8')
+    expected_start_info_str = f'{{\n    "start_time": "{actual_start_time.isoformat()}"\n}}'
+    assert actual_start_info_str == expected_start_info_str
+
+    actual_complete_info_str = (backup_path / 'completion.json').read_text(encoding='utf8')
+    expected_complete_info_str = f'{{\n    "end_time": "{actual_end_time.isoformat()}",\n    "paths_skipped": false\n}}'
+    assert actual_complete_info_str == expected_complete_info_str
+
+    # Don't think it's feasible to check the manifest without parsing it, because filesystem ordering is not guaranteed.
+    actual_manifest_from_file = read_backup_manifest(backup_path / 'manifest.json')
+    assert actual_manifest_from_file == actual_manifest
 
 
 def test_backup_some_invalid_backups(tmpdir) -> None:
@@ -382,37 +622,92 @@ def test_backup_some_invalid_backups(tmpdir) -> None:
     write_file_with_mtime(source_path / 'dir' / 'file', 'file backup2',
                           datetime(2021, 4, 5, 9, 32, 59, tzinfo=timezone.utc))     # Existing unmodified
 
-    # TODO: test callbacks
+    actual_callbacks = []
+
+    callbacks = BackupCallbacks(
+        on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
+        read_backups=ReadBackupsCallbacks(
+            on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
+            on_invalid_backup=lambda path, error: actual_callbacks.append(('invalid_backup', path, error)),
+            on_read_metadata_error=lambda path, error:
+                pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
+        ),
+        on_after_read_previous_backups=lambda backups:
+            actual_callbacks.append(('after_read_previous_backups', backups)),
+        on_before_initialise_backup=lambda: actual_callbacks.append('before_initialise_backup'),
+        on_created_backup_directory=lambda path: actual_callbacks.append(('created_backup_directory', path)),
+        on_before_scan_source=lambda: actual_callbacks.append('before_scan_source'),
+        scan_source=ScanFilesystemCallbacks(
+            on_exclude=lambda path: pytest.fail(f'Unexpected on_exclude: {path=}'),
+            on_listdir_error=lambda path, error: pytest.fail(f'Unexpected on_listdir_error: {path=} {error=}'),
+            on_metadata_error=lambda path, error: pytest.fail(f'Unexpected on_metadata_error: {path=} {error=}')
+        ),
+        on_before_copy_files=lambda: actual_callbacks.append('before_copy_files'),
+        execute_plan=ExecuteBackupPlanCallbacks(
+            on_mkdir_error=lambda path, error: pytest.fail(f'Unexpected on_mkdir_error: {path=} {error=}'),
+            on_copy_error=lambda src, dest, error: pytest.fail(f'Unexpected on_copy_error: {src=} {dest=} {error}=')
+        ),
+        on_before_save_metadata=lambda: actual_callbacks.append('before_save_metadata'),
+        on_write_complete_info_error=lambda path, error:
+            pytest.fail(f'Unexpected on_write_complete_info_error: {path=} {error=}')
+    )
 
     start_time = datetime.now(timezone.utc)
     with AssertFilesystemUnmodified(source_path):
-        results = perform_backup(source_path, target_path, ())
+        results = perform_backup(source_path, target_path, (), callbacks)
     end_time = datetime.now(timezone.utc)
 
-    # TODO: test results
+    backup_path = (set(target_path.iterdir()) -
+                   {invalid1, invalid2, invalid3, invalid4, invalid5, invalid6, backup1, backup2}).pop()
 
-    backup = (set(target_path.iterdir()) -
-              {invalid1, invalid2, invalid3, invalid4, invalid5, invalid6, backup1, backup2}).pop()
-    assert backup.name.isascii() and backup.name.isalnum() and len(backup.name) >= 10
-    assert dir_entries(backup) == {'data', 'start.json', 'manifest.json', 'completion.json'}
+    assert len(actual_callbacks) == 12
+    assert actual_callbacks[0] == 'before_read_previous_backups'
+    assert unordered_equal([(c, path, type(error)) for c, path, error in actual_callbacks[1:6]], [
+        ('invalid_backup', target_path / '9458guysd9gyw37', type(None)),
+        ('invalid_backup', target_path / '859tfhgsidth574shg', type(None)),
+        ('invalid_backup', target_path / 'not @lph&numer!c', type(None)),
+        ('invalid_backup', target_path / '038574tq374gfh', BackupManifestParseError),
+        ('invalid_backup', target_path / '90435fgjwf43fy43', BackupStartInfoParseError)
+    ])
+    assert actual_callbacks[6][0] == 'after_read_previous_backups'
+    # I can't be bothered testing that all the metadata is the same, I assume it is otherwise other things will likely
+    # break anyway
+    assert unordered_equal([b.name for b in actual_callbacks[6][1]], ['83547tgwyedfg', '6789345g3w4ywfd'])
+    assert actual_callbacks[7] == 'before_initialise_backup'
+    assert actual_callbacks[8] == ('created_backup_directory', backup_path)
+    assert actual_callbacks[9] == 'before_scan_source'
+    assert actual_callbacks[10] == 'before_copy_files'
+    assert actual_callbacks[11] == 'before_save_metadata'
 
-    assert dir_entries(backup / 'data') == {'new.txt'}
-    assert (backup / 'data' / 'new.txt').read_text() == 'new.txt NEW'
+    expected_manifest = BackupManifest(
+        BackupManifest.Directory('', copied_files=['new.txt'], removed_directories=['bar']))
 
-    start_info = (backup / 'start.json').read_text(encoding='utf8')
-    match = re.fullmatch('{\n    "start_time": "(.+)"\n}', start_info)
-    assert match
-    actual_start_time = datetime.fromisoformat(match.group(1))
+    assert results.backup_path == backup_path
+    actual_start_time = results.start_info.start_time
     assert abs((start_time - actual_start_time).total_seconds()) < METADATA_TIME_TOLERANCE
-
-    complete_info = (backup / 'completion.json').read_text(encoding='utf8')
-    match = re.fullmatch('{\n    "end_time": "(.+)",\n    "paths_skipped": false\n}', complete_info)
-    assert match
-    actual_end_time = datetime.fromisoformat(match.group(1))
+    assert results.manifest == expected_manifest
+    actual_end_time = results.complete_info.end_time
     assert abs((end_time - actual_end_time).total_seconds()) < METADATA_TIME_TOLERANCE
+    assert not results.complete_info.paths_skipped
+    assert results.files_copied == 1
+    assert results.files_removed == 0
 
-    actual_manifest = (backup / 'manifest.json').read_text(encoding='utf8')
-    expected_manifest = \
+    assert backup_path.name.isascii() and backup_path.name.isalnum() and len(backup_path.name) >= 10
+    assert dir_entries(backup_path) == {'data', 'start.json', 'manifest.json', 'completion.json'}
+
+    assert dir_entries(backup_path / 'data') == {'new.txt'}
+    assert (backup_path / 'data' / 'new.txt').read_text() == 'new.txt NEW'
+
+    actual_start_info_str = (backup_path / 'start.json').read_text(encoding='utf8')
+    expected_start_info_str = f'{{\n    "start_time": "{actual_start_time.isoformat()}"\n}}'
+    assert actual_start_info_str == expected_start_info_str
+
+    actual_complete_info_str = (backup_path / 'completion.json').read_text(encoding='utf8')
+    expected_complete_info_str = f'{{\n    "end_time": "{actual_end_time.isoformat()}",\n    "paths_skipped": false\n}}'
+    assert actual_complete_info_str == expected_complete_info_str
+
+    actual_manifest_str = (backup_path / 'manifest.json').read_text(encoding='utf8')
+    expected_manifest_str = \
 '''[
 {
 "n": "",
@@ -425,7 +720,7 @@ def test_backup_some_invalid_backups(tmpdir) -> None:
 }
 ]'''
 
-    assert actual_manifest == expected_manifest
+    assert actual_manifest_str == expected_manifest_str
 
 
 METADATA_TIME_TOLERANCE = 5     # Seconds

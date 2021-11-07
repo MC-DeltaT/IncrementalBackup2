@@ -36,9 +36,9 @@ def test_scan_filesystem_no_excludes(tmpdir) -> None:
     # Not sure how to test error situations.
 
     callbacks = ScanFilesystemCallbacks(
-        on_exclude=lambda path: pytest.fail(f'Unexpected excluded path: {path=}'),
-        on_listdir_error=lambda path, error: pytest.fail(f'Unexpected listdir error: {path=} {error=}'),
-        on_metadata_error=lambda path, error: pytest.fail(f'Unexpected metadata error: {path=} {error=}')
+        on_exclude=lambda path: pytest.fail(f'Unexpected on_exclude: {path=}'),
+        on_listdir_error=lambda path, error: pytest.fail(f'Unexpected on_listdir_error: {path=} {error=}'),
+        on_metadata_error=lambda path, error: pytest.fail(f'Unexpected on_metadata_error: {path=} {error=}')
     )
 
     with AssertFilesystemUnmodified(tmpdir):
@@ -101,8 +101,8 @@ def test_scan_filesystem_some_excludes(tmpdir) -> None:
     actual_excludes: List[Path] = []
     callbacks = ScanFilesystemCallbacks(
         on_exclude=lambda path: actual_excludes.append(path),
-        on_listdir_error=lambda path, error: pytest.fail(f'Unexpected listdir error: {path=} {error=}'),
-        on_metadata_error=lambda path, error: pytest.fail(f'Unexpected metadata error: {path=} {error=}')
+        on_listdir_error=lambda path, error: pytest.fail(f'Unexpected on_listdir_error: {path=} {error=}'),
+        on_metadata_error=lambda path, error: pytest.fail(f'Unexpected on_metadata_error: {path=} {error=}')
     )
 
     with AssertFilesystemUnmodified(tmpdir):

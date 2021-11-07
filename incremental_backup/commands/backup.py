@@ -74,13 +74,13 @@ class BackupCommand(Command):
             on_before_initialise_backup=lambda: print('Initialising backup'),
             on_created_backup_directory=lambda path: print(f'Backup name: {path.name}'),
             on_before_scan_source=lambda: print('Scanning source directory'),
-            scan=ScanFilesystemCallbacks(
+            scan_source=ScanFilesystemCallbacks(
                 on_exclude=lambda path: print(f'Excluded path "{path}"'),
                 on_listdir_error=lambda path, error: print_warning(f'Failed to enumerate directory "{path}": {error}'),
                 on_metadata_error=lambda path, error: print_warning(f'Failed to get metadata of "{path}": {error}')
             ),
             on_before_copy_files=lambda: print('Copying files'),
-            execute=ExecuteBackupPlanCallbacks(
+            execute_plan=ExecuteBackupPlanCallbacks(
                 on_mkdir_error=lambda path, error: print_warning(f'Failed to create directory "{path}": {error}'),
                 on_copy_error=lambda src, dest, error:
                     print_warning(f'Failed to copy file "{src}" to "{dest}": {error}')

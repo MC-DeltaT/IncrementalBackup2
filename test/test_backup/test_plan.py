@@ -293,8 +293,8 @@ def test_execute_backup_plan_empty_plan(tmpdir) -> None:
     plan = BackupPlan()
 
     callbacks = ExecuteBackupPlanCallbacks(
-        on_mkdir_error=lambda path, error: pytest.fail(f'Unexpected mkdir error: {path=} {error=}'),
-        on_copy_error=lambda src, dest, error: pytest.fail(f'Unexpected copy error: {src=} {dest=} {error=}'))
+        on_mkdir_error=lambda path, error: pytest.fail(f'Unexpected on_mkdir_error: {path=} {error=}'),
+        on_copy_error=lambda src, dest, error: pytest.fail(f'Unexpected on_copy_error: {src=} {dest=} {error=}'))
 
     with AssertFilesystemUnmodified(source_path):
         actual_results = execute_backup_plan(plan, source_path, destination_path, callbacks)

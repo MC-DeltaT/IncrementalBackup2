@@ -57,13 +57,13 @@ class BackupCallbacks:
     on_before_scan_source: Callable[[], None] = lambda: None
     """Called just before scanning the source directory."""
 
-    scan: ScanFilesystemCallbacks = ScanFilesystemCallbacks()
+    scan_source: ScanFilesystemCallbacks = ScanFilesystemCallbacks()
     """Callbacks for `scan_filesystem()`."""
 
     on_before_copy_files: Callable[[], None] = lambda: None
     """Called just before copying files to the backup."""
 
-    execute: ExecuteBackupPlanCallbacks = ExecuteBackupPlanCallbacks()
+    execute_plan: ExecuteBackupPlanCallbacks = ExecuteBackupPlanCallbacks()
     """Callbacks for `execute_backup_plan()`."""
 
     on_before_save_metadata: Callable[[], None] = lambda: None
@@ -242,7 +242,7 @@ class BackupOperation:
         """Scans the source directory and generates the backup plan."""
 
         (self.callbacks.on_before_scan_source)()
-        scan_results = scan_filesystem(self.source_directory, self.exclude_patterns, self.callbacks.scan)
+        scan_results = scan_filesystem(self.source_directory, self.exclude_patterns, self.callbacks.scan_source)
         self.paths_skipped = self.paths_skipped or scan_results.paths_skipped
         backup_plan = BackupPlan.new(scan_results.tree, backup_sum)
         return backup_plan
@@ -251,7 +251,8 @@ class BackupOperation:
         """Backs up files from the source directory to the backup directory according to the backup plan."""
 
         (self.callbacks.on_before_copy_files)()
-        execute_results = execute_backup_plan(backup_plan, self.source_directory, destination_path, self.callbacks.execute)
+        execute_results = execute_backup_plan(
+            backup_plan, self.source_directory, destination_path, self.callbacks.execute_plan)
 
         self.paths_skipped = self.paths_skipped or execute_results.paths_skipped
         self.manifest = execute_results.manifest
