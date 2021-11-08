@@ -24,6 +24,11 @@ def test_backup_no_args() -> None:
     assert process.returncode == 1
 
 
+def test_backup_too_few_args(tmpdir) -> None:
+    process = run_application(('backup', str(tmpdir), '--exclude', '/foobar/'))
+    assert process.returncode == 1
+
+
 def test_backup_normal(tmpdir) -> None:
     # Typical application usage: few existing backups, some exclude patterns.
 

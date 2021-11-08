@@ -49,6 +49,8 @@ class ScanFilesystemCallbacks:
 
 @dataclass(frozen=True)
 class ScanFilesystemResults:
+    """Return results of `scan_filesystem()`."""
+
     tree: Directory
     """Root of the tree representation of the filesystem (the root itself represents the directory requested to be
         scanned)."""

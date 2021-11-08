@@ -127,6 +127,8 @@ class BackupPlan:
 
 @dataclass(frozen=True)
 class ExecuteBackupPlanResults:
+    """Return results of `execute_backup_plan()`."""
+
     manifest: BackupManifest
     paths_skipped: bool
     files_copied: int

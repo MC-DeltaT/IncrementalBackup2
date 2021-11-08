@@ -22,12 +22,12 @@ class BackupCommand(Command):
 
     @staticmethod
     def add_arg_subparser(subparser, /) -> None:
-        """Adds the command line argument subparser for the backup command."""
+        """Adds the argparse subparser for the backup command."""
 
         parser = subparser.add_parser(
             BackupCommand.COMMAND_STRING, description='Creates a new backup.', help='Creates a new backup.')
-        parser.add_argument('source_dir', action='store', type=Path, help='Directory to back up.')
-        parser.add_argument('target_dir', action='store', type=Path, help='Directory to back up into.')
+        parser.add_argument('source_dir', type=Path, help='Directory to back up.')
+        parser.add_argument('target_dir', type=Path, help='Directory to back up into.')
         parser.add_argument(
             '--exclude', nargs='+', type=ExcludePattern, required=False, help='Path patterns to exclude.')
 
@@ -60,6 +60,8 @@ class BackupCommand(Command):
 
     @staticmethod
     def _backup_callbacks() -> BackupCallbacks:
+        """Creates the callbacks for `perform_backup()`."""
+
         return BackupCallbacks(
             on_before_read_previous_backups=lambda: print('Reading previous backups'),
             read_backups=ReadBackupsCallbacks(

@@ -25,6 +25,8 @@ __all__ = [
 
 @dataclass(frozen=True)
 class BackupResults:
+    """Return results of `perform_backup()`."""
+
     backup_path: Path
     start_info: BackupStartInfo
     manifest: BackupManifest
@@ -100,7 +102,7 @@ class BackupOperation:
         self.exclude_patterns = tuple(exclude_patterns)
         self.callbacks = callbacks
 
-        self._init_working_data()
+        self._init_working_state()
 
     def perform_backup(self) -> BackupResults:
         """Creates a new backup.
@@ -108,13 +110,13 @@ class BackupOperation:
             :except BackupError: If an error occurs that prevents the backup operation from creating a valid backup.
         """
 
-        self._init_working_data()
+        self._init_working_state()
 
         self._validate_source_directory()
         self._validate_target_directory()
 
-        self._read_previous_backups()
-        backup_sum = BackupSum.from_backups(self.previous_backups)
+        previous_backups = self._read_previous_backups()
+        backup_sum = BackupSum.from_backups(previous_backups)
 
         (self.callbacks.on_before_initialise_backup)()
         self._create_backup_directory()
@@ -131,10 +133,9 @@ class BackupOperation:
         return BackupResults(
             self.backup_path, self.start_info, self.manifest, self.complete_info, self.files_copied, self.files_removed)
 
-    def _init_working_data(self) -> None:
+    def _init_working_state(self) -> None:
         """Initialises various shared data used by and operated on by the methods in this class."""
 
-        self.previous_backups: Optional[Sequence[BackupMetadata]] = []
         self.backup_path: Optional[Path] = None
         self.start_info: Optional[BackupStartInfo] = None
         self.manifest: Optional[BackupManifest] = None
@@ -171,7 +172,7 @@ class BackupOperation:
         except OSError as e:
             raise BackupError(f'Failed to query target directory: {e}') from e
 
-    def _read_previous_backups(self) -> None:
+    def _read_previous_backups(self) -> Sequence[BackupMetadata]:
         """Reads existing backups' metadata from the backup target directory.
 
             If any backup's metadata cannot be read, skips that backup.
@@ -189,9 +190,10 @@ class BackupOperation:
         except OSError as e:
             raise BackupError(f'Failed to enumerate target directory: {e}') from e
         backups = tuple(backups)
-        self.previous_backups = backups
 
         (self.callbacks.on_after_read_previous_backups)(backups)
+
+        return backups
 
     def _create_backup_directory(self) -> None:
         """Creates a new backup directory within the target directory.
@@ -242,6 +244,7 @@ class BackupOperation:
         """Scans the source directory and generates the backup plan."""
 
         (self.callbacks.on_before_scan_source)()
+
         scan_results = scan_filesystem(self.source_directory, self.exclude_patterns, self.callbacks.scan_source)
         self.paths_skipped = self.paths_skipped or scan_results.paths_skipped
         backup_plan = BackupPlan.new(scan_results.tree, backup_sum)
@@ -251,6 +254,7 @@ class BackupOperation:
         """Backs up files from the source directory to the backup directory according to the backup plan."""
 
         (self.callbacks.on_before_copy_files)()
+
         execute_results = execute_backup_plan(
             backup_plan, self.source_directory, destination_path, self.callbacks.execute_plan)
 
@@ -289,7 +293,7 @@ class BackupOperation:
 class BackupError(Exception):
     """Raised when creating a backup fails such that a valid backup cannot be produced.
 
-        Some cases when this exception is raised:
+        Some cases where this exception is raised:
          - The source directory cannot be accessed at all.
          - A new backup directory couldn't be created.
          - Writing the backup start information file failed.

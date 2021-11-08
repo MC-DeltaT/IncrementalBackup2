@@ -44,7 +44,7 @@ class BackupSum:
 
         backup_sum = cls()
 
-        backups_sorted = sorted(backups, key=lambda b: b.start_info.start_time)
+        backups_sorted = sorted(backups, key=lambda backup: backup.start_info.start_time)
 
         # List of all directories. Parent will always occur before child in list.
         directories: List[BackupSum.Directory] = [backup_sum.root]

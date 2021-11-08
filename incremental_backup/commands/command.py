@@ -17,6 +17,13 @@ class Command(ABC):
     COMMAND_STRING: ClassVar[str]
     """Name of the command as specified in the command line arguments."""
 
+    @staticmethod
+    @abstractmethod
+    def add_arg_subparser(subparser, /) -> None:
+        """Adds the argparse subparser for the command."""
+
+        raise NotImplementedError()
+
     def __init__(self, arguments: argparse.Namespace, /) -> None:
         """
             :param arguments: The parsed command line arguments object acquired from argparse.
@@ -25,12 +32,5 @@ class Command(ABC):
     @abstractmethod
     def run(self) -> None:
         """Executes the command."""
-
-        raise NotImplementedError()
-
-    @staticmethod
-    @abstractmethod
-    def add_arg_subparser(subparser, /) -> None:
-        """Adds the command line argument subparser for the command."""
 
         raise NotImplementedError()

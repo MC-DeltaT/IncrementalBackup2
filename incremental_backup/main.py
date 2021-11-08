@@ -2,7 +2,7 @@ import argparse
 import sys
 from typing import Mapping, NoReturn, Sequence, Type
 
-from .commands import BackupCommand, Command, CommandArgumentError, CommandError
+from .commands import BackupCommand, Command, CommandArgumentError, CommandError, RestoreCommand
 from .utility import print_error
 
 
@@ -86,6 +86,7 @@ class ArgumentParser(argparse.ArgumentParser):
 
 COMMAND_CLASSES: Sequence[Type[Command]] = (
     BackupCommand,
+    RestoreCommand
 )
 
 
