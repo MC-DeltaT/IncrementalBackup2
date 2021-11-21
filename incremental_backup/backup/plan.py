@@ -137,7 +137,7 @@ class ExecuteBackupPlanResults:
 
 @dataclass(frozen=True)
 class ExecuteBackupPlanCallbacks:
-    """Callbacks/hooks for events that occur in `execute_backup_plan()`."""
+    """Callbacks for events that occur in `execute_backup_plan()`."""
 
     on_mkdir_error: Callable[[Path, OSError], None] = lambda path, error: None
     """Called when an error is raised creating a directory.
@@ -163,13 +163,10 @@ def execute_backup_plan(backup_plan: BackupPlan, source_directory: PathLike, des
         :param backup_plan: The backup plan to enact. Should be based off `source_path`, otherwise the results will be
             nonsense.
         :param source_directory: The backup source directory; where files are copied from.
-        :param destination_directory: The location to copy files to. This directory itself represents the backup source
-            directory.
-        :param callbacks: Callbacks/hooks for certain events during execution. See `ExecuteBackupPlanCallbacks`.
+        :param destination_directory: The location to copy files to. Need not exist. This directory itself represents
+            the backup source directory.
+        :param callbacks: Callbacks for certain events during execution. See `ExecuteBackupPlanCallbacks`.
     """
-
-    source_directory = Path(source_directory)
-    destination_directory = Path(destination_directory)
 
     manifest = BackupManifest()
     paths_skipped = False
@@ -219,6 +216,7 @@ def execute_backup_plan(backup_plan: BackupPlan, source_directory: PathLike, des
                         shutil.copy2(source_file_path, destination_file_path)
                     except OSError as e:
                         paths_skipped = True
+
                         (callbacks.on_copy_error)(source_file_path, destination_file_path, e)
                     else:
                         copied_files.append(file)

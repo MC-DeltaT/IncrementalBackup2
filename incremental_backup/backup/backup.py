@@ -37,7 +37,7 @@ class BackupResults:
 
 @dataclass(frozen=True)
 class BackupCallbacks:
-    """Callbacks/hooks for events that occur during `perform_backup()`."""
+    """Callbacks for events that occur during `perform_backup()`."""
 
     on_before_read_previous_backups: Callable[[], None] = lambda: None
     """Called just before reading previous backups from the target directory."""
@@ -82,11 +82,13 @@ def perform_backup(source_directory: PathLike, target_directory: PathLike, exclu
         and saving metadata.
 
         :param source_directory: Directory to back up.
-        :param target_directory: Directory to create the new backup in, and where ay previous backups are read from.
+        :param target_directory: Directory to create the new backup in, and where any previous backups are read from.
+            Need not exist.
         :param exclude_patterns: Patterns to match paths which will be excluded from the backup.
-        :param callbacks: Callbacks/hooks for certain events during execution. See `BackupCallbacks`.
+        :param callbacks: Callbacks for certain events during execution. See `BackupCallbacks`.
         :return: Metadata and summary information for the backup operation.
-        :except BackupError: If an error occurs that prevents the backup operation from creating a valid backup.
+        :except BackupError: If an error occurs that prevents the backup operation from creating a valid backup. See
+            `BackupError`.
     """
 
     return BackupOperation(source_directory, target_directory, exclude_patterns, callbacks).perform_backup()
@@ -107,7 +109,8 @@ class BackupOperation:
     def perform_backup(self) -> BackupResults:
         """Creates a new backup.
 
-            :except BackupError: If an error occurs that prevents the backup operation from creating a valid backup.
+            :except BackupError: If an error occurs that prevents the backup operation from creating a valid backup. See
+                `BackupError`.
         """
 
         self._init_working_state()

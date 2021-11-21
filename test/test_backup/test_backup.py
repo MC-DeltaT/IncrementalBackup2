@@ -17,8 +17,8 @@ def test_perform_backup_nonexistent_source(tmpdir) -> None:
     source_path = tmpdir / 'source'
 
     target_path = tmpdir / 'target'
-    (target_path / 'gmnp98w4ygf97' / 'data').mkdir(parents=True)
-    (target_path / 'gmnp98w4ygf97' / 'data' / 'a file').write_text('uokhrg jsdhfg8a7i4yfgw')
+    (target_path / 'gmnp98w4ygf97/data').mkdir(parents=True)
+    (target_path / 'gmnp98w4ygf97/data/a file').write_text('uokhrg jsdhfg8a7i4yfgw')
 
     callbacks = BackupCallbacks(
         on_before_read_previous_backups=lambda: pytest.fail('Unexpected on_before_read_previous_backups'),
@@ -58,8 +58,8 @@ def test_backup_source_is_file(tmpdir) -> None:
     source_path.write_text('hello world!')
 
     target_path = tmpdir / 'target'
-    (target_path / '34gf98w34fgy' / 'data').mkdir(parents=True)
-    (target_path / '34gf98w34fgy' / 'data' / 'something').write_text('3w4g809uw58g039ghur')
+    (target_path / '34gf98w34fgy/data').mkdir(parents=True)
+    (target_path / '34gf98w34fgy/data/something').write_text('3w4g809uw58g039ghur')
 
     callbacks = BackupCallbacks(
         on_before_read_previous_backups=lambda: pytest.fail('Unexpected on_before_read_previous_backups'),
@@ -142,9 +142,9 @@ def test_backup_new_target(tmpdir) -> None:
     source_path.mkdir()
     (source_path / 'foo.txt').write_text('it is Sunday')
     (source_path / 'bar').mkdir()
-    (source_path / 'bar' / 'qux').write_text('something just something')
+    (source_path / 'bar/qux').write_text('something just something')
 
-    target_path = (tmpdir / 'mypath\uFDEA\uBDF3' / 'doesnt\xDFFEXIsT')
+    target_path = (tmpdir / 'mypath\uFDEA\uBDF3/doesnt\xDFFEXIsT')
 
     actual_callbacks = []
 
@@ -215,9 +215,9 @@ def test_backup_new_target(tmpdir) -> None:
     assert dir_entries(backup_path) == {'data', 'start.json', 'manifest.json', 'completion.json'}
 
     assert dir_entries(backup_path / 'data') == {'foo.txt', 'bar'}
-    assert (backup_path / 'data' / 'foo.txt').read_text() == 'it is Sunday'
-    assert dir_entries(backup_path / 'data' / 'bar') == {'qux'}
-    assert (backup_path / 'data' / 'bar' / 'qux').read_text() == 'something just something'
+    assert (backup_path / 'data/foo.txt').read_text() == 'it is Sunday'
+    assert dir_entries(backup_path / 'data/bar') == {'qux'}
+    assert (backup_path / 'data/bar/qux').read_text() == 'something just something'
 
     actual_start_info_str = (backup_path / 'start.json').read_text(encoding='utf8')
     expected_start_info_str = f'{{\n    "start_time": "{actual_start_time.isoformat()}"\n}}'
@@ -249,11 +249,11 @@ def test_backup_new_target(tmpdir) -> None:
 def test_backup_no_previous_backups(tmpdir) -> None:
     # Target directory exists but is empty.
 
-    source_path = tmpdir / 'rubbish\xC2with' / '\u5647\uBDC1\u9C87 chars'
+    source_path = tmpdir / 'rubbish\xC2with/\u5647\uBDC1\u9C87 chars'
     source_path.mkdir(parents=True)
     (source_path / 'it\uAF87.\u78FAis').write_text('Wednesday my dudes')
     (source_path / '\x55\u6677\u8899\u0255').mkdir()
-    (source_path / '\x55\u6677\u8899\u0255' / 'funky file name').write_text('<^ funky <> file <> data ^>')
+    (source_path / '\x55\u6677\u8899\u0255/funky file name').write_text('<^ funky <> file <> data ^>')
 
     target_path = (tmpdir / 'I  lik\uCECE  tr\uAAAAins')
     target_path.mkdir()
@@ -327,9 +327,9 @@ def test_backup_no_previous_backups(tmpdir) -> None:
     assert dir_entries(backup_path) == {'data', 'start.json', 'manifest.json', 'completion.json'}
 
     assert dir_entries(backup_path / 'data') == {'it\uAF87.\u78FAis', '\x55\u6677\u8899\u0255'}
-    assert (backup_path / 'data' / 'it\uAF87.\u78FAis').read_text() == 'Wednesday my dudes'
-    assert dir_entries(backup_path / 'data' / '\x55\u6677\u8899\u0255') == {'funky file name'}
-    assert (backup_path / 'data' / '\x55\u6677\u8899\u0255' / 'funky file name').read_text() == \
+    assert (backup_path / 'data/it\uAF87.\u78FAis').read_text() == 'Wednesday my dudes'
+    assert dir_entries(backup_path / 'data/\x55\u6677\u8899\u0255') == {'funky file name'}
+    assert (backup_path / 'data/\x55\u6677\u8899\u0255/funky file name').read_text() == \
            '<^ funky <> file <> data ^>'
 
     actual_start_info_str = (backup_path / 'start.json').read_text(encoding='utf8')
@@ -374,13 +374,13 @@ def test_backup_some_previous_backups(tmpdir) -> None:
             {"n": "dirXYZ", "cf": ["dirXYZ_file.ino"]}]''',
         encoding='utf8')
     (backup1_path / 'data').mkdir()
-    (backup1_path / 'data' / 'root\uA63Bfile1.mp4').write_text('rootfile1.mp4 backup1')
-    (backup1_path / 'data' / 'ro\u2983ot_fi\x90le2.exe').write_text('root_file2.exe backup1')
-    (backup1_path / 'data' / 'dir1\u1076\u0223').mkdir()
-    (backup1_path / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file1').write_text('dir1_file1 backup1')
-    (backup1_path / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file@@.tij').write_text('dir1_file@@.tij backup1')
-    (backup1_path / 'data' / 'dir1\u1076\u0223' / 'dirXYZ').mkdir()
-    (backup1_path / 'data' / 'dir1\u1076\u0223' / 'dirXYZ' / 'dirXYZ_file.ino').write_text('dirXYZ_file.ino backup1')
+    (backup1_path / 'data/root\uA63Bfile1.mp4').write_text('rootfile1.mp4 backup1')
+    (backup1_path / 'data/ro\u2983ot_fi\x90le2.exe').write_text('root_file2.exe backup1')
+    (backup1_path / 'data/dir1\u1076\u0223').mkdir()
+    (backup1_path / 'data/dir1\u1076\u0223/dir1\u1076\u0223_file1').write_text('dir1_file1 backup1')
+    (backup1_path / 'data/dir1\u1076\u0223/dir1\u1076\u0223_file@@.tij').write_text('dir1_file@@.tij backup1')
+    (backup1_path / 'data/dir1\u1076\u0223/dirXYZ').mkdir()
+    (backup1_path / 'data/dir1\u1076\u0223/dirXYZ/dirXYZ_file.ino').write_text('dirXYZ_file.ino backup1')
     (backup1_path / 'completion.json').write_text(
         '{"end_time": "2021-06-20T03:38:28.435676+00:00", "paths_skipped": false}', encoding='utf8')
 
@@ -394,11 +394,11 @@ def test_backup_some_previous_backups(tmpdir) -> None:
             {"n": "temp", "cf": ["x.y"]}]''',
         encoding='utf8')
     (backup2_path / 'data').mkdir()
-    (backup2_path / 'data' / 'root_file3.txt').write_text('root_file3.txt backup2')
-    (backup2_path / 'data' / 'dir1\u1076\u0223').mkdir()
-    (backup2_path / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file1').write_text('dir1_file1 backup2')
-    (backup2_path / 'data' / 'temp').mkdir()
-    (backup2_path / 'data' / 'temp' / 'x.y').write_text('x.y backup2')
+    (backup2_path / 'data/root_file3.txt').write_text('root_file3.txt backup2')
+    (backup2_path / 'data/dir1\u1076\u0223').mkdir()
+    (backup2_path / 'data/dir1\u1076\u0223/dir1\u1076\u0223_file1').write_text('dir1_file1 backup2')
+    (backup2_path / 'data/temp').mkdir()
+    (backup2_path / 'data/temp/x.y').write_text('x.y backup2')
     (backup2_path / 'completion.json').write_text(
         '{"start_time": "2021-07-01T13:55:46.983451+00:00", "paths_skipped": false}', encoding='utf8')
 
@@ -412,10 +412,10 @@ def test_backup_some_previous_backups(tmpdir) -> None:
             {"n": "dir1\u1076\u0223", "rd": ["dirXYZ"]}]''',
         encoding='utf8')
     (backup3_path / 'data').mkdir()
-    (backup3_path / 'data' / 'root\uA63Bfile1.mp4').write_text('rootfile1.mp4 backup3')
-    (backup3_path / 'data' / 'ro\u2983ot_fi\x90le2.exe').write_text('root_file2.exe backup3')
-    (backup3_path / 'data' / 'dir2').mkdir()
-    (backup3_path / 'data' / 'dir2' / '\uF000\uBAA4\u3404\xEA\uAEF1').write_text('foobar backup3')
+    (backup3_path / 'data/root\uA63Bfile1.mp4').write_text('rootfile1.mp4 backup3')
+    (backup3_path / 'data/ro\u2983ot_fi\x90le2.exe').write_text('root_file2.exe backup3')
+    (backup3_path / 'data/dir2').mkdir()
+    (backup3_path / 'data/dir2/\uF000\uBAA4\u3404\xEA\uAEF1').write_text('foobar backup3')
     (backup3_path / 'completion.json').write_text(
         '{"start_time": "2021-09-18T09:48:07.879254+00:00", "paths_skipped": false}', encoding='utf8')
 
@@ -426,18 +426,18 @@ def test_backup_some_previous_backups(tmpdir) -> None:
     # ro\u2983ot_fi\x90le2.exe removed
     (source_path / 'root_file3.txt').write_text('root_file3.txt new content')   # Existing modified
     (source_path / 'dir1\u1076\u0223').mkdir()  # Existing
-    write_file_with_mtime(source_path / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file1', 'dir1_file1 backup2',
+    write_file_with_mtime(source_path / 'dir1\u1076\u0223/dir1\u1076\u0223_file1', 'dir1_file1 backup2',
                           datetime(2021, 7, 1, 9, 32, 59, tzinfo=timezone.utc))     # Existing unmodified
-    (source_path / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file@@.tij').write_text('something NEW')  # Existing modified
-    (source_path / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file3').write_text('dir1_file3 new')      # New
+    (source_path / 'dir1\u1076\u0223/dir1\u1076\u0223_file@@.tij').write_text('something NEW')  # Existing modified
+    (source_path / 'dir1\u1076\u0223/dir1\u1076\u0223_file3').write_text('dir1_file3 new')      # New
     # dir2 / \uF000\uBAA4\u3404\xEA\uAEF1 removed
-    (source_path / 'dir2' / 'dir2_\u45631').mkdir(parents=True)     # New
-    (source_path / 'dir2' / 'dir2_\u45631' / 'myfile.myfile').write_text('myfile and also mycontents')  # New
+    (source_path / 'dir2/dir2_\u45631').mkdir(parents=True)     # New
+    (source_path / 'dir2/dir2_\u45631/myfile.myfile').write_text('myfile and also mycontents')  # New
     (source_path / 'temp').mkdir()      # Existing, excluded (removed)
     # temp / x.y removed
-    (source_path / 'temp' / '\u7669.\u5AAB').write_text('magic')    # New, excluded
+    (source_path / 'temp/\u7669.\u5AAB').write_text('magic')    # New, excluded
     (source_path / 'new_dir!').mkdir()      # New
-    (source_path / 'new_dir!' / 'new file').write_text('its a new file!')       # New
+    (source_path / 'new_dir!/new file').write_text('its a new file!')       # New
 
     exclude_patterns = ('/temp/',)
     exclude_patterns = tuple(map(ExcludePattern, exclude_patterns))
@@ -523,16 +523,16 @@ def test_backup_some_previous_backups(tmpdir) -> None:
     assert dir_entries(backup_path) == {'data', 'start.json', 'manifest.json', 'completion.json'}
 
     assert dir_entries(backup_path / 'data') == {'root_file3.txt', 'dir1\u1076\u0223', 'dir2', 'new_dir!'}
-    assert (backup_path / 'data' / 'root_file3.txt').read_text() == 'root_file3.txt new content'
-    assert dir_entries(backup_path / 'data' / 'dir1\u1076\u0223') == \
+    assert (backup_path / 'data/root_file3.txt').read_text() == 'root_file3.txt new content'
+    assert dir_entries(backup_path / 'data/dir1\u1076\u0223') == \
            {'dir1\u1076\u0223_file@@.tij', 'dir1\u1076\u0223_file3'}
-    assert (backup_path / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file@@.tij').read_text() == 'something NEW'
-    assert (backup_path / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file3').read_text() == 'dir1_file3 new'
-    assert dir_entries(backup_path / 'data' / 'dir2') == {'dir2_\u45631'}
-    assert dir_entries(backup_path / 'data' / 'dir2' / 'dir2_\u45631') == {'myfile.myfile'}
-    assert (backup_path / 'data' / 'dir2' / 'dir2_\u45631' / 'myfile.myfile').read_text() == 'myfile and also mycontents'
-    assert dir_entries(backup_path / 'data' / 'new_dir!') == {'new file'}
-    assert (backup_path / 'data' / 'new_dir!' / 'new file').read_text() == 'its a new file!'
+    assert (backup_path / 'data/dir1\u1076\u0223/dir1\u1076\u0223_file@@.tij').read_text() == 'something NEW'
+    assert (backup_path / 'data/dir1\u1076\u0223/dir1\u1076\u0223_file3').read_text() == 'dir1_file3 new'
+    assert dir_entries(backup_path / 'data/dir2') == {'dir2_\u45631'}
+    assert dir_entries(backup_path / 'data/dir2/dir2_\u45631') == {'myfile.myfile'}
+    assert (backup_path / 'data/dir2/dir2_\u45631/myfile.myfile').read_text() == 'myfile and also mycontents'
+    assert dir_entries(backup_path / 'data/new_dir!') == {'new file'}
+    assert (backup_path / 'data/new_dir!/new file').read_text() == 'its a new file!'
 
     actual_start_info_str = (backup_path / 'start.json').read_text(encoding='utf8')
     expected_start_info_str = f'{{\n    "start_time": "{actual_start_time.isoformat()}"\n}}'
@@ -594,9 +594,9 @@ def test_backup_some_invalid_backups(tmpdir) -> None:
     backup1 = target_path / '83547tgwyedfg'
     backup1.mkdir()
     (backup1 / 'data').mkdir()
-    (backup1 / 'data' / 'foo.txt').write_text('foo.txt backup1')
-    (backup1 / 'data' / 'bar').mkdir()
-    (backup1 / 'data' / 'bar' / 'qux.png').write_text('qux.png backup1')
+    (backup1 / 'data/foo.txt').write_text('foo.txt backup1')
+    (backup1 / 'data/bar').mkdir()
+    (backup1 / 'data/bar/qux.png').write_text('qux.png backup1')
     (backup1 / 'start.json').write_text('{"start_time": "2021-01-01T01:01:01.000001+00:00"}', encoding='utf8')
     (backup1 / 'manifest.json').write_text(
         '[{"n": "", "cf": ["foo.txt"]}, {"n": "bar", "cf": ["qux.png"]}]', encoding='utf8')
@@ -606,8 +606,8 @@ def test_backup_some_invalid_backups(tmpdir) -> None:
     backup2 = target_path / '6789345g3w4ywfd'
     backup2.mkdir()
     (backup2 / 'data').mkdir()
-    (backup2 / 'data' / 'dir').mkdir()
-    (backup2 / 'data' / 'dir' / 'file').write_text('file backup2')
+    (backup2 / 'data/dir').mkdir()
+    (backup2 / 'data/dir/file').write_text('file backup2')
     (backup2 / 'start.json').write_text('{"start_time": "2021-04-06T08:10:12.141618+00:00"}', encoding='utf8')
     (backup2 / 'manifest.json').write_text(
         '[{"n": "", "rf": ["foo.txt"]}, {"n": "dir", "cf": ["file"]}]', encoding='utf8')
@@ -619,7 +619,7 @@ def test_backup_some_invalid_backups(tmpdir) -> None:
     (source_path / 'new.txt').write_text('new.txt NEW')     # New
     # bar removed
     (source_path / 'dir').mkdir()
-    write_file_with_mtime(source_path / 'dir' / 'file', 'file backup2',
+    write_file_with_mtime(source_path / 'dir/file', 'file backup2',
                           datetime(2021, 4, 5, 9, 32, 59, tzinfo=timezone.utc))     # Existing unmodified
 
     actual_callbacks = []
@@ -696,7 +696,7 @@ def test_backup_some_invalid_backups(tmpdir) -> None:
     assert dir_entries(backup_path) == {'data', 'start.json', 'manifest.json', 'completion.json'}
 
     assert dir_entries(backup_path / 'data') == {'new.txt'}
-    assert (backup_path / 'data' / 'new.txt').read_text() == 'new.txt NEW'
+    assert (backup_path / 'data/new.txt').read_text() == 'new.txt NEW'
 
     actual_start_info_str = (backup_path / 'start.json').read_text(encoding='utf8')
     expected_start_info_str = f'{{\n    "start_time": "{actual_start_time.isoformat()}"\n}}'

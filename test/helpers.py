@@ -22,18 +22,18 @@ __all__ = [
 
 
 class AssertFilesystemUnmodified:
-    """Context object that asserts that the content of a path is the same when exiting as when entering."""
+    """Context object that asserts that the content of the specified paths is the same when exiting as when entering."""
 
-    def __init__(self, path: PathLike) -> None:
-        self.path = Path(path)
+    def __init__(self, *paths: PathLike) -> None:
+        self.paths = tuple(map(Path, paths))
 
     def __enter__(self):
-        self.hash_before = compute_filesystem_hash(self.path)
+        self.hashes_before = tuple(map(compute_filesystem_hash, self.paths))
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.hash_after = compute_filesystem_hash(self.path)
-        assert self.hash_after == self.hash_before
+        self.hashes_after = tuple(map(compute_filesystem_hash, self.paths))
+        assert self.hashes_after == self.hashes_before
 
 
 def unordered_equal(sequence1: Sequence[Any], sequence2: Sequence[Any]) -> bool:
@@ -123,7 +123,7 @@ def write_file_with_mtime(file: Path, contents: str, m_a_time: datetime, encodin
     utime(file, (timestamp, timestamp))
 
 
-def run_application(arguments: Sequence[str]) -> subprocess.CompletedProcess:
+def run_application(*arguments: str) -> subprocess.CompletedProcess:
     """Runs the incremental backup program with the given arguments in a new process and returns the results."""
     return subprocess.run(
         [sys.executable, './incremental_backup.py'] + list(arguments), capture_output=True, encoding='utf8')

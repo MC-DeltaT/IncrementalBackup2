@@ -33,7 +33,7 @@ class Directory:
 
 @dataclass(frozen=True)
 class ScanFilesystemCallbacks:
-    """Callbacks/hooks for events that occur during `scan_filesystem()`."""
+    """Callbacks for events that occur during `scan_filesystem()`."""
 
     on_exclude: Callable[[Path], None] = lambda path: None
     """Called when a file or directory is matched by `exclude_patterns` and is excluded."""
@@ -68,7 +68,7 @@ def scan_filesystem(path: PathLike, /, exclude_patterns: Iterable[ExcludePattern
         :param path: The path of the directory to scan.
         :param exclude_patterns: Compiled exclude patterns. If a directory or file matches any of these, it and its
             descendents are not included in the scan.
-        :param callbacks: Callbacks/hooks for certain events during scanning. See `ScanFilesystemCallbacks`.
+        :param callbacks: Callbacks for certain events during scanning. See `ScanFilesystemCallbacks`.
     """
 
     path = Path(path)

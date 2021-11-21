@@ -20,16 +20,16 @@ def test_directory_init() -> None:
 def test_scan_filesystem_no_excludes(tmpdir) -> None:
     time = datetime.now(timezone.utc)
     (tmpdir / 'a').mkdir()
-    (tmpdir / 'a' / 'aA').mkdir()
-    (tmpdir / 'a' / 'ab').mkdir()
+    (tmpdir / 'a/aA').mkdir()
+    (tmpdir / 'a/ab').mkdir()
     (tmpdir / 'b').mkdir()
-    (tmpdir / 'b' / 'ba').mkdir()
-    (tmpdir / 'b' / 'ba' / 'file_ba_1.jpg').touch()
-    (tmpdir / 'b' / 'ba' / 'FILE_ba_2.txt').touch()
-    (tmpdir / 'b' / 'bb').mkdir()
-    (tmpdir / 'b' / 'bb' / 'bba').mkdir()
-    (tmpdir / 'b' / 'bb' / 'bba' / 'bbaa').mkdir()
-    (tmpdir / 'b' / 'bb' / 'bba' / 'bbaa' / 'file\u4569_bbaa').touch()
+    (tmpdir / 'b/ba').mkdir()
+    (tmpdir / 'b/ba/file_ba_1.jpg').touch()
+    (tmpdir / 'b/ba/FILE_ba_2.txt').touch()
+    (tmpdir / 'b/bb').mkdir()
+    (tmpdir / 'b/bb/bba').mkdir()
+    (tmpdir / 'b/bb/bba/bbaa').mkdir()
+    (tmpdir / 'b/bb/bba/bbaa/file\u4569_bbaa').touch()
     (tmpdir / 'C').mkdir()
     (tmpdir / 'file.txt').touch()
 
@@ -85,17 +85,17 @@ def test_scan_filesystem_some_excludes(tmpdir) -> None:
     (tmpdir / 'un\xEFi\uC9F6c\u91F5ode.txt').touch()
     (tmpdir / 'foo.jpg').touch()
     (tmpdir / 'temp').mkdir()
-    (tmpdir / 'temp' / 'a_file').touch()
-    (tmpdir / 'temp' / 'a_dir' / 'b_dir').mkdir(parents=True)
-    (tmpdir / 'Code' / 'project').mkdir(parents=True)
-    (tmpdir / 'Code' / 'project' / 'README').touch()
-    (tmpdir / 'Code' / 'project' / 'src').mkdir()
-    (tmpdir / 'Code' / 'project' / 'src' / 'main.cpp').touch()
-    (tmpdir / 'Code' / 'project' / 'bin').mkdir()
-    (tmpdir / 'Code' / 'project' / 'bin' / 'artifact.bin').touch()
-    (tmpdir / 'Code' / 'project' / 'bin' / 'Program.exe').touch()
-    (tmpdir / 'Code' / 'project' / '.git').mkdir()
-    (tmpdir / 'Code' / 'project' / '.git' / 'somefile').touch()
+    (tmpdir / 'temp/a_file').touch()
+    (tmpdir / 'temp/a_dir/b_dir').mkdir(parents=True)
+    (tmpdir / 'Code/project').mkdir(parents=True)
+    (tmpdir / 'Code/project/README').touch()
+    (tmpdir / 'Code/project/src').mkdir()
+    (tmpdir / 'Code/project/src/main.cpp').touch()
+    (tmpdir / 'Code/project/bin').mkdir()
+    (tmpdir / 'Code/project/bin/artifact.bin').touch()
+    (tmpdir / 'Code/project/bin/Program.exe').touch()
+    (tmpdir / 'Code/project/.git').mkdir()
+    (tmpdir / 'Code/project/.git/somefile').touch()
     (tmpdir / 'empty').mkdir()
 
     actual_excludes: List[Path] = []
@@ -133,8 +133,8 @@ def test_scan_filesystem_some_excludes(tmpdir) -> None:
     assert len(empty.files) == 0 and len(empty.subdirectories) == 0
 
     expected_excludes = (
-        tmpdir / 'un\xEFi\uC9F6c\u91F5ode.txt', tmpdir / 'temp', tmpdir / 'Code' / 'project' / '.git',
-        tmpdir / 'Code' / 'project' / 'bin' / 'artifact.bin')
+        tmpdir / 'un\xEFi\uC9F6c\u91F5ode.txt', tmpdir / 'temp', tmpdir / 'Code/project/.git',
+        tmpdir / 'Code/project/bin/artifact.bin')
     assert unordered_equal(actual_excludes, expected_excludes)
 
 

@@ -184,26 +184,28 @@ def test_backup_plan_new_all_removed() -> None:
 
 
 def test_execute_backup_plan(tmpdir) -> None:
+    # Test some errors.
+
     source_path = tmpdir / 'source'
     source_path.mkdir()
     (source_path / 'Modified.txt').write_text('this is modified.txt')
     (source_path / 'file2').touch()
     (source_path / 'another file.docx').write_text('this is another file')
     (source_path / 'my directory').mkdir()
-    (source_path / 'my directory' / 'modified1.baz').write_text('foo bar qux')
-    (source_path / 'my directory' / 'an unmodified file').write_text('qux bar foo')
+    (source_path / 'my directory/modified1.baz').write_text('foo bar qux')
+    (source_path / 'my directory/an unmodified file').write_text('qux bar foo')
     (source_path / 'unmodified_dir').mkdir()
-    (source_path / 'unmodified_dir' / 'some_file.png').write_text('doesnt matter')
-    (source_path / 'unmodified_dir' / 'more files.md').write_text('doesnt matter2')
-    (source_path / 'unmodified_dir' / 'lastFile.jkl').write_text('doesnt matter3')
+    (source_path / 'unmodified_dir/some_file.png').write_text('doesnt matter')
+    (source_path / 'unmodified_dir/more files.md').write_text('doesnt matter2')
+    (source_path / 'unmodified_dir/lastFile.jkl').write_text('doesnt matter3')
     (source_path / 'something').mkdir()
-    (source_path / 'something' / 'qwerty').mkdir()
-    (source_path / 'something' / 'qwerty' / 'wtoeiur').write_text('content')
-    (source_path / 'something' / 'qwerty' / 'do not copy').write_text('magic contents')
-    (source_path / 'something' / 'uh oh').mkdir()
-    (source_path / 'something' / 'uh oh' / 'failure1').write_text('this file wont be copied!')
-    (source_path / 'something' / 'uh oh' / 'another_dir').mkdir()
-    (source_path / 'something' / 'uh oh' / 'another_dir' / 'failure__2.bin').write_text('something important')
+    (source_path / 'something/qwerty').mkdir()
+    (source_path / 'something/qwerty/wtoeiur').write_text('content')
+    (source_path / 'something/qwerty/do not copy').write_text('magic contents')
+    (source_path / 'something/uh oh').mkdir()
+    (source_path / 'something/uh oh/failure1').write_text('this file wont be copied!')
+    (source_path / 'something/uh oh/another_dir').mkdir()
+    (source_path / 'something/uh oh/another_dir/failure__2.bin').write_text('something important')
 
     destination_path = tmpdir / 'destination'
     destination_path.mkdir()
@@ -228,7 +230,7 @@ def test_execute_backup_plan(tmpdir) -> None:
 
     # Create this file to force a directory creation failure.
     (destination_path / 'something').mkdir(parents=True)
-    (destination_path / 'something' / 'uh oh').touch()
+    (destination_path / 'something/uh oh').touch()
 
     mkdir_errors: List[Tuple[Path, OSError]] = []
     copy_errors: List[Tuple[Path, Path, OSError]] = []
@@ -239,7 +241,7 @@ def test_execute_backup_plan(tmpdir) -> None:
     with AssertFilesystemUnmodified(source_path):
         actual_results = execute_backup_plan(plan, source_path, destination_path, callbacks)
 
-    (destination_path / 'something' / 'uh oh').unlink(missing_ok=False)
+    (destination_path / 'something/uh oh').unlink(missing_ok=False)
 
     expected_manifest = BackupManifest(BackupManifest.Directory('',
         copied_files=['Modified.txt', 'file2'],
@@ -260,24 +262,24 @@ def test_execute_backup_plan(tmpdir) -> None:
     assert (destination_path / 'Modified.txt').read_text() == 'this is modified.txt'
     assert (destination_path / 'file2').read_text() == ''
     assert dir_entries(destination_path / 'my directory') == {'modified1.baz'}
-    assert (destination_path / 'my directory' / 'modified1.baz').read_text() == 'foo bar qux'
+    assert (destination_path / 'my directory/modified1.baz').read_text() == 'foo bar qux'
     assert dir_entries(destination_path / 'something') == {'qwerty'}
-    assert dir_entries(destination_path / 'something' / 'qwerty') == {'wtoeiur'}
-    assert (destination_path / 'something' / 'qwerty' / 'wtoeiur').read_text() == 'content'
+    assert dir_entries(destination_path / 'something/qwerty') == {'wtoeiur'}
+    assert (destination_path / 'something/qwerty/wtoeiur').read_text() == 'content'
     assert dir_entries(destination_path / 'nonexistent_directory') == set()
 
     assert actual_results == expected_results
 
     assert len(mkdir_errors) == 1
-    assert mkdir_errors[0][0] == destination_path / 'something' / 'uh oh'
+    assert mkdir_errors[0][0] == destination_path / 'something/uh oh'
     assert isinstance(mkdir_errors[0][1], FileExistsError)
 
     assert len(copy_errors) == 2
     assert copy_errors[0][0] == source_path / 'nonexistent-file.yay'
     assert copy_errors[0][1] == destination_path / 'nonexistent-file.yay'
     assert isinstance(copy_errors[0][2], FileNotFoundError)
-    assert copy_errors[1][0] == source_path / 'nonexistent_directory' / 'flower'
-    assert copy_errors[1][1] == destination_path / 'nonexistent_directory' / 'flower'
+    assert copy_errors[1][0] == source_path / 'nonexistent_directory/flower'
+    assert copy_errors[1][1] == destination_path / 'nonexistent_directory/flower'
     assert isinstance(copy_errors[1][2], FileNotFoundError)
 
 

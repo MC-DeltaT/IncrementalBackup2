@@ -9,23 +9,14 @@ from helpers import AssertFilesystemUnmodified, dir_entries, run_application, un
 # TODO? check program console output
 
 
-def test_no_args() -> None:
-    process = run_application(())
-    assert process.returncode == 1
-
-
-def test_invalid_command() -> None:
-    process = run_application(('magic_command', 'foo', 'bar'))
-    assert process.returncode == 1
-
-
 def test_backup_no_args() -> None:
-    process = run_application(('backup',))
+    process = run_application('backup')
     assert process.returncode == 1
 
 
 def test_backup_too_few_args(tmpdir) -> None:
-    process = run_application(('backup', str(tmpdir), '--exclude', '/foobar/'))
+    with AssertFilesystemUnmodified(tmpdir):
+        process = run_application('backup', str(tmpdir), '--exclude', '/foobar/')
     assert process.returncode == 1
 
 
@@ -44,13 +35,13 @@ def test_backup_normal(tmpdir) -> None:
             {"n": "dirXYZ", "cf": ["dirXYZ_file.ino"]}]''',
         encoding='utf8')
     (backup1_path / 'data').mkdir()
-    (backup1_path / 'data' / 'root\uA63Bfile1.mp4').write_text('rootfile1.mp4 backup1')
-    (backup1_path / 'data' / 'ro\u2983ot_fi\x90le2.exe').write_text('root_file2.exe backup1')
-    (backup1_path / 'data' / 'dir1\u1076\u0223').mkdir()
-    (backup1_path / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file1').write_text('dir1_file1 backup1')
-    (backup1_path / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file@@.tij').write_text('dir1_file@@.tij backup1')
-    (backup1_path / 'data' / 'dir1\u1076\u0223' / 'dirXYZ').mkdir()
-    (backup1_path / 'data' / 'dir1\u1076\u0223' / 'dirXYZ' / 'dirXYZ_file.ino').write_text('dirXYZ_file.ino backup1')
+    (backup1_path / 'data/root\uA63Bfile1.mp4').write_text('rootfile1.mp4 backup1')
+    (backup1_path / 'data/ro\u2983ot_fi\x90le2.exe').write_text('root_file2.exe backup1')
+    (backup1_path / 'data/dir1\u1076\u0223').mkdir()
+    (backup1_path / 'data/dir1\u1076\u0223/dir1\u1076\u0223_file1').write_text('dir1_file1 backup1')
+    (backup1_path / 'data/dir1\u1076\u0223/dir1\u1076\u0223_file@@.tij').write_text('dir1_file@@.tij backup1')
+    (backup1_path / 'data/dir1\u1076\u0223/dirXYZ').mkdir()
+    (backup1_path / 'data/dir1\u1076\u0223/dirXYZ/dirXYZ_file.ino').write_text('dirXYZ_file.ino backup1')
     (backup1_path / 'completion.json').write_text(
         '{"end_time": "2021-06-20T03:38:28.435676+00:00", "paths_skipped": false}', encoding='utf8')
 
@@ -64,11 +55,11 @@ def test_backup_normal(tmpdir) -> None:
             {"n": ".git", "cf": ["x.y"]}]''',
         encoding='utf8')
     (backup2_path / 'data').mkdir()
-    (backup2_path / 'data' / 'root_file3.txt').write_text('root_file3.txt backup2')
-    (backup2_path / 'data' / 'dir1\u1076\u0223').mkdir()
-    (backup2_path / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file1').write_text('dir1_file1 backup2')
-    (backup2_path / 'data' / '.git').mkdir()
-    (backup2_path / 'data' / '.git' / 'x.y').write_text('x.y backup2')
+    (backup2_path / 'data/root_file3.txt').write_text('root_file3.txt backup2')
+    (backup2_path / 'data/dir1\u1076\u0223').mkdir()
+    (backup2_path / 'data/dir1\u1076\u0223/dir1\u1076\u0223_file1').write_text('dir1_file1 backup2')
+    (backup2_path / 'data/.git').mkdir()
+    (backup2_path / 'data/.git/x.y').write_text('x.y backup2')
     (backup2_path / 'completion.json').write_text(
         '{"start_time": "2021-07-01T13:55:46.983451+00:00", "paths_skipped": false}', encoding='utf8')
 
@@ -82,10 +73,10 @@ def test_backup_normal(tmpdir) -> None:
             {"n": "dir1\u1076\u0223", "rd": ["dirXYZ"]}]''',
         encoding='utf8')
     (backup3_path / 'data').mkdir()
-    (backup3_path / 'data' / 'root\uA63Bfile1.mp4').write_text('rootfile1.mp4 backup3')
-    (backup3_path / 'data' / 'ro\u2983ot_fi\x90le2.exe').write_text('root_file2.exe backup3')
-    (backup3_path / 'data' / 'dir2').mkdir()
-    (backup3_path / 'data' / 'dir2' / '\uF000\uBAA4\u3404\xEA\uAEF1').write_text('foobar backup3')
+    (backup3_path / 'data/root\uA63Bfile1.mp4').write_text('rootfile1.mp4 backup3')
+    (backup3_path / 'data/ro\u2983ot_fi\x90le2.exe').write_text('root_file2.exe backup3')
+    (backup3_path / 'data/dir2').mkdir()
+    (backup3_path / 'data/dir2/\uF000\uBAA4\u3404\xEA\uAEF1').write_text('foobar backup3')
     (backup3_path / 'completion.json').write_text(
         '{"start_time": "2021-09-18T09:48:07.879254+00:00", "paths_skipped": false}', encoding='utf8')
 
@@ -96,22 +87,22 @@ def test_backup_normal(tmpdir) -> None:
     # ro\u2983ot_fi\x90le2.exe removed
     (source_path / 'root_file3.txt').write_text('root_file3.txt new content')   # Existing modified
     (source_path / 'dir1\u1076\u0223').mkdir()  # Existing
-    write_file_with_mtime(source_path / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file1', 'dir1_file1 backup2',
+    write_file_with_mtime(source_path / 'dir1\u1076\u0223/dir1\u1076\u0223_file1', 'dir1_file1 backup2',
                           datetime(2021, 7, 1, 9, 32, 59, tzinfo=timezone.utc))     # Existing unmodified
-    (source_path / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file@@.tij').write_text('something NEW')  # Existing modified
-    (source_path / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file3').write_text('dir1_file3 new')      # New
+    (source_path / 'dir1\u1076\u0223/dir1\u1076\u0223_file@@.tij').write_text('something NEW')  # Existing modified
+    (source_path / 'dir1\u1076\u0223/dir1\u1076\u0223_file3').write_text('dir1_file3 new')      # New
     # dir2 / \uF000\uBAA4\u3404\xEA\uAEF1 removed
-    (source_path / 'dir2' / 'dir2_\u45631').mkdir(parents=True)     # New
-    (source_path / 'dir2' / 'dir2_\u45631' / 'myfile.myfile').write_text('myfile and also mycontents')  # New
+    (source_path / 'dir2/dir2_\u45631').mkdir(parents=True)     # New
+    (source_path / 'dir2/dir2_\u45631/myfile.myfile').write_text('myfile and also mycontents')  # New
     (source_path / '.git').mkdir()      # Existing, excluded (removed)
     # .git / x.y removed
-    (source_path / '.git' / '\u7669.\u5AAB').write_text('magic')    # New, excluded
+    (source_path / '.git/\u7669.\u5AAB').write_text('magic')    # New, excluded
     (source_path / 'new_dir!').mkdir()      # New
-    (source_path / 'new_dir!' / 'new file').write_text('its a new file!')       # New
+    (source_path / 'new_dir!/new file').write_text('its a new file!')       # New
 
     start_time = datetime.now(timezone.utc)
     with AssertFilesystemUnmodified(source_path):
-        process = run_application(('backup', str(source_path), str(target_path), '--exclude', r'.*/\.git/'))
+        process = run_application('backup', str(source_path), str(target_path), '--exclude', r'.*/\.git/')
     end_time = datetime.now(timezone.utc)
 
     assert process.returncode == 0
@@ -122,16 +113,16 @@ def test_backup_normal(tmpdir) -> None:
     assert dir_entries(backup_path) == {'data', 'start.json', 'manifest.json', 'completion.json'}
 
     assert dir_entries(backup_path / 'data') == {'root_file3.txt', 'dir1\u1076\u0223', 'dir2', 'new_dir!'}
-    assert (backup_path / 'data' / 'root_file3.txt').read_text() == 'root_file3.txt new content'
-    assert dir_entries(backup_path / 'data' / 'dir1\u1076\u0223') == \
+    assert (backup_path / 'data/root_file3.txt').read_text() == 'root_file3.txt new content'
+    assert dir_entries(backup_path / 'data/dir1\u1076\u0223') == \
            {'dir1\u1076\u0223_file@@.tij', 'dir1\u1076\u0223_file3'}
-    assert (backup_path / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file@@.tij').read_text() == 'something NEW'
-    assert (backup_path / 'data' / 'dir1\u1076\u0223' / 'dir1\u1076\u0223_file3').read_text() == 'dir1_file3 new'
-    assert dir_entries(backup_path / 'data' / 'dir2') == {'dir2_\u45631'}
-    assert dir_entries(backup_path / 'data' / 'dir2' / 'dir2_\u45631') == {'myfile.myfile'}
-    assert (backup_path / 'data' / 'dir2' / 'dir2_\u45631' / 'myfile.myfile').read_text() == 'myfile and also mycontents'
-    assert dir_entries(backup_path / 'data' / 'new_dir!') == {'new file'}
-    assert (backup_path / 'data' / 'new_dir!' / 'new file').read_text() == 'its a new file!'
+    assert (backup_path / 'data/dir1\u1076\u0223/dir1\u1076\u0223_file@@.tij').read_text() == 'something NEW'
+    assert (backup_path / 'data/dir1\u1076\u0223/dir1\u1076\u0223_file3').read_text() == 'dir1_file3 new'
+    assert dir_entries(backup_path / 'data/dir2') == {'dir2_\u45631'}
+    assert dir_entries(backup_path / 'data/dir2/dir2_\u45631') == {'myfile.myfile'}
+    assert (backup_path / 'data/dir2/dir2_\u45631/myfile.myfile').read_text() == 'myfile and also mycontents'
+    assert dir_entries(backup_path / 'data/new_dir!') == {'new file'}
+    assert (backup_path / 'data/new_dir!/new file').read_text() == 'its a new file!'
 
     actual_start_info = (backup_path / 'start.json').read_text(encoding='utf8')
     match = re.fullmatch('{\n    "start_time": "(.+)"\n}', actual_start_info)

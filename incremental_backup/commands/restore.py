@@ -1,7 +1,7 @@
 import argparse
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional ,Union
+from typing import Optional, Union
 
 from ..meta import ReadBackupsCallbacks
 from ..restore import perform_restore, RestoreCallbacks, RestoreError, RestoreFilesCallbacks, RestoreResults

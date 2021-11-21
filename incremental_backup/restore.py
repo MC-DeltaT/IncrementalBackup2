@@ -22,9 +22,6 @@ __all__ = [
 ]
 
 
-# TODO: documentation
-
-
 @dataclass(frozen=True)
 class RestoreFilesResults:
     """Return results of `restore_files()`."""
@@ -35,7 +32,7 @@ class RestoreFilesResults:
 
 @dataclass(frozen=True)
 class RestoreFilesCallbacks:
-    """Callbacks/hooks for events that occur in `restore_files()`."""
+    """Callbacks for events that occur in `restore_files()`."""
 
     on_mkdir_error: Callable[[Path, OSError], None] = lambda path, error: None
     """Called when an error is raised creating a directory.
@@ -49,7 +46,14 @@ class RestoreFilesCallbacks:
 
 def restore_files(backup_target_directory: PathLike, backup_sum: BackupSum, destination_directory: PathLike,
                   callbacks: RestoreFilesCallbacks = RestoreFilesCallbacks()) -> RestoreFilesResults:
-    destination_directory = Path(destination_directory)
+    """Restores files and directories from backups to a new location.
+
+        :param backup_target_directory: The directory containing the backups which are being restored. I.e. the
+            "target directory" from the backup creation operation.
+        :param backup_sum: Sum of backups to restore files from.
+        :param destination_directory: Directory where files will be restored to. Need not exist.
+        :param callbacks: Callbacks for certain events during execution. See `RestoreFilesCallbacks`.
+    """
 
     paths_skipped = False
     files_restored = 0
@@ -87,6 +91,7 @@ def restore_files(backup_target_directory: PathLike, backup_sum: BackupSum, dest
                     shutil.copy2(source_file_path, destination_file_path)
                 except OSError as e:
                     paths_skipped = True
+
                     (callbacks.on_copy_error)(source_file_path, destination_file_path, e)
                 else:
                     files_restored += 1
@@ -94,7 +99,7 @@ def restore_files(backup_target_directory: PathLike, backup_sum: BackupSum, dest
             # Need to use partial instead of lambda to avoid name rebinding issues.
             search_stack.extend(partial(visit_directory, d) for d in reversed(search_directory.subdirectories))
 
-    search_stack.append(partial(visit_directory, backup_sum.root, False))
+    search_stack.append(partial(visit_directory, backup_sum.root))
     while search_stack:
         search_stack.pop()()
         is_root = False
@@ -112,6 +117,8 @@ class RestoreResults:
 
 @dataclass(frozen=True)
 class RestoreCallbacks:
+    """Callbacks for events that occur in `perform_restore()`."""
+
     on_before_read_previous_backups: Callable[[], None] = lambda: None
     """Called just before reading previous backups from the backup target directory."""
 
@@ -139,6 +146,21 @@ class RestoreCallbacks:
 def perform_restore(backup_target_directory: PathLike, destination_directory: PathLike,
                     backup_name: Optional[str] = None, backup_time: Optional[datetime] = None,
                     callbacks: RestoreCallbacks() = RestoreCallbacks()) -> RestoreResults:
+    """Restores files and directories from existing backups.
+
+        :param backup_target_directory: The directory containing the backups which are being restored. I.e. the
+            "target directory" from the backup creation operation.
+        :param destination_directory: Directory where files will be restored to. Need not exist.
+        :param backup_name: If specified, only backups up to and including this backup (chronologically) will be used to
+            restore files. Cannot be specified if `backup_time` is also specified.
+        :param backup_time: If specified, only backups up to and including this time will be used to restore files.
+            Cannot be specified if `backup_name` is also specified.
+        :param callbacks: Callbacks for certain events during execution. See `RestoreCallbacks`.
+        :return: Summary information for the restore operation.
+        :except ValueError: If both `backup_name` and `backup_time` are not `None`.
+        :except RestoreError: If an error occurs that prevents the restore operation from completing. See `RestoreError`.
+    """
+
     return RestoreOperation(
         backup_target_directory, destination_directory, backup_name, backup_time, callbacks).perform_restore()
 
@@ -149,6 +171,10 @@ class RestoreOperation:
     def __init__(self, backup_target_directory: PathLike, destination_directory: PathLike,
                  backup_name: Optional[str] = None, backup_time: Optional[datetime] = None,
                  callbacks: RestoreCallbacks = RestoreCallbacks()) -> None:
+        """
+            :except ValueError: If both `backup_name` and `backup_time` are not `None`.
+        """
+
         if backup_name is not None and backup_time is not None:
             raise ValueError('backup_name and backup_time should not both be specified.')
 
@@ -159,6 +185,12 @@ class RestoreOperation:
         self.callbacks = callbacks
 
     def perform_restore(self) -> RestoreResults:
+        """Restores files from the specified backups.
+
+            :except RestoreError: If an error occurs that prevents the restore operation from completing. See
+                `RestoreError`.
+        """
+
         self._validate_backup_target_directory()
         self._validate_destination_directory()
 
@@ -174,8 +206,14 @@ class RestoreOperation:
         return results
 
     def _validate_backup_target_directory(self) -> None:
+        """Validates the backup target directory.
+            Should mostly prevent other parts of the restore operation from failing strangely for invalid inputs.
+
+            :except Restore: If the backup target directory is not an accessible directory.
+        """
+
         try:
-            if not self.backup_target_directory.is_dir():
+            if not self.backup_target_directory.exists():
                 raise RestoreError(f'Backup target directory not found')
             if not self.backup_target_directory.is_dir():
                 raise RestoreError(f'Backup target directory is not a directory')
@@ -183,6 +221,12 @@ class RestoreOperation:
             raise RestoreError(f'Failed to query backup target directory: {e}') from e
 
     def _validate_destination_directory(self) -> None:
+        """Validates the restore destination directory.
+            Should mostly prevent other parts of the restore operation from failing strangely for invalid inputs.
+
+            :except RestoreError: If the destination directory is inaccessible, or exists and is not an empty directory.
+        """
+
         try:
             if self.destination_directory.exists():
                 if self.destination_directory.is_dir() and tuple(self.destination_directory.iterdir()):
@@ -191,13 +235,17 @@ class RestoreOperation:
             raise RestoreError(f'Failed to query destination directory: {e}') from e
 
     def _read_previous_backups(self) -> Sequence[BackupMetadata]:
+        """Reads all existing backups' metadata from the backup target directory.
+
+            If any backup's metadata cannot be read, skips that backup.
+
+            :except RestoreError: If the target directory cannot be enumerated.
+        """
+
         (self.callbacks.on_before_read_previous_backups)()
 
         try:
-            if not self.backup_target_directory.exists():
-                backups = []
-            else:
-                backups = read_backups(self.backup_target_directory, self.callbacks.read_backups)
+            backups = read_backups(self.backup_target_directory, self.callbacks.read_backups)
         except OSError as e:
             raise RestoreError(f'Failed to enumerate backup target directory: {e}') from e
         backups = tuple(backups)
@@ -207,6 +255,18 @@ class RestoreOperation:
         return backups
 
     def _select_backups_to_restore(self, previous_backups: Sequence[BackupMetadata], /) -> Sequence[BackupMetadata]:
+        """Returns backups from `self.previous_backups` requested to restore files from, based on `self.backup_name`
+            and `self.backup_time`.
+
+            If `backup_name` is specified, all backups whose start time is <= `backup_name`'s start time are selected.
+
+            If `backup_time` is specified all backups whose start time is <= `backup_time` are selected.
+
+            If neither `backup_name` nor `backup_time` are specified, all previous backups are selected.
+
+            :except RestoreError: If `backup_name` is specified but that backup is not found.
+        """
+
         if self.backup_name is not None:
             backup = next((b for b in previous_backups if b.name == self.backup_name), None)
             if backup is None:
@@ -224,12 +284,25 @@ class RestoreOperation:
         return selected_backups
 
     def _create_destination(self) -> None:
+        """Creates the restore destination directory.
+
+            Not strictly necessary to do here, because it will be created anyway in `restore_files()`. But if we attempt
+            to create it here first, then we can fail with an informative error in the case the path is not accessible.
+
+            :except RestoreError: If the directory could not be created.
+        """
+
         try:
             self.destination_directory.mkdir(exist_ok=True)
         except OSError as e:
             raise RestoreError(f'Failed to create destination directory: {e}') from e
 
     def _restore_files(self, backup_sum: BackupSum) -> RestoreResults:
+        """Copies files and directories from backups specified by `backup_sum` to the destination directory.
+
+            :return: Summary information from the operation.
+        """
+
         (self.callbacks.on_before_restore_files)()
 
         restore_results = restore_files(
