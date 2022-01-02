@@ -184,7 +184,7 @@ def test_perform_restore_nonempty_destination(tmpdir) -> None:
     backup1_dir.mkdir(parents=True)
     (backup1_dir / 'start.json').write_text('{"start_time": "2002-11-22T05:50:12.341256+00:00"}', encoding='utf8')
     (backup1_dir / 'manifest.json').write_text('[{"n": "", "cf": ["foo"]}]', encoding='utf8')
-    (backup1_dir / 'start.json').write_text(
+    (backup1_dir / 'completion.json').write_text(
         '{"start_time": "2002-11-22T05:50:20.495673+00:00", "paths_skipped": false}', encoding='utf8')
     (backup1_dir / 'data').mkdir()
     (backup1_dir / 'data/foo').write_text('Hello world!')
@@ -220,10 +220,41 @@ def test_perform_restore_nonempty_destination(tmpdir) -> None:
 
 
 def test_perform_restore_nonexistent_backup(tmpdir) -> None:
-    # backup_name is specified but that backup doesn't exist.
+    # backup_name is specified but that backup doesn't exist - shouldn't restore anything.
 
-    # TODO
-    assert False
+    target_dir = tmpdir / 'backups'
+    target_dir.mkdir()
+
+    backup1_dir = target_dir / 'E49YHUDFIG'
+    backup1_dir.mkdir()
+    (backup1_dir / 'start.json').write_text('{"start_time": "2002-11-22T05:50:12.341256+00:00"}', encoding='utf8')
+    (backup1_dir / 'manifest.json').write_text('[{"n": "", "cf": ["foo"]}]', encoding='utf8')
+    (backup1_dir / 'completion.json').write_text(
+        '{"start_time": "2002-11-22T05:50:20.495673+00:00", "paths_skipped": false}', encoding='utf8')
+    (backup1_dir / 'data').mkdir()
+    (backup1_dir / 'data/foo').write_text('Hello world!')
+
+    destination_dir = tmpdir / 'destination'
+
+    callbacks = RestoreCallbacks(
+        read_backups=ReadBackupsCallbacks(
+            on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
+            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
+            on_read_metadata_error=lambda path, error:
+                pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
+        ),
+        on_selected_backups=lambda backups: pytest.fail(f'Unexpected on_selected_backups: {backups=}'),
+        on_before_initialise_restore=lambda: pytest.fail(f'Unexpected on_before_initialise_restore'),
+        on_before_restore_files=lambda: pytest.fail(f'Unexpected on_before_restore_files'),
+        restore_files=RestoreFilesCallbacks(
+            on_mkdir_error=lambda path, error: pytest.fail(f'Unexpected on_mkdir_error: {path=} {error=}'),
+            on_copy_error=lambda src, dest, error: pytest.fail(f'Unexpected on_copy_error: {src=} {dest=} {error=}')
+        )
+    )
+
+    with AssertFilesystemUnmodified(target_dir, destination_dir):
+        with pytest.raises(RestoreError):
+            perform_restore(target_dir, destination_dir, backup_name='3498tisg4o8aoe', callbacks=callbacks)
 
 
 def test_perform_restore_all(tmpdir) -> None:

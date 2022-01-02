@@ -28,12 +28,23 @@ class AssertFilesystemUnmodified:
         self.paths = tuple(map(Path, paths))
 
     def __enter__(self):
-        self.hashes_before = tuple(map(compute_filesystem_hash, self.paths))
+        self.hashes_before = tuple(map(self._hash_filesystem, self.paths))
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.hashes_after = tuple(map(compute_filesystem_hash, self.paths))
+        self.hashes_after = tuple(map(self._hash_filesystem, self.paths))
         assert self.hashes_after == self.hashes_before
+
+    @staticmethod
+    def _hash_filesystem(path: Path):
+        """Like compute_filesystem_hash, but returns `None` if the path doesn't exist, to allow checking that a path
+            is not created.
+        """
+
+        try:
+            return compute_filesystem_hash(path)
+        except ValueError:
+            return None
 
 
 def unordered_equal(sequence1: Sequence[Any], sequence2: Sequence[Any]) -> bool:
