@@ -15,7 +15,7 @@ __all__ = [
 ]
 
 
-# TODO: document command and code in readme and such
+# TODO? a command line flag to abort the restore if any backup can't be read
 
 
 class RestoreCommand(Command):

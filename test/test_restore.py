@@ -9,7 +9,7 @@ from incremental_backup.meta.meta import BackupMetadata, ReadBackupsCallbacks
 from incremental_backup.restore import perform_restore, restore_files, RestoreCallbacks, RestoreError, \
     RestoreFilesCallbacks, RestoreFilesResults, RestoreResults
 
-from helpers import AssertFilesystemUnmodified, dir_entries
+from helpers import AssertFilesystemUnmodified, dir_entries, unordered_equal
 
 
 def test_restore_files_empty(tmpdir) -> None:
@@ -260,19 +260,263 @@ def test_perform_restore_nonexistent_backup(tmpdir) -> None:
 def test_perform_restore_all(tmpdir) -> None:
     # Neither backup_name nor backup_time is specified, restore all backups.
 
-    # TODO
-    assert False
+    target_dir = tmpdir / 'backups'
+    target_dir.mkdir()
+
+    backup1_dir = target_dir / 'ws3e48ohitv'
+    backup1_dir.mkdir()
+    (backup1_dir / 'start.json').write_text('{"start_time": "2022-03-12T11:53:22.954665+00:00"}', encoding='utf8')
+    backup1_data_dir = backup1_dir / 'data'
+    backup1_data_dir.mkdir()
+    (backup1_data_dir / 'foo.jpg').write_text('hello world')
+    (backup1_data_dir / 'manama').write_text('goodbye world')
+    (backup1_data_dir / 'myDir').mkdir()
+    (backup1_data_dir / 'myDir' / 'bar-qux').write_text('first content')
+    (backup1_dir / 'manifest.json').write_text(
+        '''[{"n": "", "cf": ["foo.jpg", "manama"]},
+            {"n": "myDir", "cf": ["bar-qux"]}]''',
+        encoding='utf8')
+
+    backup2_dir = target_dir / '9w384rapw9ssa'
+    backup2_dir.mkdir()
+    (backup2_dir / 'start.json').write_text('{"start_time": "2022-04-12T11:53:22.954665+00:00"}', encoding='utf8')
+    backup2_data_dir = backup2_dir / 'data'
+    backup2_data_dir.mkdir()
+    (backup2_data_dir / 'yes.no').write_text('hello world 2')
+    (backup2_dir / 'manifest.json').write_text(
+        '''[{"n": "", "cf": ["yes.no"]},
+            {"n": "myDir", "rf": ["bar-qux"]}]''',
+        encoding='utf8')
+
+    backup3_dir = target_dir / '98P678676h9645'
+    backup3_dir.mkdir()
+    (backup3_dir / 'start.json').write_text('{"start_time": "2022-04-25T14:50:59.430968+00:00"}', encoding='utf8')
+    backup3_data_dir = backup3_dir / 'data'
+    backup3_data_dir.mkdir()
+    (backup3_data_dir / 'myDir').mkdir()
+    (backup3_data_dir / 'myDir' / 'bar-qux').write_text('final content')
+    (backup3_dir / 'manifest.json').write_text(
+        '''[{"n": ""},
+            {"n": "myDir", "cf": ["bar-qux"]}]''',
+        encoding='utf8')
+
+    destination_dir = tmpdir / 'destination'
+
+    actual_callbacks = []
+    callbacks = RestoreCallbacks(
+        on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
+        read_backups=ReadBackupsCallbacks(
+            on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
+            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
+            on_read_metadata_error=lambda path, error:
+                pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
+        ),
+        on_after_read_previous_backups=lambda backups:
+            actual_callbacks.append(('after_read_previous_backups', backups)),
+        on_selected_backups=lambda backups: actual_callbacks.append(('selected_backups', backups)),
+        on_before_initialise_restore=lambda: actual_callbacks.append('before_initialise_restore'),
+        on_before_restore_files=lambda: actual_callbacks.append('before_restore_files'),
+        restore_files=RestoreFilesCallbacks(
+            on_mkdir_error=lambda path, error: pytest.fail(f'Unexpected on_mkdir_error: {path=} {error=}'),
+            on_copy_error=lambda src, dest, error: pytest.fail(f'Unexpected on_copy_error: {src=} {dest=} {error=}')
+        )
+    )
+
+    with AssertFilesystemUnmodified(target_dir):
+        actual_results = perform_restore(target_dir, destination_dir, callbacks=callbacks)
+
+    assert len(actual_callbacks) == 5
+    assert actual_callbacks[0] == 'before_read_previous_backups'
+    assert actual_callbacks[1][0] == 'after_read_previous_backups'
+    # I can't be bothered testing that all the metadata is the same, I assume it is otherwise other things will likely
+    # break anyway
+    assert unordered_equal([b.name for b in actual_callbacks[1][1]], ['ws3e48ohitv', '9w384rapw9ssa', '98P678676h9645'])
+    assert actual_callbacks[2][0] == 'selected_backups'
+    assert unordered_equal([b.name for b in actual_callbacks[2][1]], ['ws3e48ohitv', '9w384rapw9ssa', '98P678676h9645'])
+    assert actual_callbacks[3] == 'before_initialise_restore'
+    assert actual_callbacks[4] == 'before_restore_files'
+
+    assert actual_results == RestoreResults(4, False)
+
+    assert dir_entries(destination_dir) == {'foo.jpg', 'manama', 'yes.no', 'myDir'}
+    assert (destination_dir / 'foo.jpg').read_text() == 'hello world'
+    assert (destination_dir / 'manama').read_text() == 'goodbye world'
+    assert (destination_dir / 'yes.no').read_text() == 'hello world 2'
+    assert dir_entries(destination_dir / 'myDir') == {'bar-qux'}
+    assert (destination_dir / 'myDir' / 'bar-qux').read_text() == 'final content'
 
 
 def test_perform_restore_name(tmpdir) -> None:
     # backup_name is specified, restore up to that backup.
 
-    # TODO
-    assert False
+    target_dir = tmpdir / 'backups'
+    target_dir.mkdir()
+
+    backup1_dir = target_dir / 'ws3e48ohitv'
+    backup1_dir.mkdir()
+    (backup1_dir / 'start.json').write_text('{"start_time": "2022-03-12T11:53:22.954665+00:00"}', encoding='utf8')
+    backup1_data_dir = backup1_dir / 'data'
+    backup1_data_dir.mkdir()
+    (backup1_data_dir / 'foo.jpg').write_text('hello world')
+    (backup1_data_dir / 'manama').write_text('goodbye world')
+    (backup1_data_dir / 'myDir').mkdir()
+    (backup1_data_dir / 'myDir' / 'bar-qux').write_text('first content')
+    (backup1_dir / 'manifest.json').write_text(
+        '''[{"n": "", "cf": ["foo.jpg", "manama"]},
+            {"n": "myDir", "cf": ["bar-qux"]}]''',
+        encoding='utf8')
+
+    backup2_dir = target_dir / '9w384rapw9ssa'
+    backup2_dir.mkdir()
+    (backup2_dir / 'start.json').write_text('{"start_time": "2022-04-12T11:53:22.954665+00:00"}', encoding='utf8')
+    backup2_data_dir = backup2_dir / 'data'
+    backup2_data_dir.mkdir()
+    (backup2_data_dir / 'yes.no').write_text('hello world 2')
+    (backup2_dir / 'manifest.json').write_text(
+        '''[{"n": "", "cf": ["yes.no"]},
+            {"n": "myDir", "rf": ["bar-qux"]}]''',
+        encoding='utf8')
+
+    backup3_dir = target_dir / '98P678676h9645'
+    backup3_dir.mkdir()
+    (backup3_dir / 'start.json').write_text('{"start_time": "2022-04-25T14:50:59.430968+00:00"}', encoding='utf8')
+    backup3_data_dir = backup3_dir / 'data'
+    backup3_data_dir.mkdir()
+    (backup3_data_dir / 'myDir').mkdir()
+    (backup3_data_dir / 'myDir' / 'bar-qux').write_text('final content')
+    (backup3_dir / 'manifest.json').write_text(
+        '''[{"n": ""},
+            {"n": "myDir", "cf": ["bar-qux"]}]''',
+        encoding='utf8')
+
+    destination_dir = tmpdir / 'destination'
+
+    actual_callbacks = []
+    callbacks = RestoreCallbacks(
+        on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
+        read_backups=ReadBackupsCallbacks(
+            on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
+            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
+            on_read_metadata_error=lambda path, error:
+                pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
+        ),
+        on_after_read_previous_backups=lambda backups:
+            actual_callbacks.append(('after_read_previous_backups', backups)),
+        on_selected_backups=lambda backups: actual_callbacks.append(('selected_backups', backups)),
+        on_before_initialise_restore=lambda: actual_callbacks.append('before_initialise_restore'),
+        on_before_restore_files=lambda: actual_callbacks.append('before_restore_files'),
+        restore_files=RestoreFilesCallbacks(
+            on_mkdir_error=lambda path, error: pytest.fail(f'Unexpected on_mkdir_error: {path=} {error=}'),
+            on_copy_error=lambda src, dest, error: pytest.fail(f'Unexpected on_copy_error: {src=} {dest=} {error=}')
+        )
+    )
+
+    with AssertFilesystemUnmodified(target_dir):
+        actual_results = perform_restore(target_dir, destination_dir, backup_name='9w384rapw9ssa', callbacks=callbacks)
+
+    assert len(actual_callbacks) == 5
+    assert actual_callbacks[0] == 'before_read_previous_backups'
+    assert actual_callbacks[1][0] == 'after_read_previous_backups'
+    # I can't be bothered testing that all the metadata is the same, I assume it is otherwise other things will likely
+    # break anyway
+    assert unordered_equal([b.name for b in actual_callbacks[1][1]], ['ws3e48ohitv', '9w384rapw9ssa', '98P678676h9645'])
+    assert actual_callbacks[2][0] == 'selected_backups'
+    assert unordered_equal([b.name for b in actual_callbacks[2][1]], ['ws3e48ohitv', '9w384rapw9ssa'])
+    assert actual_callbacks[3] == 'before_initialise_restore'
+    assert actual_callbacks[4] == 'before_restore_files'
+
+    assert actual_results == RestoreResults(3, False)
+
+    assert dir_entries(destination_dir) == {'foo.jpg', 'manama', 'yes.no'}
+    assert (destination_dir / 'foo.jpg').read_text() == 'hello world'
+    assert (destination_dir / 'manama').read_text() == 'goodbye world'
+    assert (destination_dir / 'yes.no').read_text() == 'hello world 2'
 
 
 def test_perform_restore_time(tmpdir) -> None:
     # backup_time is specified, restore up to that time.
 
-    # TODO
-    assert False
+    target_dir = tmpdir / 'backups'
+    target_dir.mkdir()
+
+    backup1_dir = target_dir / 'ws3e48ohitv'
+    backup1_dir.mkdir()
+    (backup1_dir / 'start.json').write_text('{"start_time": "2022-03-12T11:53:22.954665+00:00"}', encoding='utf8')
+    backup1_data_dir = backup1_dir / 'data'
+    backup1_data_dir.mkdir()
+    (backup1_data_dir / 'foo.jpg').write_text('hello world')
+    (backup1_data_dir / 'manama').write_text('goodbye world')
+    (backup1_data_dir / 'myDir').mkdir()
+    (backup1_data_dir / 'myDir' / 'bar-qux').write_text('first content')
+    (backup1_dir / 'manifest.json').write_text(
+        '''[{"n": "", "cf": ["foo.jpg", "manama"]},
+            {"n": "myDir", "cf": ["bar-qux"]}]''',
+        encoding='utf8')
+
+    backup2_dir = target_dir / '9w384rapw9ssa'
+    backup2_dir.mkdir()
+    (backup2_dir / 'start.json').write_text('{"start_time": "2022-04-12T11:53:22.954665+00:00"}', encoding='utf8')
+    backup2_data_dir = backup2_dir / 'data'
+    backup2_data_dir.mkdir()
+    (backup2_data_dir / 'yes.no').write_text('hello world 2')
+    (backup2_dir / 'manifest.json').write_text(
+        '''[{"n": "", "cf": ["yes.no"]},
+            {"n": "myDir", "rf": ["bar-qux"]}]''',
+        encoding='utf8')
+
+    backup3_dir = target_dir / '98P678676h9645'
+    backup3_dir.mkdir()
+    (backup3_dir / 'start.json').write_text('{"start_time": "2022-04-25T14:50:59.430968+00:00"}', encoding='utf8')
+    backup3_data_dir = backup3_dir / 'data'
+    backup3_data_dir.mkdir()
+    (backup3_data_dir / 'myDir').mkdir()
+    (backup3_data_dir / 'myDir' / 'bar-qux').write_text('final content')
+    (backup3_dir / 'manifest.json').write_text(
+        '''[{"n": ""},
+            {"n": "myDir", "cf": ["bar-qux"]}]''',
+        encoding='utf8')
+
+    destination_dir = tmpdir / 'destination'
+
+    actual_callbacks = []
+    callbacks = RestoreCallbacks(
+        on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
+        read_backups=ReadBackupsCallbacks(
+            on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
+            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
+            on_read_metadata_error=lambda path, error:
+                pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
+        ),
+        on_after_read_previous_backups=lambda backups:
+            actual_callbacks.append(('after_read_previous_backups', backups)),
+        on_selected_backups=lambda backups: actual_callbacks.append(('selected_backups', backups)),
+        on_before_initialise_restore=lambda: actual_callbacks.append('before_initialise_restore'),
+        on_before_restore_files=lambda: actual_callbacks.append('before_restore_files'),
+        restore_files=RestoreFilesCallbacks(
+            on_mkdir_error=lambda path, error: pytest.fail(f'Unexpected on_mkdir_error: {path=} {error=}'),
+            on_copy_error=lambda src, dest, error: pytest.fail(f'Unexpected on_copy_error: {src=} {dest=} {error=}')
+        )
+    )
+
+    with AssertFilesystemUnmodified(target_dir):
+        actual_results = perform_restore(
+            target_dir, destination_dir, backup_time=datetime(2022, 4, 12, 11, 53, 22, 954665, tzinfo=timezone.utc),
+            callbacks=callbacks)
+
+    assert len(actual_callbacks) == 5
+    assert actual_callbacks[0] == 'before_read_previous_backups'
+    assert actual_callbacks[1][0] == 'after_read_previous_backups'
+    # I can't be bothered testing that all the metadata is the same, I assume it is otherwise other things will likely
+    # break anyway
+    assert unordered_equal([b.name for b in actual_callbacks[1][1]], ['ws3e48ohitv', '9w384rapw9ssa', '98P678676h9645'])
+    assert actual_callbacks[2][0] == 'selected_backups'
+    assert unordered_equal([b.name for b in actual_callbacks[2][1]], ['ws3e48ohitv', '9w384rapw9ssa'])
+    assert actual_callbacks[3] == 'before_initialise_restore'
+    assert actual_callbacks[4] == 'before_restore_files'
+
+    assert actual_results == RestoreResults(3, False)
+
+    assert dir_entries(destination_dir) == {'foo.jpg', 'manama', 'yes.no'}
+    assert (destination_dir / 'foo.jpg').read_text() == 'hello world'
+    assert (destination_dir / 'manama').read_text() == 'goodbye world'
+    assert (destination_dir / 'yes.no').read_text() == 'hello world 2'

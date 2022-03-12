@@ -53,7 +53,7 @@ def test_perform_backup_nonexistent_source(tmpdir) -> None:
             perform_backup(source_path, target_path, (), callbacks)
 
 
-def test_backup_source_is_file(tmpdir) -> None:
+def test_perform_backup_source_is_file(tmpdir) -> None:
     source_path = tmpdir / 'source'
     source_path.write_text('hello world!')
 
@@ -94,7 +94,7 @@ def test_backup_source_is_file(tmpdir) -> None:
             perform_backup(source_path, target_path, (), callbacks)
 
 
-def test_backup_target_is_file(tmpdir) -> None:
+def test_perform_backup_target_is_file(tmpdir) -> None:
     source_path = tmpdir / 'source'
     source_path.mkdir()
     (source_path / 'foo').write_text('some text here')
@@ -135,7 +135,7 @@ def test_backup_target_is_file(tmpdir) -> None:
             perform_backup(source_path, target_path, (), callbacks)
 
 
-def test_backup_new_target(tmpdir) -> None:
+def test_perform_backup_new_target(tmpdir) -> None:
     # Target directory doesn't exist.
 
     source_path = tmpdir / '\u1246\uA76D3fje_s\xDDrC\u01FC'
@@ -246,7 +246,7 @@ def test_backup_new_target(tmpdir) -> None:
     assert actual_manifest_str == expected_manifest_str
 
 
-def test_backup_no_previous_backups(tmpdir) -> None:
+def test_perform_backup_no_previous_backups(tmpdir) -> None:
     # Target directory exists but is empty.
 
     source_path = tmpdir / 'rubbish\xC2with/\u5647\uBDC1\u9C87 chars'
@@ -359,7 +359,7 @@ def test_backup_no_previous_backups(tmpdir) -> None:
     assert actual_manifest_str == expected_manifest_str
 
 
-def test_backup_some_previous_backups(tmpdir) -> None:
+def test_perform_backup_some_previous_backups(tmpdir) -> None:
     # Target directory has some previous backups.
 
     target_path = tmpdir / 'put the data here!'
@@ -547,7 +547,7 @@ def test_backup_some_previous_backups(tmpdir) -> None:
     assert actual_manifest_from_file == actual_manifest
 
 
-def test_backup_some_invalid_backups(tmpdir) -> None:
+def test_perform_backup_some_invalid_backups(tmpdir) -> None:
     # Target directory has some previous backups and invalid/not backups.
 
     target_path = tmpdir / 'foo \u115A\xBA\u7AD9bar\u82C5\u5C70'

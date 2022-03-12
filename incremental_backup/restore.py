@@ -7,7 +7,7 @@ import shutil
 from typing import Callable, List, Optional, Sequence
 
 from .backup import BackupSum
-from .meta import BackupMetadata, read_backups, ReadBackupsCallbacks
+from .meta import BackupMetadata, DATA_DIRECTORY_NAME, read_backups, ReadBackupsCallbacks
 
 
 __all__ = [
@@ -84,7 +84,8 @@ def restore_files(backup_target_directory: PathLike, backup_sum: BackupSum, dest
         else:
             for file in search_directory.files:
                 relative_file_path = relative_directory_path / file.name
-                source_file_path = Path(backup_target_directory, file.last_backup.name, 'data', relative_file_path)
+                source_file_path = Path(
+                    backup_target_directory, file.last_backup.name, DATA_DIRECTORY_NAME, relative_file_path)
                 destination_file_path = destination_directory / relative_file_path
 
                 try:

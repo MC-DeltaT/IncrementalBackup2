@@ -17,12 +17,8 @@ Thus, I created this tool. Some of its design goals are:
  - transparent backup format
 
 This project is a successor to my initial attempts at an incremental backup tool for Windows, available [here](https://github.com/MC-DeltaT/IncrementalBackup).  
-Please see `ChangesFromOriginal.md` for details.  
+Please see [ChangesFromOriginal.md](ChangesFromOriginal.md) for details.  
 If you have used the original incremental backup tool, please note that this version is **NOT backwards compatible** with the original.
-
-At this time, there is the ability to back up files, but no ability to restore them.
-I will probably implement this feature soon.
-In the meantime, you can use the provided APIs to implement this yourself - it would be quite easy.
 
 ## Disclaimer
 
@@ -45,10 +41,11 @@ Important files and directories:
    - `commands/` - Entrypoints for the command line commands (see also the _Usage_ section).
    - `meta/` - Functionality related to backup metadata and structure.
    - `utility/` - Miscellaneous helper functionality.
-   - `main.py` - program entrypoint.
+   - `main.py` - Program entrypoint.
+   - `restore.py` - Backup restoration functionality.
  - `test/` - Test code. Each directory/file corresponds to the module in `incremental_backup/` it tests.
  
-The `incremental_backup/` directory is a Python package which contains almost all application functionality and can be easily used in a library-like manner.
+The `incremental_backup/` directory is a Python package which contains all application functionality and can be easily used in a library-like manner.
 
 ## Usage
 
@@ -63,9 +60,10 @@ python3 incremental_backup.py <command> <command_args>
 
 Commands:
 
- - `backup` - Creates a new backup. See `BackupUsage.md` for details.
+ - `backup` - Creates a new backup. See [BackupUsage.md](BackupUsage.md) for details.
+ - `restore` - Restores files from backups. See [RestoreUsage.md](RestoreUsage.md) for details.
 
-To start using this application, you probably want to have a look at `BackupUsage.md`.
+To start using this application, you probably want to have a look at [BackupUsage.md](BackupUsage.md).
 
 ### Program Exit Codes
 

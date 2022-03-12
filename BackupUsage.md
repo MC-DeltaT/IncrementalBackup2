@@ -28,7 +28,7 @@ The program will check for the latest previous backup which contains the file.
 If the file has been modified since that backup, the file is copied, otherwise it is not copied. (If there are no previous backups, all files are copied.)  
 Note that if you change files' last write times, or mess with the system clock, this application may not work as expected.
 
-Please see `BackupFormat.md` for specific technical information on how the backups are stored.
+Please see [BackupFormat.md](BackupFormat.md) for specific technical information on how the backups are stored.
 
 ## Path Exclude Patterns
 
