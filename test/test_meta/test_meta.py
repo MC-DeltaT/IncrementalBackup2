@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Tuple
+from typing import Union
 
 import pytest
 
@@ -22,7 +22,7 @@ def test_backup_filenames() -> None:
     assert START_INFO_FILENAME.isascii()
 
 
-def test_check_if_probably_backup_true(tmpdir) -> None:
+def test_check_if_probably_backup_true(tmpdir: Path) -> None:
     backup_path = tmpdir / '8e54tpnw4958t94'
     backup_path.mkdir()
     (backup_path / 'start.json').write_text('{"start_time": "2014-03-10T10:24:30.345667+00:00"}', encoding='utf8')
@@ -32,14 +32,14 @@ def test_check_if_probably_backup_true(tmpdir) -> None:
         assert check_if_probably_backup(backup_path)
 
 
-def test_check_if_probably_backup_nonexistent(tmpdir) -> None:
+def test_check_if_probably_backup_nonexistent(tmpdir: Path) -> None:
     backup_path = tmpdir / 'askdfuhiserhu'
 
     with AssertFilesystemUnmodified(tmpdir):
         assert not check_if_probably_backup(backup_path)
 
 
-def test_check_if_probably_backup_file(tmpdir) -> None:
+def test_check_if_probably_backup_file(tmpdir: Path) -> None:
     backup_path = tmpdir / '459867w3gsdfsafd'
     backup_path.touch()
 
@@ -47,7 +47,7 @@ def test_check_if_probably_backup_file(tmpdir) -> None:
         assert not check_if_probably_backup(backup_path)
 
 
-def test_check_if_probably_backup_invalid_name(tmpdir) -> None:
+def test_check_if_probably_backup_invalid_name(tmpdir: Path) -> None:
     backup_path = tmpdir / 'this is-not a_backup123'
     backup_path.mkdir()
     (backup_path / 'start.json').write_text('{"start_time": "2014-03-10T10:24:30.345667+00:00"}', encoding='utf8')
@@ -57,7 +57,7 @@ def test_check_if_probably_backup_invalid_name(tmpdir) -> None:
         assert not check_if_probably_backup(backup_path)
 
 
-def test_check_if_probably_backup_missing_start_info(tmpdir) -> None:
+def test_check_if_probably_backup_missing_start_info(tmpdir: Path) -> None:
     backup_path = tmpdir / '345t7hf0345bv9wc'
     backup_path.mkdir()
     (backup_path / 'manifest.json').write_text('[{"n": "", "cf": ["foobarqux"]}]', encoding='utf8')
@@ -66,7 +66,7 @@ def test_check_if_probably_backup_missing_start_info(tmpdir) -> None:
         assert not check_if_probably_backup(backup_path)
 
 
-def test_check_if_probably_backup_missing_manifest(tmpdir) -> None:
+def test_check_if_probably_backup_missing_manifest(tmpdir: Path) -> None:
     backup_path = tmpdir / '485390efdt76er'
     backup_path.mkdir()
     (backup_path / 'start.json').write_text('{"start_time": "2014-03-10T10:24:30.345667+00:00"}', encoding='utf8')
@@ -75,7 +75,7 @@ def test_check_if_probably_backup_missing_manifest(tmpdir) -> None:
         assert not check_if_probably_backup(backup_path)
 
 
-def test_read_backup_metadata_ok(tmpdir) -> None:
+def test_read_backup_metadata_ok(tmpdir: Path) -> None:
     backup_dir = tmpdir / 'a65jh8t7opui7sa'
     start_info_path = backup_dir / 'start.json'
     manifest_path = backup_dir / 'manifest.json'
@@ -98,14 +98,14 @@ def test_read_backup_metadata_ok(tmpdir) -> None:
     assert actual == expected
 
 
-def test_read_backup_metadata_nonexistent_dir(tmpdir) -> None:
+def test_read_backup_metadata_nonexistent_dir(tmpdir: Path) -> None:
     backup_dir = tmpdir / '567lkjh2378dsfg3'
     with AssertFilesystemUnmodified(tmpdir):
         with pytest.raises(FileNotFoundError):
             read_backup_metadata(backup_dir)
 
 
-def test_read_backup_metadata_missing_file(tmpdir) -> None:
+def test_read_backup_metadata_missing_file(tmpdir: Path) -> None:
     backup_dir = tmpdir / '12lk789xcx542'
     manifest_path = backup_dir / 'manifest.json'
 
@@ -120,7 +120,7 @@ def test_read_backup_metadata_missing_file(tmpdir) -> None:
             read_backup_metadata(backup_dir)
 
 
-def test_read_backups(tmpdir) -> None:
+def test_read_backups(tmpdir: Path) -> None:
     backup1_path = tmpdir / '495gw459g8w34fy07wfg'
     backup1_path.mkdir()
     (backup1_path / 'start.json').write_text('{"start_time": "2020-11-04T22:32:17.458067+00:00"}', encoding='utf8')
@@ -145,7 +145,7 @@ def test_read_backups(tmpdir) -> None:
 
     # Not sure how to cause on_query_entry_error and on_read_metadata_error.
 
-    invalid_paths: List[Tuple[Path, Exception]] = []
+    invalid_paths: list[tuple[Path, Union[Exception, None]]] = []
     callbacks = ReadBackupsCallbacks(
         on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
         on_invalid_backup=lambda path, error: invalid_paths.append((path, error)),
@@ -184,7 +184,7 @@ def test_generate_backup_name() -> None:
     assert len(set(names)) == len(names)        # Very low chance any names are the same.
 
 
-def test_create_new_backup_directory_nonexistent(tmpdir) -> None:
+def test_create_new_backup_directory_nonexistent(tmpdir: Path) -> None:
     target_dir = tmpdir / 'target_dir'
     create_new_backup_directory(target_dir)
     assert target_dir.exists()
@@ -195,7 +195,7 @@ def test_create_new_backup_directory_nonexistent(tmpdir) -> None:
     assert name.isascii() and name.isalnum()
 
 
-def test_create_new_backup_directory_invalid(tmpdir) -> None:
+def test_create_new_backup_directory_invalid(tmpdir: Path) -> None:
     target_dir = tmpdir / 'target_dir'
     target_dir.touch()
 

@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Tuple
 
 import pytest
 
@@ -183,7 +182,7 @@ def test_backup_plan_new_all_removed() -> None:
     assert actual_plan == expected_plan
 
 
-def test_execute_backup_plan(tmpdir) -> None:
+def test_execute_backup_plan(tmpdir: Path) -> None:
     # Test some errors.
 
     source_path = tmpdir / 'source'
@@ -232,8 +231,8 @@ def test_execute_backup_plan(tmpdir) -> None:
     (destination_path / 'something').mkdir(parents=True)
     (destination_path / 'something/uh oh').touch()
 
-    mkdir_errors: List[Tuple[Path, OSError]] = []
-    copy_errors: List[Tuple[Path, Path, OSError]] = []
+    mkdir_errors: list[tuple[Path, OSError]] = []
+    copy_errors: list[tuple[Path, Path, OSError]] = []
     callbacks = ExecuteBackupPlanCallbacks(
         on_mkdir_error=lambda p, e: mkdir_errors.append((p, e)),
         on_copy_error=lambda s, d, e: copy_errors.append((s, d, e)))
@@ -283,7 +282,7 @@ def test_execute_backup_plan(tmpdir) -> None:
     assert isinstance(copy_errors[1][2], FileNotFoundError)
 
 
-def test_execute_backup_plan_empty_plan(tmpdir) -> None:
+def test_execute_backup_plan_empty_plan(tmpdir: Path) -> None:
     # Empty backup plan and empty source directory.
 
     source_path = tmpdir / 'source'

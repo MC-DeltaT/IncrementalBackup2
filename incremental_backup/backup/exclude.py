@@ -16,7 +16,7 @@ class ExcludePattern:
         return self.pattern.fullmatch(path) is not None
 
     @staticmethod
-    def _compile_pattern(pattern: str, /) -> re.Pattern:
+    def _compile_pattern(pattern: str, /) -> re.Pattern[str]:
         return re.compile(pattern, re.DOTALL)
 
     def __str__(self) -> str:

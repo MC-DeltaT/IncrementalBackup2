@@ -1,9 +1,8 @@
 from dataclasses import dataclass, field
 import json
-from os import PathLike
-from typing import Dict, Iterator, List, NoReturn, Tuple, Union
+from typing import Any, Iterator, NoReturn, Union
 
-from ..utility import path_name_equal
+from ..utility import path_name_equal, StrPath
 
 
 __all__ = [
@@ -23,23 +22,23 @@ class BackupManifest:
     @dataclass
     class Directory:
         name: str
-        copied_files: List[str] = field(default_factory=list)
-        removed_files: List[str] = field(default_factory=list)
-        removed_directories: List[str] = field(default_factory=list)
-        subdirectories: List['BackupManifest.Directory'] = field(default_factory=list)
+        copied_files: list[str] = field(default_factory=list)
+        removed_files: list[str] = field(default_factory=list)
+        removed_directories: list[str] = field(default_factory=list)
+        subdirectories: list['BackupManifest.Directory'] = field(default_factory=list)
 
     root: Directory = field(default_factory=lambda: BackupManifest.Directory(''))
     """The root of the manifest tree. This object represents the backup source directory."""
 
 
-def write_backup_manifest(path: PathLike, value: BackupManifest, /) -> None:
+def write_backup_manifest(path: StrPath, value: BackupManifest, /) -> None:
     """Writes a backup manifest to file.
 
         :except OSError: If the file could not be written to.
     """
 
     def search(manifest: BackupManifest, /) -> Iterator[Union[BackupManifest.Directory, None]]:
-        stack: List[Union[BackupManifest.Directory, None]] = [manifest.root]
+        stack: list[Union[BackupManifest.Directory, None]] = [manifest.root]
         while stack:
             node = stack.pop()
             yield node
@@ -60,11 +59,11 @@ def write_backup_manifest(path: PathLike, value: BackupManifest, /) -> None:
                 yield node
         # Also trims trailing backtracks since they are not required.
 
-    def node_to_object(node: Union[BackupManifest.Directory, int], /) -> Union[Dict[str, str], str]:
+    def node_to_object(node: Union[BackupManifest.Directory, int], /) -> Union[dict[str, Union[str, list[str]]], str]:
         if isinstance(node, int):
             return f'^{node}'
         else:
-            obj = {'n': node.name}
+            obj: dict[str, Union[str, list[str]]] = {'n': node.name}
             if node.copied_files:
                 obj['cf'] = node.copied_files
             if node.removed_files:
@@ -80,20 +79,20 @@ def write_backup_manifest(path: PathLike, value: BackupManifest, /) -> None:
         json.dump(json_data, file, indent=0, ensure_ascii=False)
 
 
-def read_backup_manifest(path: PathLike, /) -> BackupManifest:
+def read_backup_manifest(path: StrPath, /) -> BackupManifest:
     """Reads a backup manifest from file.
 
         :except OSError: If the file could not be read.
         :except BackupManifestParseError: If the file is not a valid backup manifest.
     """
 
-    def parse_error(reason: str, /) -> NoReturn:
-        raise BackupManifestParseError(str(path), reason)
+    def parse_error(reason: str, e: Union[Exception, None] = None, /) -> NoReturn:
+        if e is None:
+            raise BackupManifestParseError(str(path), reason)
+        else:
+            raise BackupManifestParseError(str(path), reason) from e
 
-    def parse_error_from(reason: str, e: Exception, /) -> NoReturn:
-        raise BackupManifestParseError(str(path), reason) from e
-
-    def parse_directory_entry(entry: dict, entry_num: int, /) -> Tuple[str, List[str], List[str], List[str]]:
+    def parse_directory_entry(entry: dict[Any, Any], entry_num: int, /) -> tuple[str, list[str], list[str], list[str]]:
         try:
             name = entry.pop('n')
         except KeyError as e:
@@ -101,7 +100,7 @@ def read_backup_manifest(path: PathLike, /) -> BackupManifest:
             if entry_num == 1:
                 name = ''
             else:
-                parse_error_from(f'Entry {entry_num}: missing required field "n"', e)
+                parse_error(f'Entry {entry_num}: missing required field "n"', e)
         if not isinstance(name, str):
             parse_error(f'Entry {entry_num}: field "n" must be a string')
 
@@ -139,7 +138,7 @@ def read_backup_manifest(path: PathLike, /) -> BackupManifest:
         with open(path, 'r', encoding='utf8') as file:
             json_data = json.load(file)
     except json.JSONDecodeError as e:
-        parse_error_from(str(e), e)
+        parse_error(str(e), e)
 
     if not isinstance(json_data, list):
         parse_error('Expected a list')

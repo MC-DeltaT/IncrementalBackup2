@@ -1,6 +1,6 @@
 import argparse
 import sys
-from typing import Mapping, NoReturn, Sequence, Type
+from typing import Mapping, NoReturn, Sequence
 
 from .commands import BackupCommand, Command, CommandArgumentError, CommandError, RestoreCommand
 from .utility import print_error
@@ -84,13 +84,13 @@ class ArgumentParser(argparse.ArgumentParser):
         raise CommandArgumentError(full_message, self.format_usage())
 
 
-COMMAND_CLASSES: Sequence[Type[Command]] = (
+COMMAND_CLASSES: Sequence[type[Command]] = (
     BackupCommand,
     RestoreCommand
 )
 
 
-COMMAND_CLASS_MAP: Mapping[str, Type[Command]] = {
+COMMAND_CLASS_MAP: Mapping[str, type[Command]] = {
     cls.COMMAND_STRING: cls for cls in COMMAND_CLASSES
 }
 """Maps from a command's command line string to its class."""

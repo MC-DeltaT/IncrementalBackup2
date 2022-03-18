@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from datetime import datetime
 import json
-from os import PathLike
-from typing import NoReturn
+from typing import NoReturn, Union
+
+from ..utility import StrPath
 
 
 __all__ = [
@@ -24,7 +25,7 @@ class BackupCompleteInfo:
     """Indicates if any paths were skipped due to filesystem errors (does NOT include explicitly excluded paths)."""
 
 
-def write_backup_complete_info(path: PathLike, value: BackupCompleteInfo, /) -> None:
+def write_backup_complete_info(path: StrPath, value: BackupCompleteInfo, /) -> None:
     """Writes backup completion information to file.
 
         :except OSError: If the file could not be written to.
@@ -38,24 +39,24 @@ def write_backup_complete_info(path: PathLike, value: BackupCompleteInfo, /) -> 
         json.dump(json_data, file, indent=4, ensure_ascii=False)
 
 
-def read_backup_complete_info(path: PathLike, /) -> BackupCompleteInfo:
+def read_backup_complete_info(path: StrPath, /) -> BackupCompleteInfo:
     """Reads backup completion information from file.
 
         :except OSError: If the file could not be read.
         :except BackupCompleteInfoParseError: If the file is not valid backup completion information.
     """
 
-    def parse_error(reason: str, /) -> NoReturn:
-        raise BackupCompleteInfoParseError(str(path), reason)
-
-    def parse_error_from(reason: str, e: Exception, /) -> NoReturn:
-        raise BackupCompleteInfoParseError(str(path), reason) from e
+    def parse_error(reason: str, e: Union[Exception, None] = None, /) -> NoReturn:
+        if e is None:
+            raise BackupCompleteInfoParseError(str(path), reason)
+        else:
+            raise BackupCompleteInfoParseError(str(path), reason) from e
 
     try:
         with open(path, 'r', encoding='utf8') as file:
             json_data = json.load(file)
     except json.JSONDecodeError as e:
-        parse_error_from(str(e), e)
+        parse_error(str(e), e)
 
     if not isinstance(json_data, dict):
         parse_error('Expected an object')
@@ -67,7 +68,7 @@ def read_backup_complete_info(path: PathLike, /) -> BackupCompleteInfo:
     try:
         end_time = datetime.fromisoformat(json_data['end_time'])
     except (TypeError, ValueError) as e:
-        parse_error_from('Field "end_time" must be an ISO-8601 date string', e)
+        parse_error('Field "end_time" must be an ISO-8601 date string', e)
 
     if not isinstance(json_data['paths_skipped'], bool):
         parse_error('Field "paths_skipped" must be a boolean')

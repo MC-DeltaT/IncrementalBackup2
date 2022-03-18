@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from incremental_backup.meta.manifest import BackupManifest, BackupManifestParseError, read_backup_manifest, \
@@ -21,7 +23,7 @@ def test_backup_manifest_init() -> None:
     assert manifest.root == expected_root
 
 
-def test_write_backup_manifest(tmpdir) -> None:
+def test_write_backup_manifest(tmpdir: Path) -> None:
     path = tmpdir / 'manifest.json'
 
     backup_manifest = BackupManifest(BackupManifest.Directory('',
@@ -93,7 +95,7 @@ def test_write_backup_manifest(tmpdir) -> None:
     assert actual == expected
 
 
-def test_read_backup_manifest_valid(tmpdir) -> None:
+def test_read_backup_manifest_valid(tmpdir: Path) -> None:
     path = tmpdir / 'manifest_valid.json'
     contents = '''[
         {"n": "", "cf": ["myfile675"], "rf": []},
@@ -120,7 +122,7 @@ def test_read_backup_manifest_valid(tmpdir) -> None:
     assert actual == expected
 
 
-def test_read_backup_manifest_empty(tmpdir) -> None:
+def test_read_backup_manifest_empty(tmpdir: Path) -> None:
     path = tmpdir / 'manifest_empty_1.json'
     path.write_text('[]', encoding='utf8')
     with AssertFilesystemUnmodified(tmpdir):
@@ -136,7 +138,7 @@ def test_read_backup_manifest_empty(tmpdir) -> None:
     assert actual == expected
 
 
-def test_read_backup_manifest_invalid(tmpdir) -> None:
+def test_read_backup_manifest_invalid(tmpdir: Path) -> None:
     datas = (
         '',
         '{}',
@@ -171,14 +173,14 @@ def test_read_backup_manifest_invalid(tmpdir) -> None:
                 read_backup_manifest(path)
 
 
-def test_read_backup_manifest_nonexistent(tmpdir) -> None:
+def test_read_backup_manifest_nonexistent(tmpdir: Path) -> None:
     path = tmpdir / 'manifest_nonexistent.json'
     with AssertFilesystemUnmodified(tmpdir):
         with pytest.raises(FileNotFoundError):
             read_backup_manifest(path)
 
 
-def test_read_backup_manifest_directory_reentry(tmpdir) -> None:
+def test_read_backup_manifest_directory_reentry(tmpdir: Path) -> None:
     path = tmpdir / 'manifest_reentrant.json'
     contents = '''[
         {"n": ""},

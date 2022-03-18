@@ -2,11 +2,11 @@ from datetime import datetime
 from functools import reduce
 from hashlib import md5
 from operator import xor
-from os import PathLike, utime
+from os import environ, PathLike, utime
 from pathlib import Path
 import subprocess
 import sys
-from typing import Any, List, Optional, Sequence, Set
+from typing import Any, Optional, Sequence, Union
 
 
 __all__ = [
@@ -24,7 +24,7 @@ __all__ = [
 class AssertFilesystemUnmodified:
     """Context object that asserts that the content of the specified paths is the same when exiting as when entering."""
 
-    def __init__(self, *paths: PathLike) -> None:
+    def __init__(self, *paths: Union[str, PathLike[str]]) -> None:
         self.paths = tuple(map(Path, paths))
 
     def __enter__(self):
@@ -54,7 +54,7 @@ def unordered_equal(sequence1: Sequence[Any], sequence2: Sequence[Any]) -> bool:
         return False
 
     # Check 1-to-1 correspondence of items between sequences without hashing.
-    in_sequence1: List[bool] = [False for _ in range(len(sequence2))]
+    in_sequence1: list[bool] = [False for _ in range(len(sequence2))]
     for item1 in sequence1:
         for i, item2 in enumerate(sequence2):
             if item1 == item2 and not in_sequence1[i]:
@@ -65,7 +65,7 @@ def unordered_equal(sequence1: Sequence[Any], sequence2: Sequence[Any]) -> bool:
     return True
 
 
-def dir_entries(path: Path, /) -> Set[str]:
+def dir_entries(path: Path, /) -> set[str]:
     """Gets a set of the names of a directory's entries."""
 
     return set((e.name for e in path.iterdir()))
@@ -134,7 +134,11 @@ def write_file_with_mtime(file: Path, contents: str, m_a_time: datetime, encodin
     utime(file, (timestamp, timestamp))
 
 
-def run_application(*arguments: str) -> subprocess.CompletedProcess:
+def run_application(*arguments: str) -> subprocess.CompletedProcess[str]:
     """Runs the incremental backup program with the given arguments in a new process and returns the results."""
-    return subprocess.run(
-        [sys.executable, './incremental_backup.py'] + list(arguments), capture_output=True, encoding='utf8')
+    
+    args = [sys.executable, './incremental_backup.py'] + list(arguments)
+    # Some Unicode error if running from a Windows terminal, so we have to force UTF-8 encoding.
+    env = environ.copy()
+    env['PYTHONIOENCODING'] = 'utf-8'
+    return subprocess.run(args, capture_output=True, encoding='utf8', env=env)

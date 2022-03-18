@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
-from os import PathLike
 from pathlib import Path
 import shutil
-from typing import Callable, List, Optional, Sequence
+from typing import Callable, Optional, Sequence
 
 from .backup import BackupSum
 from .meta import BackupMetadata, DATA_DIRECTORY_NAME, read_backups, ReadBackupsCallbacks
+from .utility import StrPath
 
 
 __all__ = [
@@ -44,7 +44,7 @@ class RestoreFilesCallbacks:
         exception."""
 
 
-def restore_files(backup_target_directory: PathLike, backup_sum: BackupSum, destination_directory: PathLike,
+def restore_files(backup_target_directory: StrPath, backup_sum: BackupSum, destination_directory: StrPath,
                   callbacks: RestoreFilesCallbacks = RestoreFilesCallbacks()) -> RestoreFilesResults:
     """Restores files and directories from backups to a new location.
 
@@ -57,8 +57,8 @@ def restore_files(backup_target_directory: PathLike, backup_sum: BackupSum, dest
 
     paths_skipped = False
     files_restored = 0
-    search_stack: List[Callable[[], None]] = []
-    path_segments: List[str] = []
+    search_stack: list[Callable[[], None]] = []
+    path_segments: list[str] = []
     is_root = True
 
     def pop_path_segment() -> None:
@@ -144,9 +144,9 @@ class RestoreCallbacks:
     """Callbacks for `restore_files()`."""
 
 
-def perform_restore(backup_target_directory: PathLike, destination_directory: PathLike,
+def perform_restore(backup_target_directory: StrPath, destination_directory: StrPath,
                     backup_name: Optional[str] = None, backup_time: Optional[datetime] = None,
-                    callbacks: RestoreCallbacks() = RestoreCallbacks()) -> RestoreResults:
+                    callbacks: RestoreCallbacks = RestoreCallbacks()) -> RestoreResults:
     """Restores files and directories from existing backups.
 
         :param backup_target_directory: The directory containing the backups which are being restored. I.e. the
@@ -169,7 +169,7 @@ def perform_restore(backup_target_directory: PathLike, destination_directory: Pa
 class RestoreOperation:
     """Implementation of the backup restore operation."""
 
-    def __init__(self, backup_target_directory: PathLike, destination_directory: PathLike,
+    def __init__(self, backup_target_directory: StrPath, destination_directory: StrPath,
                  backup_name: Optional[str] = None, backup_time: Optional[datetime] = None,
                  callbacks: RestoreCallbacks = RestoreCallbacks()) -> None:
         """

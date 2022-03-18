@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List
 
 import pytest
 
@@ -17,7 +16,7 @@ def test_directory_init() -> None:
     assert directory.subdirectories == []
 
 
-def test_scan_filesystem_no_excludes(tmpdir) -> None:
+def test_scan_filesystem_no_excludes(tmpdir: Path) -> None:
     time = datetime.now(timezone.utc)
     (tmpdir / 'a').mkdir()
     (tmpdir / 'a/aA').mkdir()
@@ -77,7 +76,7 @@ def test_scan_filesystem_no_excludes(tmpdir) -> None:
     assert c.files == [] and c.subdirectories == []
 
 
-def test_scan_filesystem_some_excludes(tmpdir) -> None:
+def test_scan_filesystem_some_excludes(tmpdir: Path) -> None:
     exclude_patterns = (r'.*/\.git/', '/temp/', '/un\xEFi\uC9F6c\u91F5ode\\.txt', r'.*\.bin')
     exclude_patterns = tuple(map(ExcludePattern, exclude_patterns))
 
@@ -98,7 +97,7 @@ def test_scan_filesystem_some_excludes(tmpdir) -> None:
     (tmpdir / 'Code/project/.git/somefile').touch()
     (tmpdir / 'empty').mkdir()
 
-    actual_excludes: List[Path] = []
+    actual_excludes: list[Path] = []
     callbacks = ScanFilesystemCallbacks(
         on_exclude=lambda path: actual_excludes.append(path),
         on_listdir_error=lambda path, error: pytest.fail(f'Unexpected on_listdir_error: {path=} {error=}'),

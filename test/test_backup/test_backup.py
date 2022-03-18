@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -13,7 +15,7 @@ from incremental_backup.meta.start_info import BackupStartInfoParseError
 from helpers import AssertFilesystemUnmodified, dir_entries, unordered_equal, write_file_with_mtime
 
 
-def test_perform_backup_nonexistent_source(tmpdir) -> None:
+def test_perform_backup_nonexistent_source(tmpdir: Path) -> None:
     source_path = tmpdir / 'source'
 
     target_path = tmpdir / 'target'
@@ -53,7 +55,7 @@ def test_perform_backup_nonexistent_source(tmpdir) -> None:
             perform_backup(source_path, target_path, (), callbacks)
 
 
-def test_perform_backup_source_is_file(tmpdir) -> None:
+def test_perform_backup_source_is_file(tmpdir: Path) -> None:
     source_path = tmpdir / 'source'
     source_path.write_text('hello world!')
 
@@ -94,7 +96,7 @@ def test_perform_backup_source_is_file(tmpdir) -> None:
             perform_backup(source_path, target_path, (), callbacks)
 
 
-def test_perform_backup_target_is_file(tmpdir) -> None:
+def test_perform_backup_target_is_file(tmpdir: Path) -> None:
     source_path = tmpdir / 'source'
     source_path.mkdir()
     (source_path / 'foo').write_text('some text here')
@@ -135,7 +137,7 @@ def test_perform_backup_target_is_file(tmpdir) -> None:
             perform_backup(source_path, target_path, (), callbacks)
 
 
-def test_perform_backup_new_target(tmpdir) -> None:
+def test_perform_backup_new_target(tmpdir: Path) -> None:
     # Target directory doesn't exist.
 
     source_path = tmpdir / '\u1246\uA76D3fje_s\xDDrC\u01FC'
@@ -146,7 +148,7 @@ def test_perform_backup_new_target(tmpdir) -> None:
 
     target_path = (tmpdir / 'mypath\uFDEA\uBDF3/doesnt\xDFFEXIsT')
 
-    actual_callbacks = []
+    actual_callbacks: list[Any] = []
 
     callbacks = BackupCallbacks(
         on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
@@ -246,7 +248,7 @@ def test_perform_backup_new_target(tmpdir) -> None:
     assert actual_manifest_str == expected_manifest_str
 
 
-def test_perform_backup_no_previous_backups(tmpdir) -> None:
+def test_perform_backup_no_previous_backups(tmpdir: Path) -> None:
     # Target directory exists but is empty.
 
     source_path = tmpdir / 'rubbish\xC2with/\u5647\uBDC1\u9C87 chars'
@@ -258,7 +260,7 @@ def test_perform_backup_no_previous_backups(tmpdir) -> None:
     target_path = (tmpdir / 'I  lik\uCECE  tr\uAAAAins')
     target_path.mkdir()
 
-    actual_callbacks = []
+    actual_callbacks: list[Any] = []
 
     callbacks = BackupCallbacks(
         on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
@@ -359,7 +361,7 @@ def test_perform_backup_no_previous_backups(tmpdir) -> None:
     assert actual_manifest_str == expected_manifest_str
 
 
-def test_perform_backup_some_previous_backups(tmpdir) -> None:
+def test_perform_backup_some_previous_backups(tmpdir: Path) -> None:
     # Target directory has some previous backups.
 
     target_path = tmpdir / 'put the data here!'
@@ -442,7 +444,7 @@ def test_perform_backup_some_previous_backups(tmpdir) -> None:
     exclude_patterns = ('/temp/',)
     exclude_patterns = tuple(map(ExcludePattern, exclude_patterns))
 
-    actual_callbacks = []
+    actual_callbacks: list[Any] = []
 
     callbacks = BackupCallbacks(
         on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
@@ -547,7 +549,7 @@ def test_perform_backup_some_previous_backups(tmpdir) -> None:
     assert actual_manifest_from_file == actual_manifest
 
 
-def test_perform_backup_some_invalid_backups(tmpdir) -> None:
+def test_perform_backup_some_invalid_backups(tmpdir: Path) -> None:
     # Target directory has some previous backups and invalid/not backups.
 
     target_path = tmpdir / 'foo \u115A\xBA\u7AD9bar\u82C5\u5C70'
@@ -622,7 +624,7 @@ def test_perform_backup_some_invalid_backups(tmpdir) -> None:
     write_file_with_mtime(source_path / 'dir/file', 'file backup2',
                           datetime(2021, 4, 5, 9, 32, 59, tzinfo=timezone.utc))     # Existing unmodified
 
-    actual_callbacks = []
+    actual_callbacks: list[Any] = []
 
     callbacks = BackupCallbacks(
         on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),

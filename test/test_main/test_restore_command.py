@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from helpers import AssertFilesystemUnmodified, dir_entries, run_application
 
 
@@ -9,13 +11,13 @@ def test_restore_no_args() -> None:
     assert process.returncode == 1
 
 
-def test_restore_too_few_args(tmpdir) -> None:
+def test_restore_too_few_args(tmpdir: Path) -> None:
     with AssertFilesystemUnmodified(tmpdir):
         process = run_application('restore', str(tmpdir))
     assert process.returncode == 1
 
 
-def test_restore_all(tmpdir) -> None:
+def test_restore_all(tmpdir: Path) -> None:
     # Neither backup name nor time specified, restore from all backups.
 
     target_dir = tmpdir / 'backups'
@@ -73,7 +75,7 @@ def test_restore_all(tmpdir) -> None:
     assert (destination_dir / 'myDir' / 'bar-qux').read_text() == 'final content'
 
 
-def test_restore_name(tmpdir) -> None:
+def test_restore_name(tmpdir: Path) -> None:
     # Backup name specified, restore up to that backup.
 
     target_dir = tmpdir / 'backups'
@@ -129,7 +131,7 @@ def test_restore_name(tmpdir) -> None:
     assert (destination_dir / 'yes.no').read_text() == 'hello world 2'
 
 
-def test_restore_time(tmpdir) -> None:
+def test_restore_time(tmpdir: Path) -> None:
     # Backup time specified, restore up to that time.
 
     target_dir = tmpdir / 'backups'

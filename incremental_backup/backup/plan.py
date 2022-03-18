@@ -1,12 +1,11 @@
 from dataclasses import dataclass, field
 from functools import partial
-from os import PathLike
 from pathlib import Path
 import shutil
-from typing import Callable, List, Optional
+from typing import Callable, Optional
 
 from ..meta import BackupManifest
-from ..utility import path_name_equal
+from ..utility import path_name_equal, StrPath
 from . import filesystem
 from .sum import BackupSum
 
@@ -27,10 +26,10 @@ class BackupPlan:
     @dataclass
     class Directory:
         name: str
-        copied_files: List[str] = field(default_factory=list)
-        removed_files: List[str] = field(default_factory=list)
-        removed_directories: List[str] = field(default_factory=list)
-        subdirectories: List['BackupPlan.Directory'] = field(default_factory=list)
+        copied_files: list[str] = field(default_factory=list)
+        removed_files: list[str] = field(default_factory=list)
+        removed_directories: list[str] = field(default_factory=list)
+        subdirectories: list['BackupPlan.Directory'] = field(default_factory=list)
         contains_copied_files: bool = False
         """Indicates if this directory or any of its descendents contain any copied files."""
         contains_removed_items: bool = False
@@ -45,8 +44,8 @@ class BackupPlan:
         plan = cls()
         plan_directories = [plan.root]
 
-        search_stack: List[Callable[[], None]] = []
-        backup_sum_stack: List[Optional[BackupSum.Directory]] = [backup_sum.root]
+        search_stack: list[Callable[[], None]] = []
+        backup_sum_stack: list[Optional[BackupSum.Directory]] = [backup_sum.root]
         plan_stack = [plan.root]
         is_root = True
 
@@ -113,7 +112,7 @@ class BackupPlan:
         for directory in reversed(plan_directories):
             directory.contains_copied_files = len(directory.copied_files) > 0
             directory.contains_removed_items = len(directory.removed_files) + len(directory.removed_directories) > 0
-            nonempty_subdirectories: List[BackupPlan.Directory] = []
+            nonempty_subdirectories: list[BackupPlan.Directory] = []
             for subdirectory in directory.subdirectories:
                 # Ok, values for child are always calculated before parent.
                 directory.contains_copied_files |= subdirectory.contains_copied_files
@@ -149,7 +148,7 @@ class ExecuteBackupPlanCallbacks:
         exception."""
 
 
-def execute_backup_plan(backup_plan: BackupPlan, source_directory: PathLike, destination_directory: PathLike,
+def execute_backup_plan(backup_plan: BackupPlan, source_directory: StrPath, destination_directory: StrPath,
                         callbacks: ExecuteBackupPlanCallbacks = ExecuteBackupPlanCallbacks()) \
         -> ExecuteBackupPlanResults:
     """Enacts a backup plan, copying files and creating the backup manifest.
@@ -172,9 +171,9 @@ def execute_backup_plan(backup_plan: BackupPlan, source_directory: PathLike, des
     paths_skipped = False
     files_copied = 0
     files_removed = 0
-    search_stack: List[Callable[[], None]] = []
+    search_stack: list[Callable[[], None]] = []
     manifest_stack = [manifest.root]
-    path_segments: List[str] = []
+    path_segments: list[str] = []
     is_root = True
 
     def pop_manifest_node() -> None:
@@ -192,7 +191,7 @@ def execute_backup_plan(backup_plan: BackupPlan, source_directory: PathLike, des
             path_segments.append(search_directory.name)
             search_stack.append(pop_path_segment)
 
-        copied_files: List[str] = []
+        copied_files: list[str] = []
 
         # Once we fail to create a destination directory, or the current directory doesn't contain any more files to
         # copy, no need to try to create the destination directory or copy any files.

@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from datetime import datetime
 import json
-from os import PathLike
-from typing import NoReturn
+from typing import NoReturn, Union
+
+from ..utility import StrPath
 
 
 __all__ = [
@@ -21,7 +22,7 @@ class BackupStartInfo:
     """The UTC time at which the backup operated started (just before any files were copied)."""
 
 
-def write_backup_start_info(path: PathLike, value: BackupStartInfo, /) -> None:
+def write_backup_start_info(path: StrPath, value: BackupStartInfo, /) -> None:
     """Writes backup start information to file.
 
         :except OSError: If the file could not be written to.
@@ -34,24 +35,24 @@ def write_backup_start_info(path: PathLike, value: BackupStartInfo, /) -> None:
         json.dump(json_data, file, indent=4, ensure_ascii=False)
 
 
-def read_backup_start_info(path: PathLike, /) -> BackupStartInfo:
+def read_backup_start_info(path: StrPath, /) -> BackupStartInfo:
     """Reads backup start information from file.
 
         :except OSError: If the file could not be read.
         :except BackupStartInfoParseError: If the file is not valid backup start information.
     """
 
-    def parse_error(reason: str, /) -> NoReturn:
-        raise BackupStartInfoParseError(str(path), reason)
-
-    def parse_error_from(reason: str, e: Exception, /) -> NoReturn:
-        raise BackupStartInfoParseError(str(path), reason) from e
+    def parse_error(reason: str, e: Union[Exception, None] = None, /) -> NoReturn:
+        if e is None:
+            raise BackupStartInfoParseError(str(path), reason)
+        else:
+            raise BackupStartInfoParseError(str(path), reason) from e
 
     try:
         with open(path, 'r', encoding='utf8') as file:
             json_data = json.load(file)
     except json.JSONDecodeError as e:
-        parse_error_from(str(e), e)
+        parse_error(str(e), e)
 
     if not isinstance(json_data, dict):
         parse_error('Expected an object')
@@ -63,7 +64,7 @@ def read_backup_start_info(path: PathLike, /) -> BackupStartInfo:
     try:
         start_time = datetime.fromisoformat(json_data['start_time'])
     except (TypeError, ValueError) as e:
-        parse_error_from('Field "start_time" must be an ISO-8601 date string', e)
+        parse_error('Field "start_time" must be an ISO-8601 date string', e)
 
     return BackupStartInfo(start_time)
 

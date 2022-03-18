@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
@@ -8,7 +9,7 @@ from incremental_backup.meta.complete_info import BackupCompleteInfo, BackupComp
 from helpers import AssertFilesystemUnmodified
 
 
-def test_write_backup_complete_info(tmpdir) -> None:
+def test_write_backup_complete_info(tmpdir: Path) -> None:
     path = tmpdir / 'complete_info.json'
     complete_info = BackupCompleteInfo(datetime(2021, 8, 13, 16, 54, 33, 1234, tzinfo=timezone.utc), True)
     write_backup_complete_info(path, complete_info)
@@ -17,7 +18,7 @@ def test_write_backup_complete_info(tmpdir) -> None:
     assert data == expected
 
 
-def test_read_backup_complete_info_valid(tmpdir) -> None:
+def test_read_backup_complete_info_valid(tmpdir: Path) -> None:
     path = tmpdir / 'complete_info_valid.json'
     path.write_text('{"end_time": "2020-12-30T09:34:10.123456+00:00", "paths_skipped": false}', encoding='utf8')
 
@@ -28,7 +29,7 @@ def test_read_backup_complete_info_valid(tmpdir) -> None:
     assert actual == expected
 
 
-def test_read_backup_complete_info_invalid(tmpdir) -> None:
+def test_read_backup_complete_info_invalid(tmpdir: Path) -> None:
     datas = (
         '',
         'null'
@@ -50,14 +51,14 @@ def test_read_backup_complete_info_invalid(tmpdir) -> None:
                 read_backup_complete_info(path)
 
 
-def test_read_backup_complete_info_nonexistent(tmpdir) -> None:
+def test_read_backup_complete_info_nonexistent(tmpdir: Path) -> None:
     path = tmpdir / 'backup_complete_info.json'
     with AssertFilesystemUnmodified(tmpdir):
         with pytest.raises(FileNotFoundError):
             read_backup_complete_info(path)
 
 
-def test_write_read_backup_complete_info(tmpdir) -> None:
+def test_write_read_backup_complete_info(tmpdir: Path) -> None:
     path = tmpdir / 'complete_info.json'
     complete_info = BackupCompleteInfo(datetime(1986, 3, 17, 9, 53, 26, 8765, tzinfo=timezone.utc), True)
     write_backup_complete_info(path, complete_info)

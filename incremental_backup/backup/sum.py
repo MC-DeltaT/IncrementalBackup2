@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Union
+from typing import Iterable, Union
 
 from ..meta import BackupManifest, BackupMetadata
 from ..utility import path_name_equal
@@ -26,8 +26,8 @@ class BackupSum:
     @dataclass
     class Directory:
         name: str
-        files: List['BackupSum.File'] = field(default_factory=list)
-        subdirectories: List['BackupSum.Directory'] = field(default_factory=list)
+        files: list['BackupSum.File'] = field(default_factory=list)
+        subdirectories: list['BackupSum.Directory'] = field(default_factory=list)
 
     root: Directory = field(default_factory=lambda: BackupSum.Directory(''))
     """The root of the reconstructed file/directory structure.
@@ -46,11 +46,11 @@ class BackupSum:
 
         backups_sorted = sorted(backups, key=lambda backup: backup.start_info.start_time)
 
-        # List of all directories. Parent will always occur before child in list.
-        directories: List[BackupSum.Directory] = [backup_sum.root]
+        # list of all directories. Parent will always occur before child in list.
+        directories: list[BackupSum.Directory] = [backup_sum.root]
 
         for backup in backups_sorted:
-            search_stack: List[Union[BackupManifest.Directory, None]] = [backup.manifest.root]
+            search_stack: list[Union[BackupManifest.Directory, None]] = [backup.manifest.root]
             sum_stack = [backup_sum.root]
             is_root = True
             while search_stack:
@@ -90,10 +90,10 @@ class BackupSum:
 
         # Calculate if each directory has nonempty descendents has and remove empty directories.
         # Empty = contains nothing or only directories.
-        nonempty_map: Dict[int, bool] = {}
+        nonempty_map: dict[int, bool] = {}
         for directory in reversed(directories):
             nonempty = len(directory.files) > 0
-            nonempty_subdirectories: List[BackupSum.Directory] = []
+            nonempty_subdirectories: list[BackupSum.Directory] = []
             for subdirectory in directory.subdirectories:
                 # Ok, emptiness of child is always calculated before parent.
                 sub_nonempty = nonempty_map[id(subdirectory)]

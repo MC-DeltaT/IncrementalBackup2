@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from os import PathLike
 from pathlib import Path
 from typing import Callable, Iterable, Optional, Sequence
 
@@ -8,6 +7,7 @@ from ..meta import BackupCompleteInfo, BackupDirectoryCreationError, BackupManif
     BackupMetadata, BackupStartInfo, COMPLETE_INFO_FILENAME, create_new_backup_directory, \
     DATA_DIRECTORY_NAME, MANIFEST_FILENAME, read_backups, ReadBackupsCallbacks, START_INFO_FILENAME, \
     write_backup_complete_info, write_backup_manifest, write_backup_start_info
+from ..utility import StrPath
 from .exclude import ExcludePattern
 from .filesystem import scan_filesystem, ScanFilesystemCallbacks
 from .plan import BackupPlan, execute_backup_plan, ExecuteBackupPlanCallbacks
@@ -76,7 +76,7 @@ class BackupCallbacks:
         First argument is the path to the file, second argument is the raised exception."""
 
 
-def perform_backup(source_directory: PathLike, target_directory: PathLike, exclude_patterns: Iterable[ExcludePattern],
+def perform_backup(source_directory: StrPath, target_directory: StrPath, exclude_patterns: Iterable[ExcludePattern],
                    callbacks: BackupCallbacks = BackupCallbacks()) -> BackupResults:
     """Performs the entire operation of creating a new backup, including creating the backup directory, copying files,
         and saving metadata.
@@ -97,7 +97,7 @@ def perform_backup(source_directory: PathLike, target_directory: PathLike, exclu
 class BackupOperation:
     """Implementation of the backup creation operation."""
 
-    def __init__(self, source_directory: PathLike, target_directory: PathLike,
+    def __init__(self, source_directory: StrPath, target_directory: StrPath,
                  exclude_patterns: Iterable[ExcludePattern], callbacks: BackupCallbacks = BackupCallbacks()) -> None:
         self.source_directory = Path(source_directory)
         self.target_directory = Path(target_directory)
@@ -253,7 +253,7 @@ class BackupOperation:
         backup_plan = BackupPlan.new(scan_results.tree, backup_sum)
         return backup_plan
 
-    def _back_up_files(self, destination_path: PathLike, backup_plan: BackupPlan) -> None:
+    def _back_up_files(self, destination_path: StrPath, backup_plan: BackupPlan) -> None:
         """Backs up files from the source directory to the backup directory according to the backup plan."""
 
         (self.callbacks.on_before_copy_files)()

@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from os import PathLike
 from pathlib import Path
 import random
-from typing import Callable, List, Union
+from typing import Callable, Union
 
+from ..utility import StrPath
 from .manifest import BackupManifest, BackupManifestParseError, read_backup_manifest
 from .start_info import BackupStartInfo, BackupStartInfoParseError, read_backup_start_info
 
@@ -39,7 +39,7 @@ DATA_DIRECTORY_NAME = 'data'
 """The name of the backup data directory within a backup directory."""
 
 
-def check_if_probably_backup(directory: PathLike, /) -> bool:
+def check_if_probably_backup(directory: StrPath, /) -> bool:
     """Checks if a directory is likely to be a backup directory.
 
         If the directory is a valid backup, and is accessible, then this function will return `True`.
@@ -70,7 +70,7 @@ class BackupMetadata:
     # Backup completion information is not here because it is currently not read by the application.
 
 
-def read_backup_metadata(backup_directory: PathLike, /) -> BackupMetadata:
+def read_backup_metadata(backup_directory: StrPath, /) -> BackupMetadata:
     """Reads the metadata of a backup, i.e. the name, start information, and manifest.
 
         :except OSError: If a metadata file could not be read.
@@ -101,8 +101,8 @@ class ReadBackupsCallbacks:
         First argument is the backup of the backup, second argument is the raised exception."""
 
 
-def read_backups(directory: PathLike, /, callbacks: ReadBackupsCallbacks = ReadBackupsCallbacks()) \
-        -> List[BackupMetadata]:
+def read_backups(directory: StrPath, /, callbacks: ReadBackupsCallbacks = ReadBackupsCallbacks()) \
+        -> list[BackupMetadata]:
     """Reads all backups present in a directory.
 
         If a backup is not valid or cannot be read, it is skipped.
@@ -114,7 +114,7 @@ def read_backups(directory: PathLike, /, callbacks: ReadBackupsCallbacks = ReadB
 
     subdirectories = list(directory.iterdir())
 
-    backups = []
+    backups: list[BackupMetadata] = []
     for subdirectory in subdirectories:
         try:
             is_directory = subdirectory.is_dir()
@@ -157,7 +157,7 @@ BACKUP_DIRECTORY_CREATION_RETRIES = 20
 """The number of times to retry creating a new backup directory before failing."""
 
 
-def create_new_backup_directory(target_directory: PathLike, /) -> str:
+def create_new_backup_directory(target_directory: StrPath, /) -> str:
     """Creates a new backup directory in the given directory (which may not necessarily exist).
         Will try up to `BACKUP_DIRECTORY_CREATION_RETRIES` to create a new directory before failing.
 

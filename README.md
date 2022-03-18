@@ -28,7 +28,7 @@ I have genuinely tried to make it as robust as possible, but if you use this sof
 ## Requirements
 
  - Windows or Linux system
- - Python 3.8 or newer
+ - Python 3.9 or newer
  - \[Only for testing\] Pytest (any recent version should do)
 
 ## Application Structure

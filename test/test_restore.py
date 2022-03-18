@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Tuple
+from typing import Any
 
 import pytest
 
@@ -12,7 +12,7 @@ from incremental_backup.restore import perform_restore, restore_files, RestoreCa
 from helpers import AssertFilesystemUnmodified, dir_entries, unordered_equal
 
 
-def test_restore_files_empty(tmpdir) -> None:
+def test_restore_files_empty(tmpdir: Path) -> None:
     target_dir = tmpdir / 'backups'
     target_dir.mkdir()
 
@@ -35,7 +35,7 @@ def test_restore_files_empty(tmpdir) -> None:
     assert dir_entries(destination_dir) == set()
 
 
-def test_restore_files(tmpdir) -> None:
+def test_restore_files(tmpdir: Path) -> None:
     # Test with some file I/O errors.
 
     target_dir = tmpdir / 'backups'
@@ -81,8 +81,8 @@ def test_restore_files(tmpdir) -> None:
     (destination_dir / 'dir1').mkdir(parents=True)
     (destination_dir / 'dir1/mkdir_error').touch()
 
-    mkdir_errors: List[Tuple[Path, Exception]] = []
-    copy_errors: List[Tuple[Path, Path, Exception]] = []
+    mkdir_errors: list[tuple[Path, Exception]] = []
+    copy_errors: list[tuple[Path, Path, Exception]] = []
     callbacks = RestoreFilesCallbacks(
         on_mkdir_error=lambda path, error: mkdir_errors.append((path, error)),
         on_copy_error=lambda src, dest, error: copy_errors.append((src, dest, error))
@@ -115,7 +115,7 @@ def test_restore_files(tmpdir) -> None:
     assert dir_entries(destination_dir / 'dir2/nonexistentContents') == set()
 
 
-def test_perform_restore_invalid_args(tmpdir) -> None:
+def test_perform_restore_invalid_args(tmpdir: Path) -> None:
     target_dir = tmpdir / 'backups'
     destination_dir = tmpdir / 'destination'
     backup_name = '49538tsnuefdgy'
@@ -145,7 +145,7 @@ def test_perform_restore_invalid_args(tmpdir) -> None:
             perform_restore(target_dir, destination_dir, backup_name, backup_time, callbacks)
 
 
-def test_perform_restore_nonexistent_target(tmpdir) -> None:
+def test_perform_restore_nonexistent_target(tmpdir: Path) -> None:
     # Backup target directory doesn't exist.
 
     target_dir = tmpdir / 'backups'
@@ -176,7 +176,7 @@ def test_perform_restore_nonexistent_target(tmpdir) -> None:
             perform_restore(target_dir, destination_dir, callbacks=callbacks)
 
 
-def test_perform_restore_nonempty_destination(tmpdir) -> None:
+def test_perform_restore_nonempty_destination(tmpdir: Path) -> None:
     # Destination directory exists and contains files. Should not attempt to restore files.
 
     target_dir = tmpdir / 'backups'
@@ -219,7 +219,7 @@ def test_perform_restore_nonempty_destination(tmpdir) -> None:
             perform_restore(target_dir, destination_dir, callbacks=callbacks)
 
 
-def test_perform_restore_nonexistent_backup(tmpdir) -> None:
+def test_perform_restore_nonexistent_backup(tmpdir: Path) -> None:
     # backup_name is specified but that backup doesn't exist - shouldn't restore anything.
 
     target_dir = tmpdir / 'backups'
@@ -257,7 +257,7 @@ def test_perform_restore_nonexistent_backup(tmpdir) -> None:
             perform_restore(target_dir, destination_dir, backup_name='3498tisg4o8aoe', callbacks=callbacks)
 
 
-def test_perform_restore_all(tmpdir) -> None:
+def test_perform_restore_all(tmpdir: Path) -> None:
     # Neither backup_name nor backup_time is specified, restore all backups.
 
     target_dir = tmpdir / 'backups'
@@ -302,7 +302,7 @@ def test_perform_restore_all(tmpdir) -> None:
 
     destination_dir = tmpdir / 'destination'
 
-    actual_callbacks = []
+    actual_callbacks: list[Any] = []
     callbacks = RestoreCallbacks(
         on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
         read_backups=ReadBackupsCallbacks(
@@ -346,7 +346,7 @@ def test_perform_restore_all(tmpdir) -> None:
     assert (destination_dir / 'myDir' / 'bar-qux').read_text() == 'final content'
 
 
-def test_perform_restore_name(tmpdir) -> None:
+def test_perform_restore_name(tmpdir: Path) -> None:
     # backup_name is specified, restore up to that backup.
 
     target_dir = tmpdir / 'backups'
@@ -391,7 +391,7 @@ def test_perform_restore_name(tmpdir) -> None:
 
     destination_dir = tmpdir / 'destination'
 
-    actual_callbacks = []
+    actual_callbacks: list[Any] = []
     callbacks = RestoreCallbacks(
         on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
         read_backups=ReadBackupsCallbacks(
@@ -433,7 +433,7 @@ def test_perform_restore_name(tmpdir) -> None:
     assert (destination_dir / 'yes.no').read_text() == 'hello world 2'
 
 
-def test_perform_restore_time(tmpdir) -> None:
+def test_perform_restore_time(tmpdir: Path) -> None:
     # backup_time is specified, restore up to that time.
 
     target_dir = tmpdir / 'backups'
@@ -478,7 +478,7 @@ def test_perform_restore_time(tmpdir) -> None:
 
     destination_dir = tmpdir / 'destination'
 
-    actual_callbacks = []
+    actual_callbacks: list[Any] = []
     callbacks = RestoreCallbacks(
         on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
         read_backups=ReadBackupsCallbacks(

@@ -1,11 +1,11 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import partial
-from os import PathLike
 import os.path
 from pathlib import Path
-from typing import Callable, Iterable, List
+from typing import Callable, Iterable
 
+from ..utility import StrPath
 from .exclude import ExcludePattern, is_path_excluded
 
 
@@ -27,8 +27,8 @@ class File:
 @dataclass
 class Directory:
     name: str
-    files: List[File] = field(default_factory=list)
-    subdirectories: List['Directory'] = field(default_factory=list)
+    files: list[File] = field(default_factory=list)
+    subdirectories: list['Directory'] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -59,7 +59,7 @@ class ScanFilesystemResults:
     """Indicates if any paths were skipped due to I/O errors (does not include paths matched by exclude patterns)."""
 
 
-def scan_filesystem(path: PathLike, /, exclude_patterns: Iterable[ExcludePattern],
+def scan_filesystem(path: StrPath, /, exclude_patterns: Iterable[ExcludePattern],
                     callbacks: ScanFilesystemCallbacks = ScanFilesystemCallbacks()) -> ScanFilesystemResults:
     """Produces a tree representation of the filesystem at a given directory.
 
@@ -75,8 +75,8 @@ def scan_filesystem(path: PathLike, /, exclude_patterns: Iterable[ExcludePattern
 
     paths_skipped = False
     root = Directory('')
-    search_stack: List[Callable[[], None]] = []
-    path_segments: List[str] = []
+    search_stack: list[Callable[[], None]] = []
+    path_segments: list[str] = []
     tree_node_stack = [root]
     is_root = True
 
@@ -111,8 +111,8 @@ def scan_filesystem(path: PathLike, /, exclude_patterns: Iterable[ExcludePattern
             except OSError as e:
                 (callbacks.on_listdir_error)(search_directory, e)
             else:
-                files: List[File] = []
-                subdirectories: List[Path] = []
+                files: list[File] = []
+                subdirectories: list[Path] = []
                 for child in children:
                     try:
                         if child.is_file():

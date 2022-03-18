@@ -1,9 +1,15 @@
+from os import PathLike
 import os.path
+from typing import Union
 
 
 __all__ = [
-    'path_name_equal'
+    'path_name_equal',
+    'StrPath'
 ]
+
+
+StrPath = Union[str, PathLike[str]]
 
 
 def path_name_equal(name1: str, name2: str, /) -> bool:

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
@@ -8,7 +9,7 @@ from incremental_backup.meta.start_info import BackupStartInfo, BackupStartInfoP
 from helpers import AssertFilesystemUnmodified
 
 
-def test_write_backup_start_info(tmpdir) -> None:
+def test_write_backup_start_info(tmpdir: Path) -> None:
     path = tmpdir / 'start_info.json'
     start_info = BackupStartInfo(datetime(2021, 8, 13, 16, 54, 33, 1234, tzinfo=timezone.utc))
     write_backup_start_info(path, start_info)
@@ -17,7 +18,7 @@ def test_write_backup_start_info(tmpdir) -> None:
     assert data == expected
 
 
-def test_read_backup_start_info_valid(tmpdir) -> None:
+def test_read_backup_start_info_valid(tmpdir: Path) -> None:
     path = tmpdir / 'start_info_valid.json'
     path.write_text('{"start_time": "2020-12-30T09:34:10.123456+00:00"}', encoding='utf8')
 
@@ -28,7 +29,7 @@ def test_read_backup_start_info_valid(tmpdir) -> None:
     assert actual == expected
 
 
-def test_read_backup_start_info_invalid(tmpdir) -> None:
+def test_read_backup_start_info_invalid(tmpdir: Path) -> None:
     datas = (
         '',
         'null'
@@ -50,14 +51,14 @@ def test_read_backup_start_info_invalid(tmpdir) -> None:
                 read_backup_start_info(path)
 
 
-def test_read_backup_start_info_nonexistent(tmpdir) -> None:
+def test_read_backup_start_info_nonexistent(tmpdir: Path) -> None:
     path = tmpdir / 'start_info_nonexistent.json'
     with AssertFilesystemUnmodified(tmpdir):
         with pytest.raises(FileNotFoundError):
             read_backup_start_info(path)
 
 
-def test_write_read_backup_start_info(tmpdir) -> None:
+def test_write_read_backup_start_info(tmpdir: Path) -> None:
     path = tmpdir / 'start_info.json'
     start_info = BackupStartInfo(datetime(2000, 12, 2, 4, 3, 1, 405, tzinfo=timezone.utc))
     write_backup_start_info(path, start_info)
