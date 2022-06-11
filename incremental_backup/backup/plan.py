@@ -34,6 +34,8 @@ class BackupPlan:
         """Indicates if this directory or any of its descendents contain any copied files."""
         contains_removed_items: bool = False
         """Indicates if this directory or any of its descendents contain any removed files or removed directories."""
+        removed_directory_file_count: int = 0
+        """The total number of files previously contained in the removed subdirectories."""
 
     root: Directory = field(default_factory=lambda: BackupPlan.Directory(''))
 
@@ -96,9 +98,11 @@ class BackupPlan:
                     f.name for f in backup_sum_directory.files
                     if not any(path_name_equal(f.name, f2.name) for f2 in search_directory.files))
 
-                plan_directory.removed_directories.extend(
-                    d.name for d in backup_sum_directory.subdirectories
-                    if not any(path_name_equal(d.name, d2.name) for d2 in search_directory.subdirectories))
+                removed_directories = \
+                    [d for d in backup_sum_directory.subdirectories
+                     if not any(path_name_equal(d.name, d2.name) for d2 in search_directory.subdirectories)]
+                plan_directory.removed_directories.extend(d.name for d in removed_directories)
+                plan_directory.removed_directory_file_count = sum(d.count_contained_files() for d in removed_directories)
 
             # Need to use partial instead of lambda to avoid name rebinding issues.
             search_stack.extend(partial(visit_directory, d) for d in reversed(search_directory.subdirectories))
@@ -108,7 +112,7 @@ class BackupPlan:
             search_stack.pop()()
             is_root = False
 
-        # Calculate contains_copied_files and contained_removed_items, and prune empty directories.
+        # Calculate contains_copied_files and contains_removed_items, and prune empty directories.
         for directory in reversed(plan_directories):
             directory.contains_copied_files = len(directory.copied_files) > 0
             directory.contains_removed_items = len(directory.removed_files) + len(directory.removed_directories) > 0
@@ -159,8 +163,8 @@ def execute_backup_plan(backup_plan: BackupPlan, source_directory: StrPath, dest
         Any files planned to be backed up within it will not be copied and will be excluded from the manifest.
         However, any removed files or directories within it will still be recorded in the manifest.
 
-        :param backup_plan: The backup plan to enact. Should be based off `source_path`, otherwise the results will be
-            nonsense.
+        :param backup_plan: The backup plan to enact. Should be based off `source_directory`, otherwise the results will
+            be nonsense.
         :param source_directory: The backup source directory; where files are copied from.
         :param destination_directory: The location to copy files to. Need not exist. This directory itself represents
             the backup source directory.
@@ -241,8 +245,8 @@ def execute_backup_plan(backup_plan: BackupPlan, source_directory: StrPath, dest
 
             manifest_directory.copied_files = copied_files
             manifest_directory.removed_files = search_directory.removed_files
-            files_removed += len(search_directory.removed_files)
             manifest_directory.removed_directories = search_directory.removed_directories
+            files_removed += len(search_directory.removed_files) + search_directory.removed_directory_file_count
 
         # Need to use partial instead of lambda to avoid name rebinding issues.
         search_stack.extend(partial(visit_directory, d, mkdir_failed) for d in children_to_visit)

@@ -94,7 +94,7 @@ def test_backup_plan_new() -> None:
 
     expected_plan = BackupPlan(BackupPlan.Directory('',
         copied_files=['file_z', 'file_y'], removed_files=['file_x.pdf'], removed_directories=['extra_dir'],
-        contains_copied_files=True, contains_removed_items=True,
+        contains_copied_files=True, contains_removed_items=True, removed_directory_file_count=1,
         subdirectories=[
             BackupPlan.Directory('dir_a',
                 copied_files=['file_a_d.docx', 'file_a_b.png'], removed_files=['file_a_c.exe'],
@@ -102,7 +102,8 @@ def test_backup_plan_new() -> None:
                 subdirectories=[
                     BackupPlan.Directory('dir_a_b', copied_files=['new_file'], contains_copied_files=True)
                 ]),
-            BackupPlan.Directory('dir_c', removed_directories=['dir_c_a'], contains_removed_items=True),
+            BackupPlan.Directory('dir_c',
+                removed_directories=['dir_c_a'], contains_removed_items=True, removed_directory_file_count=1),
             BackupPlan.Directory('new_dir_big', contains_copied_files=True, subdirectories=[
                 BackupPlan.Directory('another new dir', contains_copied_files=True, subdirectories=[
                     BackupPlan.Directory('final new dir... maybe', copied_files=['wrgauh'], contains_copied_files=True)
@@ -176,8 +177,9 @@ def test_backup_plan_new_all_removed() -> None:
 
     actual_plan = BackupPlan.new(source_tree, backup_sum)
 
-    expected_plan = BackupPlan(BackupPlan.Directory(
-        '', removed_files=['foo.bmp', 'bar'], removed_directories=['dir1', 'dir2'], contains_removed_items=True))
+    expected_plan = BackupPlan(BackupPlan.Directory('',
+        removed_files=['foo.bmp', 'bar'], removed_directories=['dir1', 'dir2'],
+        contains_removed_items=True, removed_directory_file_count=5))
 
     assert actual_plan == expected_plan
 

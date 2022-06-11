@@ -99,3 +99,26 @@ def test_backup_sum_multiple_backups() -> None:
         ]))
 
     assert backup_sum == expected
+
+
+def test_backup_sum_count_contained_files() -> None:
+    dir0 = BackupSum.Directory('dir7')
+    dir1 = BackupSum.Directory('dir6', subdirectories=[dir0])
+    dir2 = BackupSum.Directory('dir5', files=[BackupSum.File('file8', None), BackupSum.File('file9', None)])
+    dir3 = BackupSum.Directory('dir4',
+        files=[BackupSum.File('file5', None), BackupSum.File('file6', None), BackupSum.File('file7', None)])
+    dir4 = BackupSum.Directory('dir3', subdirectories=[dir3])
+    dir5 = BackupSum.Directory('dir2', files=[BackupSum.File('file4', None)], subdirectories=[dir2, dir4])
+    dir6 = BackupSum.Directory('dir1', files=[BackupSum.File('file3', None)])
+    dir7 = BackupSum.Directory('',
+        files=[BackupSum.File('file1', None), BackupSum.File('file2', None)],
+        subdirectories=[dir1, dir5, dir6])
+
+    assert dir0.count_contained_files() == 0
+    assert dir1.count_contained_files() == 0
+    assert dir2.count_contained_files() == 2
+    assert dir3.count_contained_files() == 3
+    assert dir4.count_contained_files() == 3
+    assert dir5.count_contained_files() == 6
+    assert dir6.count_contained_files() == 1
+    assert dir7.count_contained_files() == 9

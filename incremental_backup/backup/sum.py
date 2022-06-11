@@ -29,6 +29,17 @@ class BackupSum:
         files: list['BackupSum.File'] = field(default_factory=list)
         subdirectories: list['BackupSum.Directory'] = field(default_factory=list)
 
+        def count_contained_files(self) -> int:
+            """Calculates the total number of files contained in this directory and all its descendents."""
+
+            count = 0
+            search_stack: list[BackupSum.Directory] = [self]
+            while search_stack:
+                search_directory = search_stack.pop()
+                count += len(search_directory.files)
+                search_stack.extend(search_directory.subdirectories)
+            return count
+
     root: Directory = field(default_factory=lambda: BackupSum.Directory(''))
     """The root of the reconstructed file/directory structure.
         This object represents the backup source directory.

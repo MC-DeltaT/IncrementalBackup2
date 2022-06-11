@@ -502,7 +502,7 @@ def test_perform_backup_some_previous_backups(tmpdir: Path) -> None:
     assert abs((end_time - actual_end_time).total_seconds()) < METADATA_TIME_TOLERANCE
     assert not results.complete_info.paths_skipped
     assert results.files_copied == 5
-    assert results.files_removed == 2
+    assert results.files_removed == 3
 
     actual_manifest = results.manifest
     assert actual_manifest.root.copied_files == ['root_file3.txt']
@@ -692,7 +692,7 @@ def test_perform_backup_some_invalid_backups(tmpdir: Path) -> None:
     assert abs((end_time - actual_end_time).total_seconds()) < METADATA_TIME_TOLERANCE
     assert not results.complete_info.paths_skipped
     assert results.files_copied == 1
-    assert results.files_removed == 0
+    assert results.files_removed == 1
 
     assert backup_path.name.isascii() and backup_path.name.isalnum() and len(backup_path.name) >= 10
     assert dir_entries(backup_path) == {'data', 'start.json', 'manifest.json', 'completion.json'}
