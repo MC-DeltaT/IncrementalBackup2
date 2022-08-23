@@ -30,16 +30,16 @@ In general, this command tries to restore as many files as possible, even when e
 
 Here are some of the most common nonfatal error cases and how they are handled:
 
- - A backup can't be read or is invalid. It will be excluded.
- - A directory can't be created in the destination directory. All files which would have been restored into it will be skipped.
- - A file can't be copied to the destination directory. It will be skipped.
+- A backup can't be read or is invalid. It will be excluded.
+- A directory can't be created in the destination directory. All files which would have been restored into it will be skipped.
+- A file can't be copied to the destination directory. It will be skipped.
 
 These nonfatal errors will produce a warning on the console and the backup operation will continue.
 
 Here are some of the fatal error cases:
 
- - The backup directory can't be read at all (i.e. the path doesn't exist or isn't accessible).
- - The destination directory can't be created.
+- The backup directory can't be read at all (i.e. the path doesn't exist or isn't accessible).
+- The destination directory can't be created.
 
 In the worst error case, the restore operation will just fail to restore some files.
 In particular, the backup data will not be modified under any circumstances.

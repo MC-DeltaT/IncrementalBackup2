@@ -42,11 +42,11 @@ Paths for directories always end in a directory separator, i.e. forward slash (`
 Additionally, path components are case-normalised with Python's `os.path.normcase()`, which converts to lowercase on Windows (on other operating systems, path components are unchanged).  
 For example, with the backup source directory `C:\Users\Jade`:
 
- - The directory `C:\Users\Jade` is represented as `/`.
- - The directory `C:\Users\Jade\Desktop` is represented as `/desktop/`.
- - The file `C:\Users\Jade\Desktop\cat.jpg` is represented as `/desktop/cat.jpg`.
+- The directory `C:\Users\Jade` is represented as `/`.
+- The directory `C:\Users\Jade\Desktop` is represented as `/desktop/`.
+- The file `C:\Users\Jade\Desktop\cat.jpg` is represented as `/desktop/cat.jpg`.
 
-Note that if a previous backup included a file/directory which is marked as excluded in a later backup, that file/directory will count as "removed" in the new backup.
+Note that if a previous backup included a file/directory which is then marked as excluded in a later backup, that file/directory will count as "removed" in the later backup.
 The effect of this is that if a restore operation is then performed, the excluded file/directory will not be restored.
 
 ### Examples
@@ -62,19 +62,19 @@ In general, this command tries to back up as much of the source directory as pos
 
 Here are some of the most common nonfatal error cases and how they are handled:
 
- - A directory or file in the source directory can't be read. It will be skipped.
- - A directory can't be created in the backup directory. All files which would have been backed up into it will be skipped.
- - A file can't be copied to the backup directory. It will be skipped.
+- A directory or file in the source directory can't be read. It will be skipped.
+- A directory can't be created in the backup directory. All files which would have been backed up into it will be skipped.
+- A file can't be copied to the backup directory. It will be skipped.
 
 These nonfatal errors will produce a warning on the console and the backup operation will continue.
 
 Here are some of the fatal error cases:
 
- - The source directory can't be read at all (i.e. the path doesn't exist or isn't accessible).
- - The target directory exists but can't be read at all.
- - The backup directory can't be created.
- - The backup start information file can't be written.
- - The backup manifest file can't be written.
+- The source directory can't be read at all (i.e. the path doesn't exist or isn't accessible).
+- The target directory exists but can't be read at all.
+- The backup directory can't be created.
+- The backup start information file can't be written.
+- The backup manifest file can't be written.
 
 The command is designed to fail securely.
 The backup manifest is written to file last, and without a valid manifest a backup will not be considered during future backup operations.
