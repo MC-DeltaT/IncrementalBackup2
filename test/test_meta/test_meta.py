@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Union
 
 import pytest
 
@@ -143,13 +142,12 @@ def test_read_backups(tmpdir: Path) -> None:
         '{"start_time": "2020-11-04T22:00:03.039476+00:00"}', encoding='utf8')
     (invalid_backup_path / 'manifest.json').write_text('{"n": "", "cf=["foo', encoding='utf8')
 
-    # Not sure how to cause on_query_entry_error and on_read_metadata_error.
+    # Not sure how to cause on_query_entry_error and on_read_metadata_error with OSError.
 
-    invalid_paths: list[tuple[Path, Union[Exception, None]]] = []
+    read_metadata_errors: list[tuple[Path, Exception]] = []
     callbacks = ReadBackupsCallbacks(
         on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
-        on_invalid_backup=lambda path, error: invalid_paths.append((path, error)),
-        on_read_metadata_error=lambda path, error: pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
+        on_read_metadata_error=lambda path, error: read_metadata_errors.append((path, error))
     )
 
     with AssertFilesystemUnmodified(tmpdir):
@@ -167,9 +165,8 @@ def test_read_backups(tmpdir: Path) -> None:
 
     assert unordered_equal(actual_backups, expected_backups)
 
-    assert len(invalid_paths) == 2
-    assert (not_backup1_path, None) in invalid_paths
-    assert next(t for t in invalid_paths if t[0] == invalid_backup_path and type(t[1]) == BackupManifestParseError)
+    assert len(read_metadata_errors) == 1
+    assert next(True for t in read_metadata_errors if t[0] == invalid_backup_path and type(t[1]) is BackupManifestParseError)
 
 
 def test_backup_name_length() -> None:

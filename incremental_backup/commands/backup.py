@@ -67,8 +67,6 @@ class BackupCommand(Command):
             read_backups=ReadBackupsCallbacks(
                 on_query_entry_error=lambda path, error:
                     print_warning(f'Failed to query entry in target directory "{path}": {error}'),
-                on_invalid_backup=lambda path, error:
-                    print_warning(f'Found directory in target directory that is not a valid backup: "{path.name}"'),
                 on_read_metadata_error=lambda path, error:
                     print_warning(f'Failed to read metadata of previous backup {path.name}: {error}'),
             ),
