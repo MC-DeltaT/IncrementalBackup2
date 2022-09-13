@@ -5,7 +5,7 @@ This command is used to create new incremental backups.
 ## Usage
 
 ```
-python3 incremental_backup.py backup <source_dir> <target_dir> [--exclude <exclude_pattern1> [<exclude_pattern2> ...]]
+python3 -m incremental_backup backup <source_dir> <target_dir> [--exclude <exclude_pattern1> [<exclude_pattern2> ...]]
 ```
 
 `<source_dir>` - The path of the directory to be backed up.
