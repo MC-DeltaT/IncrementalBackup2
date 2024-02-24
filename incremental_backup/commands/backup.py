@@ -2,12 +2,12 @@ import argparse
 from pathlib import Path
 from typing import Sequence
 
-from ..backup import BackupCallbacks, BackupError, BackupResults, ExcludePattern, ExecuteBackupPlanCallbacks, \
+from incremental_backup.backup import BackupCallbacks, BackupError, BackupResults, ExcludePattern, ExecuteBackupPlanCallbacks, \
     perform_backup, ScanFilesystemCallbacks
-from ..meta import ReadBackupsCallbacks
-from ..utility import print_warning
-from .command import Command
-from .exception import CommandRuntimeError
+from incremental_backup.commands.command import Command
+from incremental_backup.commands.exception import CommandRuntimeError
+from incremental_backup.meta import ReadBackupsCallbacks
+from incremental_backup.utility import print_warning
 
 
 __all__ = [

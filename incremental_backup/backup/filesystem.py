@@ -5,8 +5,8 @@ import os.path
 from pathlib import Path
 from typing import Callable, Iterable
 
-from ..utility import StrPath
-from .exclude import ExcludePattern, is_path_excluded
+from incremental_backup.backup.exclude import ExcludePattern, is_path_excluded
+from incremental_backup.utility import StrPath
 
 
 __all__ = [

@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Iterable, Union
 
-from ..meta import BackupManifest, BackupMetadata
-from ..utility import path_name_equal
+from incremental_backup.meta import BackupManifest, BackupMetadata
+from incremental_backup.utility import path_name_equal
 
 
 __all__ = [

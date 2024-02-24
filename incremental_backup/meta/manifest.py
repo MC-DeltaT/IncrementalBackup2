@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 import json
 from typing import Any, Iterator, NoReturn, Union
 
-from ..utility import path_name_equal, StrPath
+from incremental_backup.utility import path_name_equal, StrPath
 
 
 __all__ = [

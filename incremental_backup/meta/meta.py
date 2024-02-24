@@ -3,9 +3,9 @@ from pathlib import Path
 import random
 from typing import Callable, Union
 
-from ..utility import StrPath
-from .manifest import BackupManifest, BackupManifestParseError, read_backup_manifest
-from .start_info import BackupStartInfo, BackupStartInfoParseError, read_backup_start_info
+from incremental_backup.meta.manifest import BackupManifest, BackupManifestParseError, read_backup_manifest
+from incremental_backup.meta.start_info import BackupStartInfo, BackupStartInfoParseError, read_backup_start_info
+from incremental_backup.utility import StrPath
 
 
 __all__ = [

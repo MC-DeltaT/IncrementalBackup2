@@ -3,7 +3,7 @@ from datetime import datetime
 import json
 from typing import NoReturn, Union
 
-from ..utility import StrPath
+from incremental_backup.utility import StrPath
 
 
 __all__ = [
