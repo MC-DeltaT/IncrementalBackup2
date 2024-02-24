@@ -1,4 +1,4 @@
-from .main import script_entrypoint
+from incremental_backup.main import script_entrypoint
 
 
 if __name__ == '__main__':

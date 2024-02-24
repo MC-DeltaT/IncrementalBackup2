@@ -5,9 +5,9 @@ from pathlib import Path
 import shutil
 from typing import Callable, Optional, Sequence
 
-from .backup import BackupSum
-from .meta import BackupMetadata, DATA_DIRECTORY_NAME, read_backups, ReadBackupsCallbacks
-from .utility import StrPath
+from incremental_backup.backup import BackupSum
+from incremental_backup.meta import BackupMetadata, DATA_DIRECTORY_NAME, read_backups, ReadBackupsCallbacks
+from incremental_backup.utility import StrPath
 
 
 __all__ = [

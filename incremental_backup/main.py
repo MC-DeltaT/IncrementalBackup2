@@ -2,8 +2,8 @@ import argparse
 import sys
 from typing import Mapping, NoReturn, Sequence
 
-from .commands import BackupCommand, Command, CommandArgumentError, CommandError, RestoreCommand
-from .utility import print_error
+from incremental_backup.commands import BackupCommand, Command, CommandArgumentError, CommandError, RestoreCommand
+from incremental_backup.utility import print_error
 
 
 __all__ = [
