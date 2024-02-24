@@ -144,7 +144,7 @@ def read_backup_manifest(path: StrPath, /) -> BackupManifest:
         parse_error('Expected a list')
 
     backup_manifest = BackupManifest()
-    directory_stack = []
+    directory_stack: list[BackupManifest.Directory] = []
     for entry_num, entry in enumerate(json_data, 1):
         if isinstance(entry, str):
             backtracks = parse_backtrack(entry, entry_num)

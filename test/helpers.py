@@ -137,7 +137,7 @@ def write_file_with_mtime(file: Path, contents: str, m_a_time: datetime, encodin
 def run_application(*arguments: str) -> subprocess.CompletedProcess[str]:
     """Runs the incremental backup program with the given arguments in a new process and returns the results."""
     
-    args = [sys.executable, './incremental_backup.py'] + list(arguments)
+    args = [sys.executable, '-m', 'incremental_backup'] + list(arguments)
     # Some Unicode error if running from a Windows terminal, so we have to force UTF-8 encoding.
     env = environ.copy()
     env['PYTHONIOENCODING'] = 'utf-8'

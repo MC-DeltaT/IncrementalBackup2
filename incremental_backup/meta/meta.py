@@ -54,8 +54,9 @@ def check_if_probably_backup(directory: StrPath, /) -> bool:
     start_info_path = directory / START_INFO_FILENAME
     manifest_path = directory / MANIFEST_FILENAME
     # Do not check for exact length of backup name, in case we change it in the future.
+    # Also check name properties first to avoid hitting the filesystem if possible.
     name = directory.name
-    return (directory.is_dir() and len(name) >= 10 and name.isascii() and name.isalnum() and start_info_path.is_file()
+    return (len(name) >= 10 and name.isascii() and name.isalnum() and directory.is_dir() and start_info_path.is_file()
             and manifest_path.is_file())
 
 
@@ -91,14 +92,10 @@ class ReadBackupsCallbacks:
     """Called when querying an entry in the target directory fails.
         First argument is the path to the file/directory, second argument is the raised exception."""
 
-    on_invalid_backup: Callable[[Path, Union[None, BackupStartInfoParseError, BackupManifestParseError]], None] = \
-        lambda path, error: None
-    """Called when a directory is found that is not a valid backup, possibly due to malformed metadata.
-        First argument is the path of the directory. Second argument is the metadata read exception (if applicable)."""
-
-    on_read_metadata_error: Callable[[Path, OSError], None] = lambda path, error: None
-    """Called when reading the metadata of a backup fails due to I/O errors.
-        First argument is the backup of the backup, second argument is the raised exception."""
+    on_read_metadata_error: Callable[[Path, Union[OSError, BackupStartInfoParseError, BackupManifestParseError]], None] \
+        = lambda path, error: None
+    """Called when reading the metadata of a backup fails.
+        First argument is the path of the backup, second argument is the raised exception."""
 
 
 def read_backups(directory: StrPath, /, callbacks: ReadBackupsCallbacks = ReadBackupsCallbacks()) \
@@ -112,29 +109,26 @@ def read_backups(directory: StrPath, /, callbacks: ReadBackupsCallbacks = ReadBa
 
     directory = Path(directory)
 
-    subdirectories = list(directory.iterdir())
+    entries = list(directory.iterdir())
 
     backups: list[BackupMetadata] = []
-    for subdirectory in subdirectories:
+    for entry in entries:
+        # Try to just read the backup metadata first, because check_if_probably_backup() is quite slow. That way we only
+        # pay the cost of check_if_probably_backup() if a directory is not backup, which is unlikely to occur in typical
+        # usage.
         try:
-            is_directory = subdirectory.is_dir()
-            is_probably_backup = is_directory and check_if_probably_backup(subdirectory)
-        except OSError as e:
-            (callbacks.on_query_entry_error)(subdirectory, e)
+            metadata = read_backup_metadata(entry)
+        except (OSError, BackupStartInfoParseError, BackupManifestParseError) as read_error:
+            # Could be: a valid backup and a filesystem error occurred, or a backup with malformed metadata, or
+            # something that's not a backup at all.
+            try:
+                if check_if_probably_backup(entry):
+                    (callbacks.on_read_metadata_error)(entry, read_error)
+                # If the entry doesn't look like a backup at all then just ignore it.
+            except OSError as query_error:
+                (callbacks.on_query_entry_error)(entry, query_error)
         else:
-            if is_directory:
-                if is_probably_backup:
-                    try:
-                        metadata = read_backup_metadata(subdirectory)
-                    except (BackupStartInfoParseError, BackupManifestParseError) as e:
-                        (callbacks.on_invalid_backup)(subdirectory, e)
-                    except OSError as e:
-                        (callbacks.on_read_metadata_error)(subdirectory, e)
-                    else:
-                        backups.append(metadata)
-                else:
-                    (callbacks.on_invalid_backup)(subdirectory, None)
-            # Ignore files, we don't care about them
+            backups.append(metadata)
 
     return backups
 

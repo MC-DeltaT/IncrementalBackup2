@@ -26,7 +26,6 @@ def test_perform_backup_nonexistent_source(tmpdir: Path) -> None:
         on_before_read_previous_backups=lambda: pytest.fail('Unexpected on_before_read_previous_backups'),
         read_backups=ReadBackupsCallbacks(
             on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
-            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
             on_read_metadata_error=lambda path, error:
                 pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
         ),
@@ -67,7 +66,6 @@ def test_perform_backup_source_is_file(tmpdir: Path) -> None:
         on_before_read_previous_backups=lambda: pytest.fail('Unexpected on_before_read_previous_backups'),
         read_backups=ReadBackupsCallbacks(
             on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
-            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
             on_read_metadata_error=lambda path, error:
                 pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
         ),
@@ -108,7 +106,6 @@ def test_perform_backup_target_is_file(tmpdir: Path) -> None:
         on_before_read_previous_backups=lambda: pytest.fail('Unexpected on_before_read_previous_backups'),
         read_backups=ReadBackupsCallbacks(
             on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
-            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
             on_read_metadata_error=lambda path, error:
                 pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
         ),
@@ -154,7 +151,6 @@ def test_perform_backup_new_target(tmpdir: Path) -> None:
         on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
         read_backups=ReadBackupsCallbacks(
             on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
-            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
             on_read_metadata_error=lambda path, error:
                 pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
         ),
@@ -266,7 +262,6 @@ def test_perform_backup_no_previous_backups(tmpdir: Path) -> None:
         on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
         read_backups=ReadBackupsCallbacks(
             on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
-            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
             on_read_metadata_error=lambda path, error:
                 pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
         ),
@@ -450,7 +445,6 @@ def test_perform_backup_some_previous_backups(tmpdir: Path) -> None:
         on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
         read_backups=ReadBackupsCallbacks(
             on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
-            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
             on_read_metadata_error=lambda path, error:
                 pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
         ),
@@ -630,9 +624,7 @@ def test_perform_backup_some_invalid_backups(tmpdir: Path) -> None:
         on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
         read_backups=ReadBackupsCallbacks(
             on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
-            on_invalid_backup=lambda path, error: actual_callbacks.append(('invalid_backup', path, error)),
-            on_read_metadata_error=lambda path, error:
-                pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
+            on_read_metadata_error=lambda path, error: actual_callbacks.append(('invalid_backup', path, error)),
         ),
         on_after_read_previous_backups=lambda backups:
             actual_callbacks.append(('after_read_previous_backups', backups)),
@@ -662,24 +654,21 @@ def test_perform_backup_some_invalid_backups(tmpdir: Path) -> None:
     backup_path = (set(target_path.iterdir()) -
                    {invalid1, invalid2, invalid3, invalid4, invalid5, invalid6, backup1, backup2}).pop()
 
-    assert len(actual_callbacks) == 12
+    assert len(actual_callbacks) == 9
     assert actual_callbacks[0] == 'before_read_previous_backups'
-    assert unordered_equal([(c, path, type(error)) for c, path, error in actual_callbacks[1:6]], [
-        ('invalid_backup', target_path / '9458guysd9gyw37', type(None)),
-        ('invalid_backup', target_path / '859tfhgsidth574shg', type(None)),
-        ('invalid_backup', target_path / 'not @lph&numer!c', type(None)),
+    assert unordered_equal([(c, path, type(error)) for c, path, error in actual_callbacks[1:3]], [
         ('invalid_backup', target_path / '038574tq374gfh', BackupManifestParseError),
         ('invalid_backup', target_path / '90435fgjwf43fy43', BackupStartInfoParseError)
     ])
-    assert actual_callbacks[6][0] == 'after_read_previous_backups'
+    assert actual_callbacks[3][0] == 'after_read_previous_backups'
     # I can't be bothered testing that all the metadata is the same, I assume it is otherwise other things will likely
     # break anyway
-    assert unordered_equal([b.name for b in actual_callbacks[6][1]], ['83547tgwyedfg', '6789345g3w4ywfd'])
-    assert actual_callbacks[7] == 'before_initialise_backup'
-    assert actual_callbacks[8] == ('created_backup_directory', backup_path)
-    assert actual_callbacks[9] == 'before_scan_source'
-    assert actual_callbacks[10] == 'before_copy_files'
-    assert actual_callbacks[11] == 'before_save_metadata'
+    assert unordered_equal([b.name for b in actual_callbacks[3][1]], ['83547tgwyedfg', '6789345g3w4ywfd'])
+    assert actual_callbacks[4] == 'before_initialise_backup'
+    assert actual_callbacks[5] == ('created_backup_directory', backup_path)
+    assert actual_callbacks[6] == 'before_scan_source'
+    assert actual_callbacks[7] == 'before_copy_files'
+    assert actual_callbacks[8] == 'before_save_metadata'
 
     expected_manifest = BackupManifest(
         BackupManifest.Directory('', copied_files=['new.txt'], removed_directories=['bar']))

@@ -125,7 +125,6 @@ def test_perform_restore_invalid_args(tmpdir: Path) -> None:
         on_before_read_previous_backups=lambda: pytest.fail('Unexpected on_before_read_previous_backups'),
         read_backups=ReadBackupsCallbacks(
             on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
-            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
             on_read_metadata_error=lambda path, error:
                 pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
         ),
@@ -156,7 +155,6 @@ def test_perform_restore_nonexistent_target(tmpdir: Path) -> None:
         on_before_read_previous_backups=lambda: pytest.fail('Unexpected on_before_read_previous_backups'),
         read_backups=ReadBackupsCallbacks(
             on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
-            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
             on_read_metadata_error=lambda path, error:
                 pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
         ),
@@ -199,7 +197,6 @@ def test_perform_restore_nonempty_destination(tmpdir: Path) -> None:
         on_before_read_previous_backups=lambda: pytest.fail('Unexpected on_before_read_previous_backups'),
         read_backups=ReadBackupsCallbacks(
             on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
-            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
             on_read_metadata_error=lambda path, error:
                 pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
         ),
@@ -239,7 +236,6 @@ def test_perform_restore_nonexistent_backup(tmpdir: Path) -> None:
     callbacks = RestoreCallbacks(
         read_backups=ReadBackupsCallbacks(
             on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
-            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
             on_read_metadata_error=lambda path, error:
                 pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
         ),
@@ -307,7 +303,6 @@ def test_perform_restore_all(tmpdir: Path) -> None:
         on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
         read_backups=ReadBackupsCallbacks(
             on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
-            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
             on_read_metadata_error=lambda path, error:
                 pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
         ),
@@ -396,7 +391,6 @@ def test_perform_restore_name(tmpdir: Path) -> None:
         on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
         read_backups=ReadBackupsCallbacks(
             on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
-            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
             on_read_metadata_error=lambda path, error:
                 pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
         ),
@@ -483,7 +477,6 @@ def test_perform_restore_time(tmpdir: Path) -> None:
         on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
         read_backups=ReadBackupsCallbacks(
             on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
-            on_invalid_backup=lambda path, error: pytest.fail(f'Unexpected on_invalid_backup: {path=} {error=}'),
             on_read_metadata_error=lambda path, error:
                 pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
         ),

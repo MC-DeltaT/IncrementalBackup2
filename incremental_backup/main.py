@@ -66,7 +66,7 @@ def api_entrypoint(arguments: Sequence[str], /) -> None:
 def get_argument_parser() -> argparse.ArgumentParser:
     """Creates the command line argument parser. Adds subparsers for each command."""
 
-    arg_parser = ArgumentParser('incremental_backup.py', description='Incremental backup tool.')
+    arg_parser = ArgumentParser('incremental_backup', description='Incremental backup tool.')
     arg_subparser = arg_parser.add_subparsers(title='commands', required=True, dest='command')
 
     for cls in COMMAND_CLASSES:

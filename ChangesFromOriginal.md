@@ -11,11 +11,11 @@ If you try to use this version with backup data from the original version, or vi
 
 My aims with this version, compared to the original, are:
 
- - more efficient backup data storage
- - simpler metadata structure and formats
- - more readable and maintainable code
- - test code
- - better library API for integration into user code
+- more efficient backup data storage
+- simpler metadata structure and formats
+- more readable and maintainable code
+- test code
+- better library API for integration into user code
 
 ## Major Changes
 

@@ -87,7 +87,8 @@ class RestoreCommand(Command):
         try:
             time = datetime.fromisoformat(name_or_time)
             if time.tzinfo is None:
-                time = time.replace(tzinfo=timezone.utc)
+                local_tz = datetime.now().astimezone().tzinfo
+                time = time.replace(tzinfo=local_tz)
             return time
         except ValueError:
             pass
@@ -103,9 +104,6 @@ class RestoreCommand(Command):
             read_backups=ReadBackupsCallbacks(
                 on_query_entry_error=lambda path, error:
                     print_warning(f'Failed to query entry in backup target directory "{path}": {error}'),
-                on_invalid_backup=lambda path, error:
-                    print_warning(
-                        f'Found directory in backup target directory that is not a valid backup: "{path.name}"'),
                 on_read_metadata_error=lambda path, error:
                     print_warning(f'Failed to read metadata of previous backup {path.name}: {error}'),
             ),
