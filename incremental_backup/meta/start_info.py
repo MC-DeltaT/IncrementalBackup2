@@ -3,7 +3,7 @@ from datetime import datetime
 import json
 from typing import NoReturn, Union
 
-from incremental_backup.utility import StrPath
+from incremental_backup._utility import StrPath
 
 
 __all__ = [
@@ -22,6 +22,7 @@ class BackupStartInfo:
     """The UTC time at which the backup operated started (just before any files were copied)."""
 
 
+# TODO: should write to any TextIO
 def write_backup_start_info(path: StrPath, value: BackupStartInfo, /) -> None:
     """Writes backup start information to file.
 
@@ -35,6 +36,7 @@ def write_backup_start_info(path: StrPath, value: BackupStartInfo, /) -> None:
         json.dump(json_data, file, indent=4, ensure_ascii=False)
 
 
+# TODO: should read from any TextIO
 def read_backup_start_info(path: StrPath, /) -> BackupStartInfo:
     """Reads backup start information from file.
 

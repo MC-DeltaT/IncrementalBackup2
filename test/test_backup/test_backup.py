@@ -5,12 +5,12 @@ from typing import Any
 import pytest
 
 from incremental_backup.backup.backup import BackupCallbacks, BackupError, perform_backup
-from incremental_backup.backup.exclude import ExcludePattern
 from incremental_backup.backup.filesystem import ScanFilesystemCallbacks
 from incremental_backup.backup.plan import ExecuteBackupPlanCallbacks
 from incremental_backup.meta.manifest import BackupManifest, BackupManifestParseError, read_backup_manifest
 from incremental_backup.meta.meta import ReadBackupsCallbacks
 from incremental_backup.meta.start_info import BackupStartInfoParseError
+from incremental_backup.path_exclude import PathExcludePattern
 
 from helpers import AssertFilesystemUnmodified, dir_entries, unordered_equal, write_file_with_mtime
 
@@ -437,7 +437,7 @@ def test_perform_backup_some_previous_backups(tmpdir: Path) -> None:
     (source_path / 'new_dir!/new file').write_text('its a new file!')       # New
 
     exclude_patterns = ('/temp/',)
-    exclude_patterns = tuple(map(ExcludePattern, exclude_patterns))
+    exclude_patterns = tuple(map(PathExcludePattern, exclude_patterns))
 
     actual_callbacks: list[Any] = []
 

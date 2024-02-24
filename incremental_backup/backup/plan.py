@@ -7,7 +7,7 @@ from typing import Callable, Optional
 from incremental_backup.backup import filesystem
 from incremental_backup.backup.sum import BackupSum
 from incremental_backup.meta import BackupManifest
-from incremental_backup.utility import path_name_equal, StrPath
+from incremental_backup._utility import path_name_equal, StrPath
 
 
 __all__ = [

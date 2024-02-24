@@ -1,8 +1,8 @@
-from incremental_backup.main import script_entrypoint
+from incremental_backup.cli import cli_entrypoint
 
 
 if __name__ == '__main__':
-    script_entrypoint()
+    cli_entrypoint()
 
 
 # TODO: figure out public API, rename things

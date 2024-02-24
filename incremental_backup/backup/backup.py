@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterable, Optional, Sequence
 
-from incremental_backup.backup.exclude import ExcludePattern
 from incremental_backup.backup.filesystem import scan_filesystem, ScanFilesystemCallbacks
 from incremental_backup.backup.plan import BackupPlan, execute_backup_plan, ExecuteBackupPlanCallbacks
 from incremental_backup.backup.sum import BackupSum
@@ -11,13 +10,13 @@ from incremental_backup.meta import BackupCompleteInfo, BackupDirectoryCreationE
     BackupMetadata, BackupStartInfo, COMPLETE_INFO_FILENAME, create_new_backup_directory, \
     DATA_DIRECTORY_NAME, MANIFEST_FILENAME, read_backups, ReadBackupsCallbacks, START_INFO_FILENAME, \
     write_backup_complete_info, write_backup_manifest, write_backup_start_info
-from incremental_backup.utility import StrPath
+from incremental_backup.path_exclude import PathExcludePattern
+from incremental_backup._utility import StrPath
 
 
 __all__ = [
     'BackupCallbacks',
     'BackupError',
-    'BackupOperation',
     'BackupResults',
     'perform_backup'
 ]
@@ -76,7 +75,7 @@ class BackupCallbacks:
         First argument is the path to the file, second argument is the raised exception."""
 
 
-def perform_backup(source_directory: StrPath, target_directory: StrPath, exclude_patterns: Iterable[ExcludePattern],
+def perform_backup(source_directory: StrPath, target_directory: StrPath, exclude_patterns: Iterable[PathExcludePattern],
                    callbacks: BackupCallbacks = BackupCallbacks()) -> BackupResults:
     """Performs the entire operation of creating a new backup, including creating the backup directory, copying files,
         and saving metadata.
@@ -91,14 +90,14 @@ def perform_backup(source_directory: StrPath, target_directory: StrPath, exclude
             `BackupError`.
     """
 
-    return BackupOperation(source_directory, target_directory, exclude_patterns, callbacks).perform_backup()
+    return _BackupOperation(source_directory, target_directory, exclude_patterns, callbacks).perform_backup()
 
 
-class BackupOperation:
+class _BackupOperation:
     """Implementation of the backup creation operation."""
 
     def __init__(self, source_directory: StrPath, target_directory: StrPath,
-                 exclude_patterns: Iterable[ExcludePattern], callbacks: BackupCallbacks = BackupCallbacks()) -> None:
+                 exclude_patterns: Iterable[PathExcludePattern], callbacks: BackupCallbacks = BackupCallbacks()) -> None:
         self.source_directory = Path(source_directory)
         self.target_directory = Path(target_directory)
         self.exclude_patterns = tuple(exclude_patterns)

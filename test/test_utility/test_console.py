@@ -1,6 +1,6 @@
 from pytest import CaptureFixture
 
-from incremental_backup.utility.console import print_error, print_warning
+from incremental_backup._utility.console import print_error, print_warning
 
 
 def test_print_warning(capfd: CaptureFixture[str]) -> None:

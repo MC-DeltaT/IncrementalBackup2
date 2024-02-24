@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from incremental_backup.backup.exclude import ExcludePattern
 from incremental_backup.backup.filesystem import Directory, scan_filesystem, ScanFilesystemCallbacks
+from incremental_backup.path_exclude import PathExcludePattern
 
 from helpers import AssertFilesystemUnmodified, unordered_equal
 
@@ -78,7 +78,7 @@ def test_scan_filesystem_no_excludes(tmpdir: Path) -> None:
 
 def test_scan_filesystem_some_excludes(tmpdir: Path) -> None:
     exclude_patterns = (r'.*/\.git/', '/temp/', '/un\xEFi\uC9F6c\u91F5ode\\.txt', r'.*\.bin')
-    exclude_patterns = tuple(map(ExcludePattern, exclude_patterns))
+    exclude_patterns = tuple(map(PathExcludePattern, exclude_patterns))
 
     time = datetime.now(timezone.utc)
     (tmpdir / 'un\xEFi\uC9F6c\u91F5ode.txt').touch()

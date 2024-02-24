@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 from pathlib import Path
-import random
+from random import Random
 from typing import Callable, Union
 
 from incremental_backup.meta.manifest import BackupManifest, BackupManifestParseError, read_backup_manifest
 from incremental_backup.meta.start_info import BackupStartInfo, BackupStartInfoParseError, read_backup_start_info
-from incremental_backup.utility import StrPath
+from incremental_backup._utility import StrPath
 
 
 __all__ = [
@@ -137,13 +137,13 @@ BACKUP_NAME_LENGTH = 16
 """The length of a backup directory name."""
 
 
-def generate_backup_name() -> str:
+def generate_backup_name(random_gen: Random = Random(), /) -> str:
     """Generates a (very likely) unique name for a backup.
         The name has length `BACKUP_NAME_LENGTH` and consists of only lowercase ASCII alphabetic characters and digits.
     """
 
     chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-    name = ''.join(random.choices(chars, k=BACKUP_NAME_LENGTH))
+    name = ''.join(random_gen.choices(chars, k=BACKUP_NAME_LENGTH))
     return name
 
 

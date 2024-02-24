@@ -7,7 +7,7 @@ from typing import Callable, Optional, Sequence
 
 from incremental_backup.backup import BackupSum
 from incremental_backup.meta import BackupMetadata, DATA_DIRECTORY_NAME, read_backups, ReadBackupsCallbacks
-from incremental_backup.utility import StrPath
+from incremental_backup._utility import StrPath
 
 
 __all__ = [
@@ -17,7 +17,6 @@ __all__ = [
     'RestoreFilesCallbacks',
     'RestoreFilesResults',
     'RestoreCallbacks',
-    'RestoreOperation',
     'RestoreResults'
 ]
 
@@ -162,11 +161,11 @@ def perform_restore(backup_target_directory: StrPath, destination_directory: Str
         :except RestoreError: If an error occurs that prevents the restore operation from completing. See `RestoreError`.
     """
 
-    return RestoreOperation(
+    return _RestoreOperation(
         backup_target_directory, destination_directory, backup_name, backup_time, callbacks).perform_restore()
 
 
-class RestoreOperation:
+class _RestoreOperation:
     """Implementation of the backup restore operation."""
 
     def __init__(self, backup_target_directory: StrPath, destination_directory: StrPath,

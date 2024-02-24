@@ -5,8 +5,8 @@ import os.path
 from pathlib import Path
 from typing import Callable, Iterable
 
-from incremental_backup.backup.exclude import ExcludePattern, is_path_excluded
-from incremental_backup.utility import StrPath
+from incremental_backup.path_exclude import PathExcludePattern, is_path_excluded
+from incremental_backup._utility import StrPath
 
 
 __all__ = [
@@ -59,7 +59,7 @@ class ScanFilesystemResults:
     """Indicates if any paths were skipped due to I/O errors (does not include paths matched by exclude patterns)."""
 
 
-def scan_filesystem(path: StrPath, /, exclude_patterns: Iterable[ExcludePattern],
+def scan_filesystem(path: StrPath, /, exclude_patterns: Iterable[PathExcludePattern],
                     callbacks: ScanFilesystemCallbacks = ScanFilesystemCallbacks()) -> ScanFilesystemResults:
     """Produces a tree representation of the filesystem at a given directory.
 

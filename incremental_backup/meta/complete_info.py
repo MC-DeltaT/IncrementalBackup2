@@ -3,7 +3,7 @@ from datetime import datetime
 import json
 from typing import NoReturn, Union
 
-from incremental_backup.utility import StrPath
+from incremental_backup._utility import StrPath
 
 
 __all__ = [
@@ -25,6 +25,7 @@ class BackupCompleteInfo:
     """Indicates if any paths were skipped due to filesystem errors (does NOT include explicitly excluded paths)."""
 
 
+# TODO: should write to any TextIO
 def write_backup_complete_info(path: StrPath, value: BackupCompleteInfo, /) -> None:
     """Writes backup completion information to file.
 
@@ -39,6 +40,7 @@ def write_backup_complete_info(path: StrPath, value: BackupCompleteInfo, /) -> N
         json.dump(json_data, file, indent=4, ensure_ascii=False)
 
 
+# TODO: should read from any TextIO
 def read_backup_complete_info(path: StrPath, /) -> BackupCompleteInfo:
     """Reads backup completion information from file.
 

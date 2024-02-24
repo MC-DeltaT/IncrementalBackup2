@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 import json
 from typing import Any, Iterator, NoReturn, Union
 
-from incremental_backup.utility import path_name_equal, StrPath
+from incremental_backup._utility import path_name_equal, StrPath
 
 
 __all__ = [
@@ -31,6 +31,7 @@ class BackupManifest:
     """The root of the manifest tree. This object represents the backup source directory."""
 
 
+# TODO: should write to any TextIO
 def write_backup_manifest(path: StrPath, value: BackupManifest, /) -> None:
     """Writes a backup manifest to file.
 
@@ -79,6 +80,7 @@ def write_backup_manifest(path: StrPath, value: BackupManifest, /) -> None:
         json.dump(json_data, file, indent=0, ensure_ascii=False)
 
 
+# TODO: should read from any TextIO
 def read_backup_manifest(path: StrPath, /) -> BackupManifest:
     """Reads a backup manifest from file.
 

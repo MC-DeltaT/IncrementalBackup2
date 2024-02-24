@@ -3,12 +3,12 @@ from typing import Iterable
 
 
 __all__ = [
-    'ExcludePattern',
+    'PathExcludePattern',
     'is_path_excluded'
 ]
 
 
-class ExcludePattern:
+class PathExcludePattern:
     def __init__(self, pattern: str, /) -> None:
         self.pattern = self._compile_pattern(pattern)
 
@@ -23,7 +23,7 @@ class ExcludePattern:
         return self.pattern.pattern
 
 
-def is_path_excluded(path: str, exclude_patterns: Iterable[ExcludePattern], /) -> bool:
+def is_path_excluded(path: str, exclude_patterns: Iterable[PathExcludePattern], /) -> bool:
     """Checks if a path is matched by any path exclude pattern.
 
         :param path: The path in question. Should be an absolute POSIX-style path, where the root is the backup source

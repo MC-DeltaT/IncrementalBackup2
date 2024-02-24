@@ -2,12 +2,13 @@ import argparse
 from pathlib import Path
 from typing import Sequence
 
-from incremental_backup.backup import BackupCallbacks, BackupError, BackupResults, ExcludePattern, ExecuteBackupPlanCallbacks, \
+from incremental_backup.backup import BackupCallbacks, BackupError, BackupResults, ExecuteBackupPlanCallbacks, \
     perform_backup, ScanFilesystemCallbacks
-from incremental_backup.commands.command import Command
-from incremental_backup.commands.exception import CommandRuntimeError
+from incremental_backup.cli.command.command import Command
+from incremental_backup.cli.command.exception import CommandRuntimeError
 from incremental_backup.meta import ReadBackupsCallbacks
-from incremental_backup.utility import print_warning
+from incremental_backup.path_exclude import PathExcludePattern
+from incremental_backup._utility import print_warning
 
 
 __all__ = [
@@ -29,7 +30,7 @@ class BackupCommand(Command):
         parser.add_argument('source_dir', type=Path, help='Directory to back up.')
         parser.add_argument('target_dir', type=Path, help='Directory to back up into.')
         parser.add_argument(
-            '--exclude', nargs='+', type=ExcludePattern, required=False, help='Path patterns to exclude.')
+            '--exclude', nargs='+', type=PathExcludePattern, required=False, help='Path patterns to exclude.')
 
     def __init__(self, arguments: argparse.Namespace, /) -> None:
         """
@@ -39,7 +40,7 @@ class BackupCommand(Command):
         super().__init__(arguments)
         self.source_path: Path = arguments.source_dir
         self.target_path: Path = arguments.target_dir
-        self.exclude_patterns: Sequence[ExcludePattern] = arguments.exclude or ()
+        self.exclude_patterns: Sequence[PathExcludePattern] = arguments.exclude or ()
 
     def run(self) -> None:
         """Executes the backup command.

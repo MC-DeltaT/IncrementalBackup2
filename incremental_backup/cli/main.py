@@ -1,27 +1,26 @@
 import argparse
 import sys
-from typing import Mapping, NoReturn, Sequence
+from typing import NoReturn, Sequence
 
-from incremental_backup.commands import BackupCommand, Command, CommandArgumentError, CommandError, RestoreCommand
-from incremental_backup.utility import print_error
+from incremental_backup.cli.command import COMMAND_CLASSES, CommandArgumentError, CommandError, get_command_class
+from incremental_backup._utility import print_error
 
 
 __all__ = [
-    'api_entrypoint',
-    'script_entrypoint',
-    'script_main'
+    'cli_entrypoint',
+    'cli_main'
 ]
 
 
-def script_entrypoint() -> NoReturn:
+def cli_entrypoint() -> NoReturn:
     """Process-level entrypoint of the incremental backup program.
         Collects arguments from `sys.argv`, performs all processing, then terminates the process with `sys.exit()`."""
 
-    exit_code = script_main(sys.argv)
+    exit_code = cli_main(sys.argv)
     sys.exit(exit_code)
 
 
-def script_main(arguments: Sequence[str], /) -> int:
+def cli_main(arguments: Sequence[str], /) -> int:
     """Intermediate entrypoint function which may be handy for testing purposes.
 
         :param arguments: The program command line arguments.
@@ -32,7 +31,7 @@ def script_main(arguments: Sequence[str], /) -> int:
     arguments = arguments[1:]
 
     try:
-        api_entrypoint(arguments)
+        _api_main(arguments)
         return EXIT_CODE_SUCCESS
     except CommandArgumentError as e:
         print(e.usage, file=sys.stderr)
@@ -46,7 +45,7 @@ def script_main(arguments: Sequence[str], /) -> int:
         return EXIT_CODE_LOGIC_ERROR
 
 
-def api_entrypoint(arguments: Sequence[str], /) -> None:
+def _api_main(arguments: Sequence[str], /) -> None:
     """API-level entrypoint of the incremental backup program.
 
         :param arguments: The program command line arguments. Should not include the "program name" zeroth argument.
@@ -54,19 +53,19 @@ def api_entrypoint(arguments: Sequence[str], /) -> None:
         :except CommandError: If some other fatal error occurs.
     """
 
-    arg_parser = get_argument_parser()
+    arg_parser = _get_argument_parser()
 
     parsed_arguments = arg_parser.parse_args(arguments)
 
-    command_class = COMMAND_CLASS_MAP[parsed_arguments.command]
+    command_class = get_command_class(parsed_arguments.command)
     command_instance = command_class(parsed_arguments)
     command_instance.run()
 
 
-def get_argument_parser() -> argparse.ArgumentParser:
+def _get_argument_parser() -> argparse.ArgumentParser:
     """Creates the command line argument parser. Adds subparsers for each command."""
 
-    arg_parser = ArgumentParser('incremental_backup', description='Incremental backup tool.')
+    arg_parser = _ArgumentParser('incremental_backup', description='Incremental backup tool.')
     arg_subparser = arg_parser.add_subparsers(title='commands', required=True, dest='command')
 
     for cls in COMMAND_CLASSES:
@@ -75,25 +74,13 @@ def get_argument_parser() -> argparse.ArgumentParser:
     return arg_parser
 
 
-class ArgumentParser(argparse.ArgumentParser):
+class _ArgumentParser(argparse.ArgumentParser):
     """Custom `argparse.ArgumentParser` implementation so we can throw exceptions for invalid arguments instead of
         exiting the process."""
 
     def error(self, message: str) -> NoReturn:
         full_message = f'{self.prog}: error: {message}'     # Same as base ArgumentParser
         raise CommandArgumentError(full_message, self.format_usage())
-
-
-COMMAND_CLASSES: Sequence[type[Command]] = (
-    BackupCommand,
-    RestoreCommand
-)
-
-
-COMMAND_CLASS_MAP: Mapping[str, type[Command]] = {
-    cls.COMMAND_STRING: cls for cls in COMMAND_CLASSES
-}
-"""Maps from a command's command line string to its class."""
 
 
 # Process exit codes.
