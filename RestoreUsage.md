@@ -16,7 +16,7 @@ It must either not exist, or be an empty directory.
 
 `<backup_or_time>` - The name or ISO 8601 timestamp of the latest backup to be included when restoring.
 If this is a backup name, then all backups up to and including that backup are included.
-If this is a timestamp, then all backups whose creation time are less than or equal to that time are included.
+If this is a timestamp, then all backups whose creation time are less than or equal to that time are included. The timezone is assumed to be the local timezone if not specified.
 
 ## Theory of Operation
 

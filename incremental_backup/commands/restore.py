@@ -87,7 +87,8 @@ class RestoreCommand(Command):
         try:
             time = datetime.fromisoformat(name_or_time)
             if time.tzinfo is None:
-                time = time.replace(tzinfo=timezone.utc)
+                local_tz = datetime.now().astimezone().tzinfo
+                time = time.replace(tzinfo=local_tz)
             return time
         except ValueError:
             pass
