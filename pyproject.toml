@@ -4,7 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "incremental_backup"
-version = "0.0.1"
+# TODO: update when making changes.
+version = "1.0.1"
 authors = [
     { name="Reece Jones", email="reece.jones131@gmail.com" }
 ]
