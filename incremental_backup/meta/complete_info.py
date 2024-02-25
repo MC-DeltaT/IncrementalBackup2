@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 import json
-from typing import NoReturn, Union
+from typing import Any, cast, NoReturn, Optional
 
 from incremental_backup._utility import StrPath
 
@@ -9,8 +9,10 @@ from incremental_backup._utility import StrPath
 __all__ = [
     'BackupCompleteInfo',
     'BackupCompleteInfoParseError',
-    'read_backup_complete_info',
-    'write_backup_complete_info'
+    'deserialise_backup_complete_info',
+    'read_backup_complete_info_file',
+    'serialise_backup_complete_info',
+    'write_backup_complete_info_file'
 ]
 
 
@@ -25,43 +27,46 @@ class BackupCompleteInfo:
     """Indicates if any paths were skipped due to filesystem errors (does NOT include explicitly excluded paths)."""
 
 
-# TODO: should write to any TextIO
-def write_backup_complete_info(path: StrPath, value: BackupCompleteInfo, /) -> None:
-    """Writes backup completion information to file.
-
-        :except OSError: If the file could not be written to.
-    """
+def serialise_backup_complete_info(value: BackupCompleteInfo, /) -> str:
+    """Writes backup completion information to a string."""
 
     json_data = {
         'end_time': value.end_time.isoformat(),
         'paths_skipped': value.paths_skipped
     }
-    with open(path, 'w', encoding='utf8') as file:
-        json.dump(json_data, file, indent=4, ensure_ascii=False)
+    return json.dumps(json_data, indent=4, ensure_ascii=False)
 
 
-# TODO: should read from any TextIO
-def read_backup_complete_info(path: StrPath, /) -> BackupCompleteInfo:
-    """Reads backup completion information from file.
+def write_backup_complete_info_file(path: StrPath, value: BackupCompleteInfo, /) -> None:
+    """Writes backup completion information to file.
 
-        :except OSError: If the file could not be read.
-        :except BackupCompleteInfoParseError: If the file is not valid backup completion information.
+        :except OSError: If the file could not be written to.
     """
 
-    def parse_error(reason: str, e: Union[Exception, None] = None, /) -> NoReturn:
+    with open(path, 'w', encoding='utf8') as file:
+        file.write(serialise_backup_complete_info(value))
+
+
+def deserialise_backup_complete_info(string: str, /) -> BackupCompleteInfo:
+    """Reads backup completion information from a string.
+
+        :except BackupCompleteInfoParseError: If the string is not valid backup completion information.
+    """
+
+    def parse_error(reason: str, e: Optional[Exception] = None, /) -> NoReturn:
         if e is None:
-            raise BackupCompleteInfoParseError(str(path), reason)
+            raise BackupCompleteInfoParseError(reason)
         else:
-            raise BackupCompleteInfoParseError(str(path), reason) from e
+            raise BackupCompleteInfoParseError(reason) from e
 
     try:
-        with open(path, 'r', encoding='utf8') as file:
-            json_data = json.load(file)
+        json_data = json.loads(string)
     except json.JSONDecodeError as e:
         parse_error(str(e), e)
 
     if not isinstance(json_data, dict):
         parse_error('Expected an object')
+    json_data = cast(dict[Any, Any], json_data)
 
     fields = {'end_time', 'paths_skipped'}
     if set(json_data.keys()) != fields:
@@ -79,10 +84,28 @@ def read_backup_complete_info(path: StrPath, /) -> BackupCompleteInfo:
     return BackupCompleteInfo(end_time, paths_skipped)
 
 
+def read_backup_complete_info_file(path: StrPath, /) -> BackupCompleteInfo:
+    """Reads backup completion information from file.
+
+        :except OSError: If the file could not be read.
+        :except BackupCompleteInfoParseError: If the file is not valid backup completion information.
+    """
+
+    try:
+        with open(path, 'r', encoding='utf8') as file:
+            return deserialise_backup_complete_info(file.read())
+    except BackupCompleteInfoParseError as e:
+        raise BackupCompleteInfoParseError(e.reason, str(path)) from e
+
+
 class BackupCompleteInfoParseError(Exception):
     """Raised when a backup completion information file cannot be parsed due to invalid format."""
 
-    def __init__(self, file_path: str, reason: str) -> None:
-        super().__init__(f'Failed to parse backup start info file "{file_path}": {reason}')
-        self.file_path = file_path
+    def __init__(self, reason: str, file_path: Optional[str] = None) -> None:
+        if file_path is None:
+            message = f'Failed to parse backup start info: {reason}'
+        else:
+            message = f'Failed to parse backup start info file "{file_path}": {reason}'
+        super().__init__(message)
         self.reason = reason
+        self.file_path = file_path

@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from incremental_backup.meta.manifest import BackupManifest, BackupManifestParseError, read_backup_manifest, \
-    write_backup_manifest
+from incremental_backup.meta.manifest import BackupManifest, BackupManifestParseError, read_backup_manifest_file, \
+    write_backup_manifest_file
 
 from helpers import AssertFilesystemUnmodified
 
@@ -23,7 +23,7 @@ def test_backup_manifest_init() -> None:
     assert manifest.root == expected_root
 
 
-def test_write_backup_manifest(tmpdir: Path) -> None:
+def test_write_backup_manifest_file(tmpdir: Path) -> None:
     path = tmpdir / 'manifest.json'
 
     backup_manifest = BackupManifest(BackupManifest.Directory('',
@@ -41,7 +41,7 @@ def test_write_backup_manifest(tmpdir: Path) -> None:
             ])
         ]))
 
-    write_backup_manifest(path, backup_manifest)
+    write_backup_manifest_file(path, backup_manifest)
 
     actual = path.read_text(encoding='utf8')
 
@@ -95,7 +95,7 @@ def test_write_backup_manifest(tmpdir: Path) -> None:
     assert actual == expected
 
 
-def test_read_backup_manifest_valid(tmpdir: Path) -> None:
+def test_read_backup_manifest_file_valid(tmpdir: Path) -> None:
     path = tmpdir / 'manifest_valid.json'
     contents = '''[
         {"n": "", "cf": ["myfile675"], "rf": []},
@@ -109,7 +109,7 @@ def test_read_backup_manifest_valid(tmpdir: Path) -> None:
     path.write_text(contents, encoding='utf8')
 
     with AssertFilesystemUnmodified(tmpdir):
-        actual = read_backup_manifest(path)
+        actual = read_backup_manifest_file(path)
 
     expected = BackupManifest(BackupManifest.Directory('', copied_files=['myfile675'], subdirectories=[
         BackupManifest.Directory('dir1', copied_files=['running', 'out']),
@@ -122,23 +122,23 @@ def test_read_backup_manifest_valid(tmpdir: Path) -> None:
     assert actual == expected
 
 
-def test_read_backup_manifest_empty(tmpdir: Path) -> None:
+def test_read_backup_manifest_file_empty(tmpdir: Path) -> None:
     path = tmpdir / 'manifest_empty_1.json'
     path.write_text('[]', encoding='utf8')
     with AssertFilesystemUnmodified(tmpdir):
-        actual = read_backup_manifest(path)
+        actual = read_backup_manifest_file(path)
     expected = BackupManifest()
     assert actual == expected
 
     path = tmpdir / 'manifest_empty_2.json'
     path.write_text('[{"n": ""}]', encoding='utf8')
     with AssertFilesystemUnmodified(tmpdir):
-        actual = read_backup_manifest(path)
+        actual = read_backup_manifest_file(path)
     expected = BackupManifest()
     assert actual == expected
 
 
-def test_read_backup_manifest_invalid(tmpdir: Path) -> None:
+def test_read_backup_manifest_file_invalid(tmpdir: Path) -> None:
     datas = (
         '',
         '{}',
@@ -170,17 +170,17 @@ def test_read_backup_manifest_invalid(tmpdir: Path) -> None:
 
         with AssertFilesystemUnmodified(tmpdir):
             with pytest.raises(BackupManifestParseError):
-                read_backup_manifest(path)
+                read_backup_manifest_file(path)
 
 
-def test_read_backup_manifest_nonexistent(tmpdir: Path) -> None:
+def test_read_backup_manifest_file_nonexistent(tmpdir: Path) -> None:
     path = tmpdir / 'manifest_nonexistent.json'
     with AssertFilesystemUnmodified(tmpdir):
         with pytest.raises(FileNotFoundError):
-            read_backup_manifest(path)
+            read_backup_manifest_file(path)
 
 
-def test_read_backup_manifest_directory_reentry(tmpdir: Path) -> None:
+def test_read_backup_manifest_file_directory_reentry(tmpdir: Path) -> None:
     path = tmpdir / 'manifest_reentrant.json'
     contents = '''[
         {"n": ""},
@@ -191,7 +191,7 @@ def test_read_backup_manifest_directory_reentry(tmpdir: Path) -> None:
     path.write_text(contents, encoding='utf8')
 
     with AssertFilesystemUnmodified(tmpdir):
-        actual = read_backup_manifest(path)
+        actual = read_backup_manifest_file(path)
 
     expected = BackupManifest(BackupManifest.Directory('', subdirectories=[
         BackupManifest.Directory('mydir',

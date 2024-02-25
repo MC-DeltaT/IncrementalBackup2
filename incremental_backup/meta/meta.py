@@ -3,8 +3,8 @@ from pathlib import Path
 from random import Random
 from typing import Callable, Union
 
-from incremental_backup.meta.manifest import BackupManifest, BackupManifestParseError, read_backup_manifest
-from incremental_backup.meta.start_info import BackupStartInfo, BackupStartInfoParseError, read_backup_start_info
+from incremental_backup.meta.manifest import BackupManifest, BackupManifestParseError, read_backup_manifest_file
+from incremental_backup.meta.start_info import BackupStartInfo, BackupStartInfoParseError, read_backup_start_info_file
 from incremental_backup._utility import StrPath
 
 
@@ -81,8 +81,8 @@ def read_backup_metadata(backup_directory: StrPath, /) -> BackupMetadata:
 
     backup_directory = Path(backup_directory)
     name = backup_directory.name
-    start_info = read_backup_start_info(backup_directory / START_INFO_FILENAME)
-    manifest = read_backup_manifest(backup_directory / MANIFEST_FILENAME)
+    start_info = read_backup_start_info_file(backup_directory / START_INFO_FILENAME)
+    manifest = read_backup_manifest_file(backup_directory / MANIFEST_FILENAME)
     return BackupMetadata(name, start_info, manifest)
 
 

@@ -7,7 +7,7 @@ import pytest
 from incremental_backup.backup.backup import BackupCallbacks, BackupError, perform_backup
 from incremental_backup.backup.filesystem import ScanFilesystemCallbacks
 from incremental_backup.backup.plan import ExecuteBackupPlanCallbacks
-from incremental_backup.meta.manifest import BackupManifest, BackupManifestParseError, read_backup_manifest
+from incremental_backup.meta.manifest import BackupManifest, BackupManifestParseError, read_backup_manifest_file
 from incremental_backup.meta.meta import ReadBackupsCallbacks
 from incremental_backup.meta.start_info import BackupStartInfoParseError
 from incremental_backup.path_exclude import PathExcludePattern
@@ -539,7 +539,7 @@ def test_perform_backup_some_previous_backups(tmpdir: Path) -> None:
     assert actual_complete_info_str == expected_complete_info_str
 
     # Don't think it's feasible to check the manifest without parsing it, because filesystem ordering is not guaranteed.
-    actual_manifest_from_file = read_backup_manifest(backup_path / 'manifest.json')
+    actual_manifest_from_file = read_backup_manifest_file(backup_path / 'manifest.json')
     assert actual_manifest_from_file == actual_manifest
 
 

@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import re
 
-from incremental_backup.meta.manifest import BackupManifest, read_backup_manifest
+from incremental_backup.meta.manifest import BackupManifest, read_backup_manifest_file
 
 from helpers import AssertFilesystemUnmodified, dir_entries, run_application, unordered_equal, write_file_with_mtime
 
@@ -138,7 +138,7 @@ def test_backup_normal(tmpdir: Path) -> None:
     assert abs((actual_end_time - end_time).total_seconds()) < METADATA_TIME_TOLERANCE
 
     # Don't think it's feasible to check the manifest without parsing it, because filesystem ordering is not guaranteed.
-    actual_manifest = read_backup_manifest(backup_path / 'manifest.json')
+    actual_manifest = read_backup_manifest_file(backup_path / 'manifest.json')
     assert actual_manifest.root.copied_files == ['root_file3.txt']
     assert actual_manifest.root.removed_files == ['ro\u2983ot_fi\x90le2.exe']
     assert actual_manifest.root.removed_directories == ['.git']

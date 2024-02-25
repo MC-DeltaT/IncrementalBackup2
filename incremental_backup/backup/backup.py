@@ -9,7 +9,7 @@ from incremental_backup.backup.sum import BackupSum
 from incremental_backup.meta import BackupCompleteInfo, BackupDirectoryCreationError, BackupManifest, \
     BackupMetadata, BackupStartInfo, COMPLETE_INFO_FILENAME, create_new_backup_directory, \
     DATA_DIRECTORY_NAME, MANIFEST_FILENAME, read_backups, ReadBackupsCallbacks, START_INFO_FILENAME, \
-    write_backup_complete_info, write_backup_manifest, write_backup_start_info
+    write_backup_complete_info_file, write_backup_manifest_file, write_backup_start_info_file
 from incremental_backup.path_exclude import PathExcludePattern
 from incremental_backup._utility import StrPath
 
@@ -122,6 +122,7 @@ class _BackupOperation:
 
         (self.callbacks.on_before_initialise_backup)()
         self._create_backup_directory()
+        assert self.backup_path is not None
         data_path = self._create_data_directory(self.backup_path)
         self._create_start_info()
 
@@ -132,6 +133,11 @@ class _BackupOperation:
         self._save_manifest()
         self._save_complete_info()
 
+        assert self.start_info is not None
+        assert self.manifest is not None
+        assert self.complete_info is not None
+        assert self.files_copied is not None
+        assert self.files_removed is not None
         return BackupResults(
             self.backup_path, self.start_info, self.manifest, self.complete_info, self.files_copied, self.files_removed)
 
@@ -236,9 +242,10 @@ class _BackupOperation:
 
         start_info = BackupStartInfo(datetime.now(timezone.utc))
         self.start_info = start_info
+        assert self.backup_path is not None
         file_path = self.backup_path / START_INFO_FILENAME
         try:
-            write_backup_start_info(file_path, start_info)
+            write_backup_start_info_file(file_path, start_info)
         except OSError as e:
             raise BackupError(f'Failed to write backup start information file: {e}') from e
 
@@ -272,9 +279,11 @@ class _BackupOperation:
             :except BackupError: If the file could not be written to.
         """
 
+        assert self.backup_path is not None
         file_path = self.backup_path / MANIFEST_FILENAME
         try:
-            write_backup_manifest(file_path, self.manifest)
+            assert self.manifest is not None
+            write_backup_manifest_file(file_path, self.manifest)
         except OSError as e:
             raise BackupError(f'Failed to write backup manifest file: {e}') from e
 
@@ -284,9 +293,11 @@ class _BackupOperation:
             It is not a fatal error if this operation fails, since the completion information is not required by the
             application at this time."""
 
+        assert self.backup_path is not None
         file_path = self.backup_path / COMPLETE_INFO_FILENAME
         try:
-            write_backup_complete_info(file_path, self.complete_info)
+            assert self.complete_info is not None
+            write_backup_complete_info_file(file_path, self.complete_info)
         except OSError as e:
             # Not fatal since the completion info isn't currently used by the software.
             (self.callbacks.on_write_complete_info_error)(file_path, e)
