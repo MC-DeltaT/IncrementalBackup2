@@ -7,6 +7,10 @@ Private entities begin with a single underscore (e.g. modules, functions, class 
 
 TODO: update when making changes.
 
+## 1.0.1 - 2024/02/25
+
+Fix package version.
+
 ## 1.0.0 - 2024/02/25
 
 Initial public release.  
