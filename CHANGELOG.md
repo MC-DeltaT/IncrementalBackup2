@@ -6,3 +6,8 @@ The public API consists of all entities in the `incremental_backup` package and 
 Private entities begin with a single underscore (e.g. modules, functions, class members).
 
 TODO: update when making changes.
+
+## 1.0.0 - 2024/02/25
+
+Initial public release.  
+Basic backup and restore functionality.
