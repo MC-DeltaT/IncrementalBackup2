@@ -39,11 +39,9 @@ TODO: update this with recent structure changes
 
 - `incremental_backup/` - The Python package.
   - `backup/` - High-level backup functionality.
-  - `commands/` - Entrypoints for the command line commands (see also the _Usage_ section).
+  - `cli/` - Command line interface functionality (see also the _Usage_ section).
   - `meta/` - Functionality related to backup metadata and structure.
-  - `utility/` - Miscellaneous helper functionality.
-  - `__main__.py` - Entrypoint for executing the package.
-  - `main.py` - Program entrypoints.
+  - `__main__.py` - Entrypoint for using the command line interface via the package name.
   - `restore.py` - Backup restoration functionality.
 - `test/` - Test code. Each directory/file corresponds to the module in `incremental_backup/` it tests.
 
