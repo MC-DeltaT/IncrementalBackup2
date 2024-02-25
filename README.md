@@ -35,8 +35,6 @@ I have genuinely tried to make it as robust as possible, but if you use this sof
 
 Important files and directories:
 
-TODO: update this with recent structure changes
-
 - `incremental_backup/` - The Python package.
   - `backup/` - High-level backup functionality.
   - `cli/` - Command line interface functionality (see also the _Usage_ section).
