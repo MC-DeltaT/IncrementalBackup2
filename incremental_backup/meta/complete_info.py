@@ -95,6 +95,7 @@ def read_backup_complete_info_file(path: StrPath, /) -> BackupCompleteInfo:
         with open(path, 'r', encoding='utf8') as file:
             return deserialise_backup_complete_info(file.read())
     except BackupCompleteInfoParseError as e:
+        # TODO: may be nicer to raise from the cause of e
         raise BackupCompleteInfoParseError(e.reason, str(path)) from e
 
 

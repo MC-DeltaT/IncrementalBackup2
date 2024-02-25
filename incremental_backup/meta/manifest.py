@@ -206,8 +206,12 @@ def read_backup_manifest_file(path: StrPath, /) -> BackupManifest:
         :except BackupManifestParseError: If the file is not a valid backup manifest.
     """
 
-    with open(path, 'r', encoding='utf8') as file:
-        return deserialise_backup_manifest(file.read())
+    try:
+        with open(path, 'r', encoding='utf8') as file:
+            return deserialise_backup_manifest(file.read())
+    except BackupManifestParseError as e:
+        # TODO: may be nicer to raise from the cause of e
+        raise BackupManifestParseError(e.reason, str(path)) from e
 
 
 class BackupManifestParseError(Exception):

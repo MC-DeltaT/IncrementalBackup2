@@ -87,6 +87,7 @@ def read_backup_start_info_file(path: StrPath, /) -> BackupStartInfo:
         with open(path, 'r', encoding='utf8') as file:
             return deserialise_backup_start_info(file.read())
     except BackupStartInfoParseError as e:
+        # TODO: may be nicer to raise from the cause of e
         raise BackupStartInfoParseError(e.reason, str(path)) from e
 
 
