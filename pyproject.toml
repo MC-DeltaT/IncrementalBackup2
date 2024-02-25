@@ -1,3 +1,26 @@
 [build-system]
-requires = ["setuptools>=42"]
+requires = [ "setuptools>=61.0" ]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "incremental_backup_MCDeltaT"
+version = "0.0.1"
+authors = [
+    { name="Reece Jones", email="reece.jones131@gmail.com" }
+]
+description = "Incremental file backup tool"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Natural Language :: English"
+]
+dependencies = [
+  "pytest"
+]
+
+[project.urls]
+Homepage = "https://github.com/MC-DeltaT/IncrementalBackup2"
+Issues = "https://github.com/MC-DeltaT/IncrementalBackup2/issues"
