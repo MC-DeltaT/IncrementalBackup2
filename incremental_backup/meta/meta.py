@@ -71,6 +71,8 @@ class BackupMetadata:
     # Backup completion information is not here because it is currently not read by the application.
 
 
+# TODO: should refactor and simplify exceptions. Don't need so fine grained.
+
 def read_backup_metadata(backup_directory: StrPath, /) -> BackupMetadata:
     """Reads the metadata of a backup, i.e. the name, start information, and manifest.
 

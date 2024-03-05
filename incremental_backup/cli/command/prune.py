@@ -2,6 +2,11 @@ import argparse
 from pathlib import Path
 
 from incremental_backup.cli.command.command import Command
+from incremental_backup.cli.command.exception import CommandArgumentError, CommandRuntimeError
+from incremental_backup.meta import ReadBackupsCallbacks
+from incremental_backup.prune import BackupPrunabilityOptions, prune_backups, PruneBackupsCallbacks, \
+    PruneBackupsConfig, PruneBackupsError, PruneBackupsResults
+from incremental_backup._utility import print_warning
 
 
 __all__ = [
@@ -10,33 +15,53 @@ __all__ = [
 
 
 class PruneCommand(Command):
+    """The program command which deletes unneeded backups."""
+
     COMMAND_STRING = 'prune'
 
     @staticmethod
-    def add_arg_subparser(subparser) -> None:
-        parser = subparser.add_parser(PruneCommand.COMMAND_STRING, description='Removes unneeded backups.',
-                                      help='Removes unneeded backups.')
-        parser.add_argument('backup_target_dir', type=Path, help='Directory containing backups to restore from.')
-        # TODO: commit flag (dry run without flag)
-        # TODO: remove empty flag
+    def add_arg_subparser(subparser, /) -> None:
+        """Adds the argparse subparser for the prune command."""
 
-    def __init__(self, arguments: argparse.Namespace, /) -> None:
+        parser = subparser.add_parser(PruneCommand.COMMAND_STRING, description='Removes unneeded backups.',
+            help='Removes unneeded backups.')
+        parser.add_argument('backup_target_dir', type=Path, help='Directory containing backups to operate on.')
+        parser.add_argument('--commit', action='store_true', default=False,
+            help='If not specified, don\'t delete anything.')
+        prune_modes_parser = parser.add_argument_group('Prune modes')
+        prune_modes_parser.add_argument('--delete_empty', action='store_true', default=False,
+            help='Delete backups not containing any changes.')
+
+    def __init__(self, arguments: argparse.Namespace) -> None:
         """
             :param arguments: The parsed command line arguments object acquired from argparse.
+
+            :except CommandArgumentError: If the arguments are invalid.
         """
 
         super().__init__(arguments)
         self.backup_target_directory: Path = arguments.backup_target_dir
+        self.commit: bool = arguments.commit
+        self.delete_empty: bool = arguments.delete_empty
+
+        if not self.delete_empty:
+            raise CommandArgumentError('At least one prune mode must be specified.')
 
     def run(self) -> None:
-        """Executes the backup command.
+        """Executes the prune command.
 
-            :except CommandRuntimeError: If an error occurs such that a valid backup cannot be produced.
+            :except CommandRuntimeError: If an error occurs such that the prune operation cannot continue.
         """
 
         self._print_config()
 
-        # TODO
+        config = self._prune_backups_config()
+        callbacks = self._prune_backups_callbacks()
+
+        try:
+            results = prune_backups(self.backup_target_directory, config, callbacks)
+        except PruneBackupsError as e:
+            raise CommandRuntimeError(str(e)) from e
 
         self._print_results(results)
 
@@ -44,7 +69,43 @@ class PruneCommand(Command):
         """Prints the configuration of the application to stdout."""
 
         print(f'Backup target directory: {self.backup_target_directory}')
-        # TODO
+        if not self.commit:
+            print(f'Dry run: True')
+        print('Deleting:')
+        if self.delete_empty:
+            print('  Empty backups')
+        print()
 
-    def _print_results(self, results) -> None:
-        ... # TODO
+    def _prune_backups_config(self) -> PruneBackupsConfig:
+        return PruneBackupsConfig(
+            not self.commit,
+            BackupPrunabilityOptions(prune_empty=self.delete_empty, prune_other_data=False)
+        )
+
+    @staticmethod
+    def _prune_backups_callbacks() -> PruneBackupsCallbacks:
+        """Creates the callbacks for `prune_backups()`."""
+
+        return PruneBackupsCallbacks(
+            on_before_read_backups=lambda: print('Reading backups'),
+            read_backups=ReadBackupsCallbacks(
+                on_query_entry_error=lambda path, error:
+                    print_warning(f'Failed to query entry in backup target directory "{path}": {error}'),
+                on_read_metadata_error=lambda path, error:
+                    print_warning(f'Failed to read metadata of backup {path.name}: {error}'),
+            ),
+            on_after_read_backups=lambda backups: print(f'Read {len(backups)} backups'),
+            on_selected_backups=lambda backups: print(f'Pruning {len(backups)} backups'),
+            on_delete_error=lambda path, error: print_warning(f'Failed to delete backup "{path}": {error}')
+        )
+
+    def _print_results(self, results: PruneBackupsResults) -> None:
+        """Prints backup prune results to the console."""
+
+        print()
+        if not self.commit:
+            print('DRY RUN - simulated results only')
+        backup_count = results.total_backups_removed + results.backups_remaining
+        removed_percent = 100 * results.total_backups_removed / backup_count
+        print(f'Deleted {results.total_backups_removed} / {backup_count} backups ({removed_percent:.2f}%)')
+        print(f'  {results.empty_backups_removed} empty')
