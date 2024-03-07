@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import reduce
 from hashlib import md5
 from operator import xor
@@ -7,6 +7,12 @@ from pathlib import Path
 import subprocess
 import sys
 from typing import Any, Optional, Sequence, Union
+
+from incremental_backup.meta.complete_info import BackupCompleteInfo, write_backup_complete_info_file
+from incremental_backup.meta.manifest import BackupManifest, write_backup_manifest_file
+from incremental_backup.meta.meta import BackupMetadata, COMPLETE_INFO_FILENAME, DATA_DIRECTORY_NAME, \
+    MANIFEST_FILENAME, START_INFO_FILENAME
+from incremental_backup.meta.start_info import BackupStartInfo, write_backup_start_info_file
 
 
 __all__ = [
@@ -17,7 +23,8 @@ __all__ = [
     'dir_entries',
     'run_application',
     'unordered_equal',
-    'write_file_with_mtime'
+    'write_file_with_mtime',
+    'write_valid_backup'
 ]
 
 
@@ -132,6 +139,29 @@ def write_file_with_mtime(file: Path, contents: str, m_a_time: datetime, encodin
     file.write_text(contents, encoding=encoding)
     timestamp = m_a_time.timestamp()
     utime(file, (timestamp, timestamp))
+
+
+def write_valid_backup(directory: Path, *, has_copied_files: bool = True, has_removed_files: bool = True,
+        has_removed_directories: bool = True, has_data: bool = True) -> BackupMetadata:
+    data_dir = directory / DATA_DIRECTORY_NAME
+    data_dir.mkdir()
+    if has_data:
+        (data_dir / 'foo.txt').write_text('hello!')
+
+    start_info = BackupStartInfo(datetime.now(timezone.utc))
+    write_backup_start_info_file(directory / START_INFO_FILENAME, start_info)
+
+    copied_files = ['foo.txt'] if has_copied_files else []
+    removed_files = ['bar.txt'] if has_removed_files else []
+    removed_directories = ['qux'] if has_removed_directories else []
+    manifest = BackupManifest(
+        BackupManifest.Directory('', copied_files, removed_files, removed_directories))
+    write_backup_manifest_file(directory / MANIFEST_FILENAME, manifest)
+    
+    complete_info = BackupCompleteInfo(datetime.now(timezone.utc), False)
+    write_backup_complete_info_file(directory / COMPLETE_INFO_FILENAME, complete_info)
+
+    return BackupMetadata(directory.name, start_info, manifest)
 
 
 def run_application(*arguments: str) -> subprocess.CompletedProcess[str]:
