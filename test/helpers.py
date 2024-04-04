@@ -1,4 +1,5 @@
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from functools import reduce
 from hashlib import md5
 from operator import xor
@@ -8,6 +9,12 @@ import subprocess
 import sys
 from typing import Any, Optional, Sequence, Union
 
+from incremental_backup.meta.complete_info import BackupCompleteInfo, write_backup_complete_info_file
+from incremental_backup.meta.manifest import BackupManifest, write_backup_manifest_file
+from incremental_backup.meta.meta import BackupMetadata, COMPLETE_INFO_FILENAME, create_new_backup_directory, \
+    DATA_DIRECTORY_NAME, MANIFEST_FILENAME, START_INFO_FILENAME
+from incremental_backup.meta.start_info import BackupStartInfo, write_backup_start_info_file
+
 
 __all__ = [
     'AssertFilesystemUnmodified',
@@ -15,9 +22,10 @@ __all__ = [
     'compute_file_hash',
     'compute_filesystem_hash',
     'dir_entries',
+    'MakeBackup',
     'run_application',
     'unordered_equal',
-    'write_file_with_mtime'
+    'write_file_with_mtime',
 ]
 
 
@@ -25,6 +33,7 @@ class AssertFilesystemUnmodified:
     """Context object that asserts that the content of the specified paths is the same when exiting as when entering."""
 
     def __init__(self, *paths: Union[str, PathLike[str]]) -> None:
+        assert paths
         self.paths = tuple(map(Path, paths))
 
     def __enter__(self):
@@ -132,6 +141,84 @@ def write_file_with_mtime(file: Path, contents: str, m_a_time: datetime, encodin
     file.write_text(contents, encoding=encoding)
     timestamp = m_a_time.timestamp()
     utime(file, (timestamp, timestamp))
+
+
+@dataclass(frozen=True)
+class MakeBackup:
+    start_info: bool
+    manifest: bool
+    manifest_copied_files: bool
+    manifest_removed_files: bool
+    manifest_removed_directories: bool
+    complete_info: bool
+    data_dir: bool
+    data: bool
+
+    @classmethod
+    def empty(cls):
+        return cls(
+            start_info=True,
+            manifest=True,
+            manifest_copied_files=False,
+            manifest_removed_files=False,
+            manifest_removed_directories=False,
+            complete_info=True,
+            data_dir=True,
+            data=False
+        )
+
+    @classmethod
+    def valid(cls, copied_files: bool = True, removed_files: bool = True, removed_directories: bool = True):
+        return cls(
+            start_info=True,
+            manifest=True,
+            manifest_copied_files=copied_files,
+            manifest_removed_files=removed_files,
+            manifest_removed_directories=removed_directories,
+            complete_info=True,
+            data_dir=True,
+            data=copied_files
+        )
+
+    @classmethod
+    def invalid(cls):
+        return cls(
+            start_info=True,
+            manifest=False,
+            manifest_copied_files=False,
+            manifest_removed_files=False,
+            manifest_removed_directories=False,
+            complete_info=False,
+            data_dir=True,
+            data=False
+        )
+
+    def __call__(self, target_directory: Path) -> tuple[Path, BackupMetadata]:
+        backup_dir = target_directory / create_new_backup_directory(target_directory)
+        
+        data_dir = backup_dir / DATA_DIRECTORY_NAME
+        if self.data_dir:
+            data_dir.mkdir()
+            if self.data:
+                (data_dir / 'foo.txt').write_text('hello!')
+
+        start_info = BackupStartInfo(datetime.now(timezone.utc))
+        if self.start_info:
+            write_backup_start_info_file(backup_dir / START_INFO_FILENAME, start_info)
+
+        copied_files = ['foo.txt'] if self.manifest_copied_files else []
+        removed_files = ['bar.txt'] if self.manifest_removed_files else []
+        removed_directories = ['qux'] if self.manifest_removed_directories else []
+        manifest = BackupManifest(
+            BackupManifest.Directory('', copied_files, removed_files, removed_directories))
+        if self.manifest:
+            write_backup_manifest_file(backup_dir / MANIFEST_FILENAME, manifest)
+        
+        complete_info = BackupCompleteInfo(datetime.now(timezone.utc), False)
+        if self.complete_info:
+            write_backup_complete_info_file(backup_dir / COMPLETE_INFO_FILENAME, complete_info)
+
+        return backup_dir, BackupMetadata(backup_dir.name, start_info, manifest)
 
 
 def run_application(*arguments: str) -> subprocess.CompletedProcess[str]:

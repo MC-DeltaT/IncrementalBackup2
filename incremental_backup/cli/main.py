@@ -31,11 +31,19 @@ def cli_main(arguments: Sequence[str], /) -> int:
     arguments = arguments[1:]
 
     try:
-        _api_main(arguments)
+        arg_parser = _get_argument_parser()
+        parsed_arguments = arg_parser.parse_args(arguments)
+        command_class = get_command_class(parsed_arguments.command)
+        command_instance = command_class(parsed_arguments)
+        command_instance.run()
         return EXIT_CODE_SUCCESS
     except CommandArgumentError as e:
-        print(e.usage, file=sys.stderr)
-        print(e.message, file=sys.stderr)
+        if e.usage is None: # TODO: remove when usage is removed
+            arg_parser.print_usage(sys.stderr)
+        else:
+            print(e.usage, file=sys.stderr)
+        print()
+        print(f'{arg_parser.prog}: error: {e.message}', file=sys.stderr)
         return EXIT_CODE_INVALID_ARGUMENTS
     except CommandError as e:
         print_error(str(e))
@@ -43,23 +51,6 @@ def cli_main(arguments: Sequence[str], /) -> int:
     except Exception as e:
         print_error(f'Unhandled exception: {repr(e)}')
         return EXIT_CODE_LOGIC_ERROR
-
-
-def _api_main(arguments: Sequence[str], /) -> None:
-    """API-level entrypoint of the incremental backup program.
-
-        :param arguments: The program command line arguments. Should not include the "program name" zeroth argument.
-        :except CommandArgumentError: If the command line arguments are invalid.
-        :except CommandError: If some other fatal error occurs.
-    """
-
-    arg_parser = _get_argument_parser()
-
-    parsed_arguments = arg_parser.parse_args(arguments)
-
-    command_class = get_command_class(parsed_arguments.command)
-    command_instance = command_class(parsed_arguments)
-    command_instance.run()
 
 
 def _get_argument_parser() -> argparse.ArgumentParser:
@@ -79,8 +70,7 @@ class _ArgumentParser(argparse.ArgumentParser):
         exiting the process."""
 
     def error(self, message: str) -> NoReturn:
-        full_message = f'{self.prog}: error: {message}'     # Same as base ArgumentParser
-        raise CommandArgumentError(full_message, self.format_usage())
+        raise CommandArgumentError(message)
 
 
 # Process exit codes.

@@ -1,3 +1,6 @@
+from typing import Optional
+
+
 __all__ = [
     'CommandArgumentError',
     'CommandError',
@@ -22,10 +25,11 @@ class CommandError(Exception):
 class CommandArgumentError(CommandError):
     """Indicates that command line arguments are invalid."""
 
-    def __init__(self, message: str, usage: str) -> None:
+    # TODO: remove usage
+    def __init__(self, message: str, usage: Optional[str] = None) -> None:
         """
             :param message: Specific description of the error.
-            :param usage: Program usage information string to display to the user.
+            :param usage: (DEPRECATED) Program usage information string to display to the user.
         """
 
         super().__init__(message)

@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from incremental_backup.cli.command.command import Command
 from incremental_backup.cli.command.backup import BackupCommand
 from incremental_backup.cli.command.restore import RestoreCommand
+from incremental_backup.cli.command.prune import PruneCommand
 
 
 __all__ = [
@@ -13,7 +14,8 @@ __all__ = [
 
 COMMAND_CLASSES: Sequence[type[Command]] = (
     BackupCommand,
-    RestoreCommand
+    RestoreCommand,
+    PruneCommand
 )
 """List of all commands recognised by the program.
     Add or remove commands here.
