@@ -74,6 +74,8 @@ def is_backup_prunable(backup_path: StrPath, backup_metadata: BackupMetadata, op
 @dataclass
 class PruneBackupsConfig:
     dry_run: bool
+    """If true, simulate the prune operation without modifying the filesystem."""
+
     prunability_options: BackupPrunabilityOptions
 
 
@@ -110,7 +112,7 @@ class PruneBackupsResults:
     """Total number of backups removed."""
 
     backups_remaining: int
-    """The number of backups not removed."""
+    """The number of valid backups not removed."""
 
 
 def prune_backups(backup_target_directory: StrPath, config: PruneBackupsConfig,
@@ -133,7 +135,7 @@ def prune_backups(backup_target_directory: StrPath, config: PruneBackupsConfig,
         backups = read_backups(backup_target_directory, callbacks.read_backups)
     except OSError as e:
         raise PruneBackupsError(f'Failed to query backup target directory: {e}') from e
-    callbacks.on_after_read_backups(backups)
+    callbacks.on_after_read_backups(tuple(backups))
 
     prunable_backups: list[BackupMetadata] = []
     for backup in backups:
@@ -146,8 +148,7 @@ def prune_backups(backup_target_directory: StrPath, config: PruneBackupsConfig,
         else:
             if is_prunable:
                 prunable_backups.append(backup)
-    callbacks.on_selected_backups(prunable_backups)
-
+    callbacks.on_selected_backups(tuple(prunable_backups))
 
     empty_backups_removed = 0
     for backup in prunable_backups:
