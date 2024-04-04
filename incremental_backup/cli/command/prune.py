@@ -106,6 +106,6 @@ class PruneCommand(Command):
         if not self.commit:
             print('DRY RUN - simulated results only')
         backup_count = results.total_backups_removed + results.backups_remaining
-        removed_percent = 100 * results.total_backups_removed / backup_count
+        removed_percent = 100 * results.total_backups_removed / backup_count if backup_count > 0 else 0
         print(f'Deleted {results.total_backups_removed} / {backup_count} backups ({removed_percent:.2f}%)')
         print(f'  {results.empty_backups_removed} empty')
