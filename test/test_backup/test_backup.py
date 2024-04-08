@@ -714,4 +714,7 @@ def test_perform_backup_some_invalid_backups(tmpdir: Path) -> None:
     assert actual_manifest_str == expected_manifest_str
 
 
+# TODO: test skip_empty
+
+
 METADATA_TIME_TOLERANCE = 5     # Seconds
