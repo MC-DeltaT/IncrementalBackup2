@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Iterable, Optional, Sequence
+from typing import Callable, Iterable, Optional, overload, Sequence
 
 from incremental_backup.backup.filesystem import scan_filesystem, ScanFilesystemCallbacks
 from incremental_backup.backup.plan import BackupPlan, execute_backup_plan, ExecuteBackupPlanCallbacks, \
@@ -76,7 +76,17 @@ class BackupCallbacks:
         First argument is the path to the file, second argument is the raised exception."""
 
 
-# TODO: improve the arguments. Maybe have an "options" object argument
+@overload
+def perform_backup(source_directory: StrPath, target_directory: StrPath, exclude_patterns: Iterable[PathExcludePattern],
+                   callbacks: BackupCallbacks = BackupCallbacks()) -> BackupResults:
+    ...
+
+@overload
+def perform_backup(source_directory: StrPath, target_directory: StrPath, exclude_patterns: Iterable[PathExcludePattern],
+                   callbacks: BackupCallbacks = BackupCallbacks(), skip_empty: bool = False) -> Optional[BackupResults]:
+    ...
+
+# TODO: clean up this interface. Have an "options" object argument rather than overloads
 def perform_backup(source_directory: StrPath, target_directory: StrPath, exclude_patterns: Iterable[PathExcludePattern],
                    callbacks: BackupCallbacks = BackupCallbacks(), skip_empty: bool = False) -> Optional[BackupResults]:
     """Performs the entire operation of creating a new backup, including creating the backup directory, copying files,
@@ -125,21 +135,19 @@ class _BackupOperation:
         previous_backups = self._read_previous_backups()
         backup_sum = BackupSum.from_backups(previous_backups)
 
-        self.callbacks.on_before_initialise_backup()
         start_time = datetime.now(timezone.utc)
         if not self.skip_empty:
-            backup_path = self._create_backup_directory()
-            data_path = self._create_data_directory(backup_path)
-            start_info = self._create_and_write_start_info(backup_path, start_time)
+            # If skip_empty is not specified, keep the old behaviour.
+            # If skip_empty is true, have to defer creating the backup till we know it's not empty.
+            backup_path, data_path, start_info = self._initialise_backup(start_time)
 
         backup_plan = self._compute_backup_plan(backup_sum)
-        if self._is_backup_plan_empty(backup_plan):
-            return None
 
         if self.skip_empty:
-            backup_path = self._create_backup_directory()
-            data_path = self._create_data_directory(backup_path)
-            start_info = self._create_and_write_start_info(backup_path, start_time)
+            if self._is_backup_plan_empty(backup_plan):
+                return None
+
+            backup_path, data_path, start_info = self._initialise_backup(start_time)
 
         execute_results = self._back_up_files(data_path, backup_plan)
         complete_info = self._create_complete_info()
@@ -207,6 +215,19 @@ class _BackupOperation:
         self.callbacks.on_after_read_previous_backups(backups)
 
         return backups
+
+    def _initialise_backup(self, start_time: datetime) -> tuple[Path, Path, BackupStartInfo]:
+        """Creates the backup directory and start info file.
+
+            :return: Tuple of (backup_path, data_path, start_info).
+            :except BackupError: If a fatal error occurs.
+        """
+
+        self.callbacks.on_before_initialise_backup()
+        backup_path = self._create_backup_directory()
+        data_path = self._create_data_directory(backup_path)
+        start_info = self._create_and_write_start_info(backup_path, start_time)
+        return backup_path, data_path, start_info
 
     @staticmethod
     def _is_backup_plan_empty(backup_plan: BackupPlan) -> bool:
