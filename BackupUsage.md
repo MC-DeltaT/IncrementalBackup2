@@ -5,7 +5,7 @@ This command is used to create new incremental backups.
 ## Usage
 
 ```
-python3 -m incremental_backup backup <source_dir> <target_dir> [--exclude <exclude_pattern1> [<exclude_pattern2> ...]]
+python3 -m incremental_backup backup <source_dir> <target_dir> [--exclude <exclude_pattern1> [<exclude_pattern2> ...]] [--skip-empty]
 ```
 
 `<source_dir>` - The path of the directory to be backed up.
@@ -15,6 +15,9 @@ It's highly recommended that `<target_dir>` is not contained within `<source_dir
 
 `<exclude_pattern>` - Regular expressions to match paths in the source directory that will be excluded from the backup.
 Please see the _Path Exclude Patterns_ section for details.
+
+`--skip-empty` - If specified, a backup is only created if some files changed.
+Useful to avoid accumulating a large amount of empty backups, which may improve the performance of the tool.
 
 ## Theory of Operation
 
