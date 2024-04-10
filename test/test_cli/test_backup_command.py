@@ -7,6 +7,7 @@ from incremental_backup.meta.manifest import BackupManifest, read_backup_manifes
 from helpers import AssertFilesystemUnmodified, dir_entries, run_application, unordered_equal, write_file_with_mtime
 
 
+# TODO: should mock away backup calls
 # TODO? check program console output
 
 

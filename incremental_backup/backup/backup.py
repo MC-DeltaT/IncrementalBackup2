@@ -86,7 +86,7 @@ def perform_backup(source_directory: StrPath, target_directory: StrPath, exclude
                    callbacks: BackupCallbacks = BackupCallbacks(), skip_empty: bool = False) -> Optional[BackupResults]:
     ...
 
-# TODO: clean up this interface. Have an "options" object argument rather than overloads
+# TODO: (breaking) clean up this interface. Have an "options" object argument rather than overloads
 def perform_backup(source_directory: StrPath, target_directory: StrPath, exclude_patterns: Iterable[PathExcludePattern],
                    callbacks: BackupCallbacks = BackupCallbacks(), skip_empty: bool = False) -> Optional[BackupResults]:
     """Performs the entire operation of creating a new backup, including creating the backup directory, copying files,

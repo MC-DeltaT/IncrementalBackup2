@@ -25,7 +25,7 @@ class CommandError(Exception):
 class CommandArgumentError(CommandError):
     """Indicates that command line arguments are invalid."""
 
-    # TODO: remove usage
+    # TODO: (breaking) remove usage
     def __init__(self, message: str, usage: Optional[str] = None) -> None:
         """
             :param message: Specific description of the error.
