@@ -32,11 +32,7 @@ General usage:
 - Windows or Linux system
 - Python 3.9 or newer
 
-Development:
-
-- Pytest (any recent version should do)
-- Ruff
-- pre-commit
+Development: `requirements-dev.txt`
 
 ## Application Structure
 
