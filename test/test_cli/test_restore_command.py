@@ -3,6 +3,7 @@ from pathlib import Path
 from helpers import AssertFilesystemUnmodified, dir_entries, run_application
 
 
+# TODO: should mock away restore calls
 # TODO? check program console output
 
 

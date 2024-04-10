@@ -22,7 +22,7 @@ class Command(Protocol):
 
         raise NotImplementedError()
 
-    # TODO: pass args as a struct for backwards compatibility
+    # TODO: (breaking) pass args as a struct for backwards compatibility
     def __init__(self, arguments: argparse.Namespace, /) -> None:
         """
             :param arguments: The parsed command line arguments object acquired from argparse.

@@ -38,7 +38,7 @@ def cli_main(arguments: Sequence[str], /) -> int:
         command_instance.run()
         return EXIT_CODE_SUCCESS
     except CommandArgumentError as e:
-        if e.usage is None: # TODO: remove when usage is removed
+        if e.usage is None: # TODO: (breaking) remove when usage is removed
             arg_parser.print_usage(sys.stderr)
         else:
             print(e.usage, file=sys.stderr)
