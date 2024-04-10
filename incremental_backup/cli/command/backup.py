@@ -32,7 +32,7 @@ class BackupCommand(Command):
         parser.add_argument(
             '--exclude', nargs='+', type=PathExcludePattern, required=False, help='Path patterns to exclude.')
         parser.add_argument('--skip-empty', action='store_true', default=False,
-            help='Only create a backup if there are file changes.')
+            help='Only back up if there are file changes to record.')
 
     def __init__(self, arguments: argparse.Namespace, /) -> None:
         """
@@ -106,6 +106,8 @@ class BackupCommand(Command):
                 print(f'  {pattern}')
         else:
             print('  <none>')
+        if self.skip_empty:
+            print('Skip empty backup: yes')
         print()
 
     @staticmethod
@@ -115,3 +117,5 @@ class BackupCommand(Command):
         files_copied = results.files_copied if results else 0
         files_removed = results.files_removed if results else 0
         print(f'+{files_copied} / -{files_removed} files')
+        if results is None:
+            print('Skipping empty backup')
