@@ -718,7 +718,7 @@ def test_perform_backup_some_invalid_backups(tmpdir: Path) -> None:
 
 
 def test_perform_backup_skip_empty(tmpdir: Path) -> None:
-    # Target directory exists but is empty.
+    # skip_empty option is specified and there are no changes to record.
 
     source_path = tmpdir / 'source'
     source_path.mkdir()
