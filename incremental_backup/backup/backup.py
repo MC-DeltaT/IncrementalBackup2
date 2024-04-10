@@ -96,8 +96,8 @@ def perform_backup(source_directory: StrPath, target_directory: StrPath, exclude
         :param target_directory: Directory to create the new backup in, and where any previous backups are read from.
             Need not exist.
         :param exclude_patterns: Patterns to match paths which will be excluded from the backup.
-        :param skip_empty: Only perform the backup if there are file changes to record.
         :param callbacks: Callbacks for certain events during execution. See `BackupCallbacks`.
+        :param skip_empty: Only perform the backup if there are file changes to record.
         :return: Metadata and summary information for the backup operation. None if the backup was skipped.
         :except BackupError: If an error occurs that prevents the backup operation from creating a valid backup. See
             `BackupError`.
