@@ -1,6 +1,6 @@
 import argparse
 from pathlib import Path
-from typing import Sequence
+from typing import Optional, Sequence
 
 from incremental_backup.backup import BackupCallbacks, BackupError, BackupResults, ExecuteBackupPlanCallbacks, \
     perform_backup, ScanFilesystemCallbacks
@@ -31,6 +31,8 @@ class BackupCommand(Command):
         parser.add_argument('target_dir', type=Path, help='Directory to back up into.')
         parser.add_argument(
             '--exclude', nargs='+', type=PathExcludePattern, required=False, help='Path patterns to exclude.')
+        parser.add_argument('--skip-empty', action='store_true', default=False,
+            help='Only back up if there are file changes to record.')
 
     def __init__(self, arguments: argparse.Namespace, /) -> None:
         """
@@ -41,6 +43,7 @@ class BackupCommand(Command):
         self.source_path: Path = arguments.source_dir
         self.target_path: Path = arguments.target_dir
         self.exclude_patterns: Sequence[PathExcludePattern] = arguments.exclude or ()
+        self.skip_empty: bool = arguments.skip_empty
 
     def run(self) -> None:
         """Executes the backup command.
@@ -53,7 +56,8 @@ class BackupCommand(Command):
         callbacks = self._backup_callbacks()
 
         try:
-            results = perform_backup(self.source_path, self.target_path, self.exclude_patterns, callbacks)
+            results = perform_backup(
+                self.source_path, self.target_path, self.exclude_patterns, callbacks, self.skip_empty)
         except BackupError as e:
             raise CommandRuntimeError(str(e)) from e
 
@@ -102,10 +106,16 @@ class BackupCommand(Command):
                 print(f'  {pattern}')
         else:
             print('  <none>')
+        if self.skip_empty:
+            print('Skip empty backup: yes')
         print()
 
     @staticmethod
-    def _print_results(results: BackupResults, /) -> None:
+    def _print_results(results: Optional[BackupResults], /) -> None:
         """Prints backup results to the console."""
 
-        print(f'+{results.files_copied} / -{results.files_removed} files')
+        files_copied = results.files_copied if results else 0
+        files_removed = results.files_removed if results else 0
+        print(f'+{files_copied} / -{files_removed} files')
+        if results is None:
+            print('Skipping empty backup')

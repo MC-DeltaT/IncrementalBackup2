@@ -15,6 +15,9 @@ from incremental_backup.path_exclude import PathExcludePattern
 from helpers import AssertFilesystemUnmodified, dir_entries, unordered_equal, write_file_with_mtime
 
 
+# TODO: clean up tests, this is quite messy. should abstract more and have more predictable file names.
+
+
 def test_perform_backup_nonexistent_source(tmpdir: Path) -> None:
     source_path = tmpdir / 'source'
 
@@ -712,6 +715,56 @@ def test_perform_backup_some_invalid_backups(tmpdir: Path) -> None:
 ]'''
 
     assert actual_manifest_str == expected_manifest_str
+
+
+def test_perform_backup_skip_empty(tmpdir: Path) -> None:
+    # skip_empty option is specified and there are no changes to record.
+
+    source_path = tmpdir / 'source'
+    source_path.mkdir()
+
+    target_path = tmpdir / 'target'
+    target_path.mkdir()
+
+    actual_callbacks: list[Any] = []
+
+    callbacks = BackupCallbacks(
+        on_before_read_previous_backups=lambda: actual_callbacks.append('before_read_previous_backups'),
+        read_backups=ReadBackupsCallbacks(
+            on_query_entry_error=lambda path, error: pytest.fail(f'Unexpected on_query_entry_error: {path=} {error=}'),
+            on_read_metadata_error=lambda path, error:
+                pytest.fail(f'Unexpected on_read_metadata_error: {path=} {error=}')
+        ),
+        on_after_read_previous_backups=lambda backups:
+            actual_callbacks.append(('after_read_previous_backups', backups)),
+        on_before_initialise_backup=lambda: actual_callbacks.append('before_initialise_backup'),
+        on_created_backup_directory=lambda path: actual_callbacks.append(('created_backup_directory', path)),
+        on_before_scan_source=lambda: actual_callbacks.append('before_scan_source'),
+        scan_source=ScanFilesystemCallbacks(
+            on_exclude=lambda path: pytest.fail(f'Unexpected on_exclude: {path=}'),
+            on_listdir_error=lambda path, error: pytest.fail(f'Unexpected on_listdir_error: {path=} {error=}'),
+            on_metadata_error=lambda path, error: pytest.fail(f'Unexpected on_metadata_error: {path=} {error=}')
+        ),
+        on_before_copy_files=lambda: actual_callbacks.append('before_copy_files'),
+        execute_plan=ExecuteBackupPlanCallbacks(
+            on_mkdir_error=lambda path, error: pytest.fail(f'Unexpected on_mkdir_error: {path=} {error=}'),
+            on_copy_error=lambda src, dest, error: pytest.fail(f'Unexpected on_copy_error: {src=} {dest=} {error}=')
+        ),
+        on_before_save_metadata=lambda: actual_callbacks.append('before_save_metadata'),
+        on_write_complete_info_error=lambda path, error:
+            pytest.fail(f'Unexpected on_write_complete_info_error: {path=} {error=}')
+    )
+
+    with AssertFilesystemUnmodified(tmpdir):
+        results = perform_backup(source_path, target_path, (), callbacks, skip_empty=True)
+
+    assert results is None
+
+    assert actual_callbacks == [
+        'before_read_previous_backups',
+        ('after_read_previous_backups', ()),
+        'before_scan_source'
+    ]
 
 
 METADATA_TIME_TOLERANCE = 5     # Seconds
