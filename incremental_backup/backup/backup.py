@@ -1,26 +1,40 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Iterable, Optional, overload, Sequence
+from typing import Callable, Iterable, Optional, Sequence, overload
 
-from incremental_backup.backup.filesystem import scan_filesystem, ScanFilesystemCallbacks
-from incremental_backup.backup.plan import BackupPlan, execute_backup_plan, ExecuteBackupPlanCallbacks, \
-    ExecuteBackupPlanResults
-from incremental_backup.backup.sum import BackupSum
-from incremental_backup.meta import BackupCompleteInfo, BackupDirectoryCreationError, BackupManifest, \
-    BackupMetadata, BackupStartInfo, COMPLETE_INFO_FILENAME, create_new_backup_directory, \
-    DATA_DIRECTORY_NAME, MANIFEST_FILENAME, read_backups, ReadBackupsCallbacks, START_INFO_FILENAME, \
-    write_backup_complete_info_file, write_backup_manifest_file, write_backup_start_info_file
-from incremental_backup.path_exclude import PathExcludePattern
 from incremental_backup._utility import StrPath
+from incremental_backup.backup.filesystem import (
+    ScanFilesystemCallbacks,
+    scan_filesystem,
+)
+from incremental_backup.backup.plan import (
+    BackupPlan,
+    ExecuteBackupPlanCallbacks,
+    ExecuteBackupPlanResults,
+    execute_backup_plan,
+)
+from incremental_backup.backup.sum import BackupSum
+from incremental_backup.meta import (
+    COMPLETE_INFO_FILENAME,
+    DATA_DIRECTORY_NAME,
+    MANIFEST_FILENAME,
+    START_INFO_FILENAME,
+    BackupCompleteInfo,
+    BackupDirectoryCreationError,
+    BackupManifest,
+    BackupMetadata,
+    BackupStartInfo,
+    ReadBackupsCallbacks,
+    create_new_backup_directory,
+    read_backups,
+    write_backup_complete_info_file,
+    write_backup_manifest_file,
+    write_backup_start_info_file,
+)
+from incremental_backup.path_exclude import PathExcludePattern
 
-
-__all__ = [
-    'BackupCallbacks',
-    'BackupError',
-    'BackupResults',
-    'perform_backup'
-]
+__all__ = ["BackupCallbacks", "BackupError", "BackupResults", "perform_backup"]
 
 
 @dataclass(frozen=True)
@@ -77,41 +91,62 @@ class BackupCallbacks:
 
 
 @overload
-def perform_backup(source_directory: StrPath, target_directory: StrPath, exclude_patterns: Iterable[PathExcludePattern],
-                   callbacks: BackupCallbacks = BackupCallbacks()) -> BackupResults:
-    ...
+def perform_backup(
+    source_directory: StrPath,
+    target_directory: StrPath,
+    exclude_patterns: Iterable[PathExcludePattern],
+    callbacks: BackupCallbacks = BackupCallbacks(),
+) -> BackupResults: ...
+
 
 @overload
-def perform_backup(source_directory: StrPath, target_directory: StrPath, exclude_patterns: Iterable[PathExcludePattern],
-                   callbacks: BackupCallbacks = BackupCallbacks(), skip_empty: bool = False) -> Optional[BackupResults]:
-    ...
+def perform_backup(
+    source_directory: StrPath,
+    target_directory: StrPath,
+    exclude_patterns: Iterable[PathExcludePattern],
+    callbacks: BackupCallbacks = BackupCallbacks(),
+    skip_empty: bool = False,
+) -> Optional[BackupResults]: ...
+
 
 # TODO: (breaking) clean up this interface. Have an "options" object argument rather than overloads
-def perform_backup(source_directory: StrPath, target_directory: StrPath, exclude_patterns: Iterable[PathExcludePattern],
-                   callbacks: BackupCallbacks = BackupCallbacks(), skip_empty: bool = False) -> Optional[BackupResults]:
+def perform_backup(
+    source_directory: StrPath,
+    target_directory: StrPath,
+    exclude_patterns: Iterable[PathExcludePattern],
+    callbacks: BackupCallbacks = BackupCallbacks(),
+    skip_empty: bool = False,
+) -> Optional[BackupResults]:
     """Performs the entire operation of creating a new backup, including creating the backup directory, copying files,
-        and saving metadata.
+    and saving metadata.
 
-        :param source_directory: Directory to back up.
-        :param target_directory: Directory to create the new backup in, and where any previous backups are read from.
-            Need not exist.
-        :param exclude_patterns: Patterns to match paths which will be excluded from the backup.
-        :param callbacks: Callbacks for certain events during execution. See `BackupCallbacks`.
-        :param skip_empty: Only perform the backup if there are file changes to record.
-        :return: Metadata and summary information for the backup operation. None if the backup was skipped.
-        :except BackupError: If an error occurs that prevents the backup operation from creating a valid backup. See
-            `BackupError`.
+    :param source_directory: Directory to back up.
+    :param target_directory: Directory to create the new backup in, and where any previous backups are read from.
+        Need not exist.
+    :param exclude_patterns: Patterns to match paths which will be excluded from the backup.
+    :param callbacks: Callbacks for certain events during execution. See `BackupCallbacks`.
+    :param skip_empty: Only perform the backup if there are file changes to record.
+    :return: Metadata and summary information for the backup operation. None if the backup was skipped.
+    :except BackupError: If an error occurs that prevents the backup operation from creating a valid backup. See
+        `BackupError`.
     """
 
-    return _BackupOperation(source_directory, target_directory, exclude_patterns, skip_empty, callbacks).perform_backup()
+    return _BackupOperation(
+        source_directory, target_directory, exclude_patterns, skip_empty, callbacks
+    ).perform_backup()
 
 
 class _BackupOperation:
     """Implementation of the backup creation operation."""
 
-    def __init__(self, source_directory: StrPath, target_directory: StrPath,
-                 exclude_patterns: Iterable[PathExcludePattern], skip_empty: bool,
-                 callbacks: BackupCallbacks = BackupCallbacks()) -> None:
+    def __init__(
+        self,
+        source_directory: StrPath,
+        target_directory: StrPath,
+        exclude_patterns: Iterable[PathExcludePattern],
+        skip_empty: bool,
+        callbacks: BackupCallbacks = BackupCallbacks(),
+    ) -> None:
         self.source_directory = Path(source_directory)
         self.target_directory = Path(target_directory)
         self.exclude_patterns = tuple(exclude_patterns)
@@ -123,8 +158,8 @@ class _BackupOperation:
     def perform_backup(self) -> Optional[BackupResults]:
         """Creates a new backup.
 
-            :except BackupError: If an error occurs that prevents the backup operation from creating a valid backup. See
-                `BackupError`.
+        :except BackupError: If an error occurs that prevents the backup operation from creating a valid backup. See
+            `BackupError`.
         """
 
         self._init_working_state()
@@ -157,8 +192,13 @@ class _BackupOperation:
         self._save_complete_info(backup_path, complete_info)
 
         return BackupResults(
-            backup_path, start_info, execute_results.manifest, complete_info, execute_results.files_copied,
-            execute_results.files_removed)
+            backup_path,
+            start_info,
+            execute_results.manifest,
+            complete_info,
+            execute_results.files_copied,
+            execute_results.files_removed,
+        )
 
     def _init_working_state(self) -> None:
         """Initialises various shared data used by and operated on by the methods in this class."""
@@ -167,38 +207,38 @@ class _BackupOperation:
 
     def _validate_source_directory(self) -> None:
         """Validates the backup source directory.
-            Should mostly prevent other parts of the backup operation from failing strangely for invalid inputs.
+        Should mostly prevent other parts of the backup operation from failing strangely for invalid inputs.
 
-            :except BackupError: If the source directory is not an accessible directory.
+        :except BackupError: If the source directory is not an accessible directory.
         """
 
         try:
             if not self.source_directory.exists():
-                raise BackupError('Source directory not found')
+                raise BackupError("Source directory not found")
             if not self.source_directory.is_dir():
-                raise BackupError('Source directory is not a directory')
+                raise BackupError("Source directory is not a directory")
         except OSError as e:
-            raise BackupError(f'Failed to query source directory: {e}') from e
+            raise BackupError(f"Failed to query source directory: {e}") from e
 
     def _validate_target_directory(self) -> None:
         """Validates the backup target directory.
-            Should mostly prevent other parts of the backup operation from failing strangely for invalid inputs.
+        Should mostly prevent other parts of the backup operation from failing strangely for invalid inputs.
 
-            :except BackupError: If the target directory is inaccessible, or exists and is not a directory.
+        :except BackupError: If the target directory is inaccessible, or exists and is not a directory.
         """
 
         try:
             if self.target_directory.exists() and not self.target_directory.is_dir():
-                raise BackupError('Target directory is not a directory')
+                raise BackupError("Target directory is not a directory")
         except OSError as e:
-            raise BackupError(f'Failed to query target directory: {e}') from e
+            raise BackupError(f"Failed to query target directory: {e}") from e
 
     def _read_previous_backups(self) -> Sequence[BackupMetadata]:
         """Reads existing backups' metadata from the backup target directory.
 
-            If any backup's metadata cannot be read, skips that backup.
+        If any backup's metadata cannot be read, skips that backup.
 
-            :except BackupError: If the target directory cannot be enumerated.
+        :except BackupError: If the target directory cannot be enumerated.
         """
 
         self.callbacks.on_before_read_previous_backups()
@@ -209,7 +249,7 @@ class _BackupOperation:
             else:
                 backups = read_backups(self.target_directory, self.callbacks.read_backups)
         except OSError as e:
-            raise BackupError(f'Failed to enumerate target directory: {e}') from e
+            raise BackupError(f"Failed to enumerate target directory: {e}") from e
         backups = tuple(backups)
 
         self.callbacks.on_after_read_previous_backups(backups)
@@ -219,8 +259,8 @@ class _BackupOperation:
     def _initialise_backup(self, start_time: datetime) -> tuple[Path, Path, BackupStartInfo]:
         """Creates the backup directory and start info file.
 
-            :return: Tuple of (backup_path, data_path, start_info).
-            :except BackupError: If a fatal error occurs.
+        :return: Tuple of (backup_path, data_path, start_info).
+        :except BackupError: If a fatal error occurs.
         """
 
         self.callbacks.on_before_initialise_backup()
@@ -232,13 +272,20 @@ class _BackupOperation:
     @staticmethod
     def _is_backup_plan_empty(backup_plan: BackupPlan) -> bool:
         root = backup_plan.root
-        return not (root.copied_files or root.removed_files or root.removed_directories or root.subdirectories
-            or root.contains_copied_files or root.contains_removed_items or root.removed_directory_file_count)
+        return not (
+            root.copied_files
+            or root.removed_files
+            or root.removed_directories
+            or root.subdirectories
+            or root.contains_copied_files
+            or root.contains_removed_items
+            or root.removed_directory_file_count
+        )
 
     def _create_backup_directory(self) -> Path:
         """Creates a new backup directory within the target directory.
 
-            :except BackupError: If the directory could not be created.
+        :except BackupError: If the directory could not be created.
         """
 
         try:
@@ -256,22 +303,22 @@ class _BackupOperation:
     def _create_data_directory(backup_path: Path, /) -> Path:
         """Creates the backup data directory (directory which contains the copied files).
 
-            :return: Path to the created directory.
-            :except BackupError: If the directory could not be created.
+        :return: Path to the created directory.
+        :except BackupError: If the directory could not be created.
         """
 
         path = backup_path / DATA_DIRECTORY_NAME
         try:
             path.mkdir(parents=True, exist_ok=False)
         except OSError as e:
-            raise BackupError(f'Failed to create backup data directory: {e}') from e
+            raise BackupError(f"Failed to create backup data directory: {e}") from e
         return path
 
     @staticmethod
     def _create_and_write_start_info(backup_path: Path, start_time: datetime) -> BackupStartInfo:
         """Creates and writes the backup start information to file within the backup directory.
 
-            :except BackupError: If the file could not be written to.
+        :except BackupError: If the file could not be written to.
         """
 
         start_info = BackupStartInfo(start_time)
@@ -279,7 +326,7 @@ class _BackupOperation:
         try:
             write_backup_start_info_file(file_path, start_info)
         except OSError as e:
-            raise BackupError(f'Failed to write backup start information file: {e}') from e
+            raise BackupError(f"Failed to write backup start information file: {e}") from e
         return start_info
 
     def _compute_backup_plan(self, backup_sum: BackupSum) -> BackupPlan:
@@ -298,7 +345,11 @@ class _BackupOperation:
         self.callbacks.on_before_copy_files()
 
         execute_results = execute_backup_plan(
-            backup_plan, self.source_directory, destination_path, self.callbacks.execute_plan)
+            backup_plan,
+            self.source_directory,
+            destination_path,
+            self.callbacks.execute_plan,
+        )
 
         self.paths_skipped = self.paths_skipped or execute_results.paths_skipped
 
@@ -311,20 +362,20 @@ class _BackupOperation:
     def _save_manifest(backup_path: Path, manifest: BackupManifest) -> None:
         """Writes the backup manifest to file within the backup directory.
 
-            :except BackupError: If the file could not be written to.
+        :except BackupError: If the file could not be written to.
         """
 
         file_path = backup_path / MANIFEST_FILENAME
         try:
             write_backup_manifest_file(file_path, manifest)
         except OSError as e:
-            raise BackupError(f'Failed to write backup manifest file: {e}') from e
+            raise BackupError(f"Failed to write backup manifest file: {e}") from e
 
     def _save_complete_info(self, backup_path: Path, complete_info: BackupCompleteInfo) -> None:
         """Writes the backup completion information to file within the backup directory.
 
-            It is not a fatal error if this operation fails, since the completion information is not required by the
-            application at this time."""
+        It is not a fatal error if this operation fails, since the completion information is not required by the
+        application at this time."""
 
         file_path = backup_path / COMPLETE_INFO_FILENAME
         try:
@@ -337,11 +388,11 @@ class _BackupOperation:
 class BackupError(Exception):
     """Raised when creating a backup fails such that a valid backup cannot be produced.
 
-        Some cases where this exception is raised:
-         - The source directory cannot be accessed at all.
-         - A new backup directory couldn't be created.
-         - Writing the backup start information file failed.
-         - Writing the backup manifest file failed.
+    Some cases where this exception is raised:
+     - The source directory cannot be accessed at all.
+     - A new backup directory couldn't be created.
+     - Writing the backup start information file failed.
+     - Writing the backup manifest file failed.
     """
 
     def __init__(self, message: str) -> None:

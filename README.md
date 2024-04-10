@@ -35,6 +35,7 @@ General usage:
 Development:
 
 - Pytest (any recent version should do)
+- Ruff
 
 ## Application Structure
 

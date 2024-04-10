@@ -1,21 +1,27 @@
+import shutil
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-import shutil
 from typing import Any, Callable
 
-from incremental_backup.meta import BackupMetadata, COMPLETE_INFO_FILENAME, DATA_DIRECTORY_NAME, MANIFEST_FILENAME, \
-    read_backups, ReadBackupsCallbacks, START_INFO_FILENAME
 from incremental_backup._utility import StrPath
-
+from incremental_backup.meta import (
+    COMPLETE_INFO_FILENAME,
+    DATA_DIRECTORY_NAME,
+    MANIFEST_FILENAME,
+    START_INFO_FILENAME,
+    BackupMetadata,
+    ReadBackupsCallbacks,
+    read_backups,
+)
 
 __all__ = [
-    'BackupPrunabilityOptions',
-    'is_backup_prunable',
-    'prune_backups',
-    'PruneBackupsCallbacks',
-    'PruneBackupsError',
-    'PruneBackupsResults'
+    "BackupPrunabilityOptions",
+    "is_backup_prunable",
+    "prune_backups",
+    "PruneBackupsCallbacks",
+    "PruneBackupsError",
+    "PruneBackupsResults",
 ]
 
 
@@ -30,19 +36,27 @@ class BackupPrunabilityOptions:
     """If true, allow deleting backups containing files not recognised by this application."""
 
 
-def is_backup_prunable(backup_path: StrPath, backup_metadata: BackupMetadata, options: BackupPrunabilityOptions, /) \
-        -> bool:
+def is_backup_prunable(
+    backup_path: StrPath,
+    backup_metadata: BackupMetadata,
+    options: BackupPrunabilityOptions,
+    /,
+) -> bool:
     """Checks if a backup is useless and can be deleted.
-    
-        :except OSError: If querying the backup contents failed.
+
+    :except OSError: If querying the backup contents failed.
     """
 
     backup_path = Path(backup_path)
 
     def is_backup_empty() -> bool:
         manifest_root = backup_metadata.manifest.root
-        manifest_nonempty = (manifest_root.copied_files or manifest_root.removed_files
-            or manifest_root.removed_directories or manifest_root.subdirectories)
+        manifest_nonempty = (
+            manifest_root.copied_files
+            or manifest_root.removed_files
+            or manifest_root.removed_directories
+            or manifest_root.subdirectories
+        )
         if manifest_nonempty:
             return False
 
@@ -51,23 +65,28 @@ def is_backup_prunable(backup_path: StrPath, backup_metadata: BackupMetadata, op
         data_nonempty = len(list(data_dir.iterdir())) > 0
         if data_nonempty:
             return False
-    
+
         return True
 
     def backup_contains_other_data() -> bool:
         # Can raise OSError
         backup_contents = {entry.name for entry in backup_path.iterdir()}
-        expected_contents = {START_INFO_FILENAME, MANIFEST_FILENAME, COMPLETE_INFO_FILENAME, DATA_DIRECTORY_NAME}
+        expected_contents = {
+            START_INFO_FILENAME,
+            MANIFEST_FILENAME,
+            COMPLETE_INFO_FILENAME,
+            DATA_DIRECTORY_NAME,
+        }
         return backup_contents != expected_contents
 
     prunable = False
     if options.prune_empty and is_backup_empty():
         prunable = True
-    
+
     if prunable and (not options.prune_other_data) and backup_contains_other_data():
         # If there is other data than just the backup, don't delete.
         prunable = False
-    
+
     return prunable
 
 
@@ -115,16 +134,19 @@ class PruneBackupsResults:
     """The number of valid backups not removed."""
 
 
-def prune_backups(backup_target_directory: StrPath, config: PruneBackupsConfig,
-        callbacks: PruneBackupsCallbacks = PruneBackupsCallbacks()) -> PruneBackupsResults:
+def prune_backups(
+    backup_target_directory: StrPath,
+    config: PruneBackupsConfig,
+    callbacks: PruneBackupsCallbacks = PruneBackupsCallbacks(),
+) -> PruneBackupsResults:
     """Deletes backups which are not useful.
-    
-        :param backup_target_directory: The directory containing the backups which are being examined. I.e. the
-            "target directory" from the backup creation operation.
-        :param config: Options to tune what and how backups are pruned.
-        :param callbacks: Callbacks for certain events during execution. See `PruneBackupsCallbacks`.
-        :return: Summary information for the prune operation.
-        :except PruneBackupsError: If an error occurs that prevents the prune operation from completing.
+
+    :param backup_target_directory: The directory containing the backups which are being examined. I.e. the
+        "target directory" from the backup creation operation.
+    :param config: Options to tune what and how backups are pruned.
+    :param callbacks: Callbacks for certain events during execution. See `PruneBackupsCallbacks`.
+    :return: Summary information for the prune operation.
+    :except PruneBackupsError: If an error occurs that prevents the prune operation from completing.
     """
 
     backup_target_directory = Path(backup_target_directory)
@@ -134,7 +156,7 @@ def prune_backups(backup_target_directory: StrPath, config: PruneBackupsConfig,
     try:
         backups = read_backups(backup_target_directory, callbacks.read_backups)
     except OSError as e:
-        raise PruneBackupsError(f'Failed to query backup target directory: {e}') from e
+        raise PruneBackupsError(f"Failed to query backup target directory: {e}") from e
     callbacks.on_after_read_backups(tuple(backups))
 
     prunable_backups: list[BackupMetadata] = []
@@ -168,10 +190,10 @@ def prune_backups(backup_target_directory: StrPath, config: PruneBackupsConfig,
                 # Unclear if exceptions can still occur when onerror is provided.
                 callbacks.on_delete_error(backup_path, e)
                 success = False
-        
+
         if success:
             empty_backups_removed += 1
-    
+
     total_backups_removed = empty_backups_removed
     backups_remaining = len(backups) - total_backups_removed
     return PruneBackupsResults(empty_backups_removed, total_backups_removed, backups_remaining)

@@ -1,27 +1,26 @@
+import shutil
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-import shutil
 from typing import Callable, Optional
 
+from incremental_backup._utility import StrPath, path_name_equal
 from incremental_backup.backup import filesystem
 from incremental_backup.backup.sum import BackupSum
 from incremental_backup.meta import BackupManifest
-from incremental_backup._utility import path_name_equal, StrPath
-
 
 __all__ = [
-    'BackupPlan',
-    'execute_backup_plan',
-    'ExecuteBackupPlanCallbacks',
-    'ExecuteBackupPlanResults'
+    "BackupPlan",
+    "execute_backup_plan",
+    "ExecuteBackupPlanCallbacks",
+    "ExecuteBackupPlanResults",
 ]
 
 
 @dataclass
 class BackupPlan:
     """The data required to perform a backup operation.
-        Describes which files are to be copied, as well as information for creating the backup manifest."""
+    Describes which files are to be copied, as well as information for creating the backup manifest."""
 
     @dataclass
     class Directory:
@@ -29,7 +28,7 @@ class BackupPlan:
         copied_files: list[str] = field(default_factory=list)
         removed_files: list[str] = field(default_factory=list)
         removed_directories: list[str] = field(default_factory=list)
-        subdirectories: list['BackupPlan.Directory'] = field(default_factory=list)
+        subdirectories: list["BackupPlan.Directory"] = field(default_factory=list)
         contains_copied_files: bool = False
         """Indicates if this directory or any of its descendents contain any copied files."""
         contains_removed_items: bool = False
@@ -37,10 +36,10 @@ class BackupPlan:
         removed_directory_file_count: int = 0
         """The total number of files previously contained in the removed subdirectories."""
 
-    root: Directory = field(default_factory=lambda: BackupPlan.Directory(''))
+    root: Directory = field(default_factory=lambda: BackupPlan.Directory(""))
 
     @classmethod
-    def new(cls, source_tree: filesystem.Directory, backup_sum: BackupSum) -> 'BackupPlan':
+    def new(cls, source_tree: filesystem.Directory, backup_sum: BackupSum) -> "BackupPlan":
         """Constructs a backup plan from the backup source directory state and previous backup sum."""
 
         plan = cls()
@@ -74,8 +73,13 @@ class BackupPlan:
                     backup_sum_directory = None
                 else:
                     backup_sum_directory = next(
-                        (d for d in backup_sum_stack[-1].subdirectories
-                         if path_name_equal(d.name, search_directory.name)), None)
+                        (
+                            d
+                            for d in backup_sum_stack[-1].subdirectories
+                            if path_name_equal(d.name, search_directory.name)
+                        ),
+                        None,
+                    )
                 backup_sum_stack.append(backup_sum_directory)
                 search_stack.append(pop_backup_sum_node)
 
@@ -88,21 +92,31 @@ class BackupPlan:
 
                 for current_file in search_directory.files:
                     backed_up_file = next(
-                        (f for f in backup_sum_directory.files if path_name_equal(f.name, current_file.name)), None)
+                        (f for f in backup_sum_directory.files if path_name_equal(f.name, current_file.name)),
+                        None,
+                    )
                     # File never backed up or modified since last backup.
-                    if (backed_up_file is None
-                            or current_file.last_modified > backed_up_file.last_backup.start_info.start_time):
+                    if (
+                        backed_up_file is None
+                        or current_file.last_modified > backed_up_file.last_backup.start_info.start_time
+                    ):
                         plan_directory.copied_files.append(current_file.name)
 
                 plan_directory.removed_files.extend(
-                    f.name for f in backup_sum_directory.files
-                    if not any(path_name_equal(f.name, f2.name) for f2 in search_directory.files))
+                    f.name
+                    for f in backup_sum_directory.files
+                    if not any(path_name_equal(f.name, f2.name) for f2 in search_directory.files)
+                )
 
-                removed_directories = \
-                    [d for d in backup_sum_directory.subdirectories
-                     if not any(path_name_equal(d.name, d2.name) for d2 in search_directory.subdirectories)]
+                removed_directories = [
+                    d
+                    for d in backup_sum_directory.subdirectories
+                    if not any(path_name_equal(d.name, d2.name) for d2 in search_directory.subdirectories)
+                ]
                 plan_directory.removed_directories.extend(d.name for d in removed_directories)
-                plan_directory.removed_directory_file_count = sum(d.count_contained_files() for d in removed_directories)
+                plan_directory.removed_directory_file_count = sum(
+                    d.count_contained_files() for d in removed_directories
+                )
 
             # Need to use partial instead of lambda to avoid name rebinding issues.
             search_stack.extend(partial(visit_directory, d) for d in reversed(search_directory.subdirectories))
@@ -152,23 +166,26 @@ class ExecuteBackupPlanCallbacks:
         exception."""
 
 
-def execute_backup_plan(backup_plan: BackupPlan, source_directory: StrPath, destination_directory: StrPath,
-                        callbacks: ExecuteBackupPlanCallbacks = ExecuteBackupPlanCallbacks()) \
-        -> ExecuteBackupPlanResults:
+def execute_backup_plan(
+    backup_plan: BackupPlan,
+    source_directory: StrPath,
+    destination_directory: StrPath,
+    callbacks: ExecuteBackupPlanCallbacks = ExecuteBackupPlanCallbacks(),
+) -> ExecuteBackupPlanResults:
     """Enacts a backup plan, copying files and creating the backup manifest.
 
-        If a file cannot be backup up (i.e. copied), it is ignored and excluded from the manifest.
+    If a file cannot be backup up (i.e. copied), it is ignored and excluded from the manifest.
 
-        If a directory cannot be created, no files will be backed up into it or its (planned) child directories.
-        Any files planned to be backed up within it will not be copied and will be excluded from the manifest.
-        However, any removed files or directories within it will still be recorded in the manifest.
+    If a directory cannot be created, no files will be backed up into it or its (planned) child directories.
+    Any files planned to be backed up within it will not be copied and will be excluded from the manifest.
+    However, any removed files or directories within it will still be recorded in the manifest.
 
-        :param backup_plan: The backup plan to enact. Should be based off `source_directory`, otherwise the results will
-            be nonsense.
-        :param source_directory: The backup source directory; where files are copied from.
-        :param destination_directory: The location to copy files to. Need not exist. This directory itself represents
-            the backup source directory.
-        :param callbacks: Callbacks for certain events during execution. See `ExecuteBackupPlanCallbacks`.
+    :param backup_plan: The backup plan to enact. Should be based off `source_directory`, otherwise the results will
+        be nonsense.
+    :param source_directory: The backup source directory; where files are copied from.
+    :param destination_directory: The location to copy files to. Need not exist. This directory itself represents
+        the backup source directory.
+    :param callbacks: Callbacks for certain events during execution. See `ExecuteBackupPlanCallbacks`.
     """
 
     manifest = BackupManifest()
@@ -228,8 +245,9 @@ def execute_backup_plan(backup_plan: BackupPlan, source_directory: StrPath, dest
         # Keep searching through child directories if:
         #   a) destination directory was created successfully, or
         #   b) destination directory creation failed, but there are still removed items to be recorded in the manifest.
-        children_to_visit = [d for d in reversed(search_directory.subdirectories)
-                             if not mkdir_failed or d.contains_removed_items]
+        children_to_visit = [
+            d for d in reversed(search_directory.subdirectories) if not mkdir_failed or d.contains_removed_items
+        ]
 
         # Only need to create and fill in the manifest entry if there is anything to put in it. I.e. if there are copied
         # files or removed files/directories to be recorded, or child entries. This may not always be true if creating

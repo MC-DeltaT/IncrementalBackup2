@@ -1,19 +1,16 @@
 from dataclasses import dataclass, field
 from typing import Iterable, Union
 
-from incremental_backup.meta import BackupManifest, BackupMetadata
 from incremental_backup._utility import path_name_equal
+from incremental_backup.meta import BackupManifest, BackupMetadata
 
-
-__all__ = [
-    'BackupSum'
-]
+__all__ = ["BackupSum"]
 
 
 @dataclass
 class BackupSum:
     """Represents the result of applying a sequence of backups.
-        That is, reconstructs the state of the source directory given backup data.
+    That is, reconstructs the state of the source directory given backup data.
     """
 
     @dataclass
@@ -26,8 +23,8 @@ class BackupSum:
     @dataclass
     class Directory:
         name: str
-        files: list['BackupSum.File'] = field(default_factory=list)
-        subdirectories: list['BackupSum.Directory'] = field(default_factory=list)
+        files: list["BackupSum.File"] = field(default_factory=list)
+        subdirectories: list["BackupSum.Directory"] = field(default_factory=list)
 
         def count_contained_files(self) -> int:
             """Calculates the total number of files contained in this directory and all its descendents."""
@@ -40,17 +37,17 @@ class BackupSum:
                 search_stack.extend(search_directory.subdirectories)
             return count
 
-    root: Directory = field(default_factory=lambda: BackupSum.Directory(''))
+    root: Directory = field(default_factory=lambda: BackupSum.Directory(""))
     """The root of the reconstructed file/directory structure.
         This object represents the backup source directory.
     """
 
     @classmethod
-    def from_backups(cls, backups: Iterable[BackupMetadata], /) -> 'BackupSum':
+    def from_backups(cls, backups: Iterable[BackupMetadata], /) -> "BackupSum":
         """Constructs a backup sum from previous backup metadata.
 
-            :param backups: 0 or more backups to sum. Should all be for the same source directory, or the results will
-                be meaningless.
+        :param backups: 0 or more backups to sum. Should all be for the same source directory, or the results will
+            be meaningless.
         """
 
         backup_sum = cls()
@@ -72,7 +69,8 @@ class BackupSum:
                     if not is_root:
                         sum_directory = next(
                             (d for d in sum_stack[-1].subdirectories if path_name_equal(d.name, search_directory.name)),
-                            None)
+                            None,
+                        )
                         if sum_directory is None:
                             sum_directory = BackupSum.Directory(search_directory.name)
                             sum_stack[-1].subdirectories.append(sum_directory)
@@ -81,19 +79,23 @@ class BackupSum:
 
                     for copied_file in search_directory.copied_files:
                         prev_file = next(
-                            (f for f in sum_stack[-1].files if path_name_equal(f.name, copied_file)), None)
+                            (f for f in sum_stack[-1].files if path_name_equal(f.name, copied_file)),
+                            None,
+                        )
                         if prev_file is None:
                             sum_stack[-1].files.append(BackupSum.File(copied_file, backup))
                         else:
                             prev_file.last_backup = backup
 
                     for removed_file in search_directory.removed_files:
-                        sum_stack[-1].files = \
-                            [f for f in sum_stack[-1].files if not path_name_equal(f.name, removed_file)]
+                        sum_stack[-1].files = [
+                            f for f in sum_stack[-1].files if not path_name_equal(f.name, removed_file)
+                        ]
 
                     for removed_directory in search_directory.removed_directories:
-                        sum_stack[-1].subdirectories = \
-                            [d for d in sum_stack[-1].subdirectories if not path_name_equal(d.name, removed_directory)]
+                        sum_stack[-1].subdirectories = [
+                            d for d in sum_stack[-1].subdirectories if not path_name_equal(d.name, removed_directory)
+                        ]
 
                     search_stack.append(None)
                     search_stack.extend(reversed(search_directory.subdirectories))

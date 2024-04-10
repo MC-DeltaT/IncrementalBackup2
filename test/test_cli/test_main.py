@@ -1,5 +1,4 @@
-from helpers import run_application
-
+from test.helpers import run_application
 
 # TODO? check program console output
 
@@ -10,5 +9,5 @@ def test_no_args() -> None:
 
 
 def test_invalid_command() -> None:
-    process = run_application('magic_command', 'foo', 'bar')
+    process = run_application("magic_command", "foo", "bar")
     assert process.returncode == 1

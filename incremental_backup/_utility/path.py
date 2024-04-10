@@ -1,12 +1,8 @@
-from os import PathLike
 import os.path
+from os import PathLike
 from typing import Union
 
-
-__all__ = [
-    'path_name_equal',
-    'StrPath'
-]
+__all__ = ["path_name_equal", "StrPath"]
 
 
 StrPath = Union[str, PathLike[str]]

@@ -22,3 +22,9 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/MC-DeltaT/IncrementalBackup2"
 Issues = "https://github.com/MC-DeltaT/IncrementalBackup2/issues"
+
+[tool.ruff]
+line-length = 120
+lint.extend-select = ["I"]
+# Prevent ruff from thinking test is a third party package.
+lint.isort.known-local-folder = ["test"]
