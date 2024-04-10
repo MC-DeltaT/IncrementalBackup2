@@ -36,6 +36,7 @@ Development:
 
 - Pytest (any recent version should do)
 - Ruff
+- pre-commit
 
 ## Application Structure
 

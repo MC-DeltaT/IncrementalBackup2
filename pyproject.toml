@@ -31,3 +31,5 @@ lint.isort.known-local-folder = ["test"]
 lint.ignore = [
     "E731"  # Lambda assigned to name
 ]
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]    # Allow import *
