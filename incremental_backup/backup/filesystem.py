@@ -1,20 +1,19 @@
+import os.path
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import partial
-import os.path
 from pathlib import Path
 from typing import Callable, Iterable
 
-from incremental_backup.path_exclude import PathExcludePattern, is_path_excluded
 from incremental_backup._utility import StrPath
-
+from incremental_backup.path_exclude import PathExcludePattern, is_path_excluded
 
 __all__ = [
-    'Directory',
-    'File',
-    'scan_filesystem',
-    'ScanFilesystemCallbacks',
-    'ScanFilesystemResults'
+    "Directory",
+    "File",
+    "scan_filesystem",
+    "ScanFilesystemCallbacks",
+    "ScanFilesystemResults",
 ]
 
 
@@ -28,7 +27,7 @@ class File:
 class Directory:
     name: str
     files: list[File] = field(default_factory=list)
-    subdirectories: list['Directory'] = field(default_factory=list)
+    subdirectories: list["Directory"] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -59,22 +58,26 @@ class ScanFilesystemResults:
     """Indicates if any paths were skipped due to I/O errors (does not include paths matched by exclude patterns)."""
 
 
-def scan_filesystem(path: StrPath, /, exclude_patterns: Iterable[PathExcludePattern],
-                    callbacks: ScanFilesystemCallbacks = ScanFilesystemCallbacks()) -> ScanFilesystemResults:
+def scan_filesystem(
+    path: StrPath,
+    /,
+    exclude_patterns: Iterable[PathExcludePattern],
+    callbacks: ScanFilesystemCallbacks = ScanFilesystemCallbacks(),
+) -> ScanFilesystemResults:
     """Produces a tree representation of the filesystem at a given directory.
 
-        If any paths cannot be accessed for any reason, they will be skipped and excluded from the constructed tree.
+    If any paths cannot be accessed for any reason, they will be skipped and excluded from the constructed tree.
 
-        :param path: The path of the directory to scan.
-        :param exclude_patterns: Compiled exclude patterns. If a directory or file matches any of these, it and its
-            descendents are not included in the scan.
-        :param callbacks: Callbacks for certain events during scanning. See `ScanFilesystemCallbacks`.
+    :param path: The path of the directory to scan.
+    :param exclude_patterns: Compiled exclude patterns. If a directory or file matches any of these, it and its
+        descendents are not included in the scan.
+    :param callbacks: Callbacks for certain events during scanning. See `ScanFilesystemCallbacks`.
     """
 
     path = Path(path)
 
     paths_skipped = False
-    root = Directory('')
+    root = Directory("")
     search_stack: list[Callable[[], None]] = []
     path_segments: list[str] = []
     tree_node_stack = [root]
@@ -88,11 +91,11 @@ def scan_filesystem(path: StrPath, /, exclude_patterns: Iterable[PathExcludePatt
 
     def visit_directory(search_directory: Path, /) -> None:
         if is_root:
-            directory_path = '/'
+            directory_path = "/"
         else:
             path_segments.append(os.path.normcase(search_directory.name))
             search_stack.append(pop_path_segment)
-            directory_path = '/' + '/'.join(path_segments) + '/'
+            directory_path = "/" + "/".join(path_segments) + "/"
 
         if is_path_excluded(directory_path, exclude_patterns):
             (callbacks.on_exclude)(search_directory)

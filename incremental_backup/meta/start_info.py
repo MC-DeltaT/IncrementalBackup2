@@ -1,18 +1,17 @@
+import json
 from dataclasses import dataclass
 from datetime import datetime
-import json
-from typing import Any, cast, NoReturn, Optional
+from typing import Any, NoReturn, Optional, cast
 
 from incremental_backup._utility import StrPath
 
-
 __all__ = [
-    'BackupStartInfo',
-    'BackupStartInfoParseError',
-    'deserialise_backup_start_info',
-    'read_backup_start_info_file',
-    'serialise_backup_start_info',
-    'write_backup_start_info_file'
+    "BackupStartInfo",
+    "BackupStartInfoParseError",
+    "deserialise_backup_start_info",
+    "read_backup_start_info_file",
+    "serialise_backup_start_info",
+    "write_backup_start_info_file",
 ]
 
 
@@ -27,26 +26,24 @@ class BackupStartInfo:
 def serialise_backup_start_info(value: BackupStartInfo, /) -> str:
     """Writes backup start information to a string."""
 
-    json_data = {
-        'start_time': value.start_time.isoformat()
-    }
+    json_data = {"start_time": value.start_time.isoformat()}
     return json.dumps(json_data, indent=4, ensure_ascii=False)
 
 
 def write_backup_start_info_file(path: StrPath, value: BackupStartInfo, /) -> None:
     """Writes backup start information to file.
 
-        :except OSError: If the file could not be written to.
+    :except OSError: If the file could not be written to.
     """
 
-    with open(path, 'w', encoding='utf8') as file:
+    with open(path, "w", encoding="utf8") as file:
         file.write(serialise_backup_start_info(value))
 
 
 def deserialise_backup_start_info(string: str) -> BackupStartInfo:
     """Reads backup start information from a string.
 
-        :except BackupStartInfoParseError: If the string is not valid backup start information.
+    :except BackupStartInfoParseError: If the string is not valid backup start information.
     """
 
     def parse_error(reason: str, e: Optional[Exception] = None, /) -> NoReturn:
@@ -61,15 +58,15 @@ def deserialise_backup_start_info(string: str) -> BackupStartInfo:
         parse_error(str(e), e)
 
     if not isinstance(json_data, dict):
-        parse_error('Expected an object')
+        parse_error("Expected an object")
     json_data = cast(dict[Any, Any], json_data)
 
-    fields = {'start_time'}
+    fields = {"start_time"}
     if set(json_data.keys()) != fields:
-        parse_error(f'Expected fields {fields}')
+        parse_error(f"Expected fields {fields}")
 
     try:
-        start_time = datetime.fromisoformat(json_data['start_time'])
+        start_time = datetime.fromisoformat(json_data["start_time"])
     except (TypeError, ValueError) as e:
         parse_error('Field "start_time" must be an ISO-8601 date string', e)
 
@@ -79,12 +76,12 @@ def deserialise_backup_start_info(string: str) -> BackupStartInfo:
 def read_backup_start_info_file(path: StrPath, /) -> BackupStartInfo:
     """Reads backup start information from file.
 
-        :except OSError: If the file could not be read.
-        :except BackupStartInfoParseError: If the file is not valid backup start information.
+    :except OSError: If the file could not be read.
+    :except BackupStartInfoParseError: If the file is not valid backup start information.
     """
 
     try:
-        with open(path, 'r', encoding='utf8') as file:
+        with open(path, "r", encoding="utf8") as file:
             return deserialise_backup_start_info(file.read())
     except BackupStartInfoParseError as e:
         # TODO: may be nicer to raise from the cause of e
@@ -96,7 +93,7 @@ class BackupStartInfoParseError(Exception):
 
     def __init__(self, reason: str, file_path: Optional[str] = None) -> None:
         if file_path is None:
-            message = f'Failed to parse backup start info: {reason}'
+            message = f"Failed to parse backup start info: {reason}"
         else:
             message = f'Failed to parse backup start info file "{file_path}": {reason}'
         super().__init__(message)

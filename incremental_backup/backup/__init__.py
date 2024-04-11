@@ -1,4 +1,4 @@
 from .backup import *
-from .filesystem import scan_filesystem, ScanFilesystemCallbacks
+from .filesystem import ScanFilesystemCallbacks, scan_filesystem
 from .plan import *
 from .sum import *
