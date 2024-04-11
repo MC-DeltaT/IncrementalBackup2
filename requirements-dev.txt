@@ -1,3 +1,5 @@
-pytest~=8.0.0
-ruff~=0.3.5
 pre-commit~=3.7.0
+ruff~=0.3.5
+tox~=4.14.2
+
+-r requirements-test.txt

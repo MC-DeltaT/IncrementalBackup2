@@ -86,6 +86,16 @@ Important files and directories:
 
 ## Running tests
 
+Tests use pytest. Tox is set up to handle dependencies and testing over multiple Python versions.
+
+To run tests with Tox:
+
+```
+tox
+```
+
+Or, run them directly, which is much faster:
+
 ```
 python -m pytest
 ```
