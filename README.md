@@ -32,23 +32,6 @@ General usage:
 - Windows or Linux system
 - Python 3.9 or newer
 
-Development: `requirements-dev.txt`
-
-## Application Structure
-
-Important files and directories:
-
-- `incremental_backup/` - The Python package.
-  - `backup/` - High-level backup functionality.
-  - `cli/` - Command line interface functionality (see also the _Usage_ section).
-  - `meta/` - Functionality related to backup metadata and structure.
-  - `__main__.py` - Entrypoint for using the command line interface via the package name.
-  - `restore.py` - Backup restoration functionality.
-- `test/` - Test code. Each directory/file corresponds to the module in `incremental_backup/` it tests.
-
-The `incremental_backup` Python package contains all application functionality and can be easily used in a library-like manner.
-Additionally, this package doubles as the application entrypoint.
-
 ## Usage
 
 The Python package is executable via a command line interface.
@@ -74,13 +57,3 @@ To start using this application, you probably want to have a look at [BackupUsag
 - 1 - The command line arguments are invalid.
 - 2 - The operation could not be completed due to a runtime error (typically would be a file I/O error).
 - -1 - The operation was aborted due to a programmer error - sorry in advance.
-
-## Running Tests
-
-With your working directory as the project root directory:
-
-```
-python3 -m pytest
-```
-
-This runs a suite of unit and integration tests.
