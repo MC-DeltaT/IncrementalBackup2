@@ -1,6 +1,6 @@
 # Incremental Backup Tool - Restore Command
 
-This command is used to restore files previously backed up with the `backup` command (see [BackupUsage.md](BackupUsage.md)).
+This command is used to restore files previously backed up with the `backup` command (see [BackupUsage.md](./BackupUsage.md)).
 
 ## Usage
 
@@ -43,3 +43,10 @@ Here are some of the fatal error cases:
 
 In the worst error case, the restore operation will just fail to restore some files.
 In particular, the backup data will not be modified under any circumstances.
+
+### Program Exit Codes
+
+- 0 - The operation completed successfully, possibly with some warnings (i.e. nonfatal errors).
+- 1 - The command line arguments are invalid.
+- 2 - The operation could not be completed due to a fatal runtime error.
+- -1 - The operation was aborted due to a programmer error - sorry in advance.
