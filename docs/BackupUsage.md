@@ -5,7 +5,7 @@ This command is used to create new incremental backups.
 ## Usage
 
 ```
-python3 -m incremental_backup backup <source_dir> <target_dir> [--exclude <exclude_pattern1> [<exclude_pattern2> ...]] [--skip-empty]
+python -m incremental_backup backup <source_dir> <target_dir> [--exclude <exclude_pattern1> [<exclude_pattern2> ...]] [--skip-empty]
 ```
 
 `<source_dir>` - The path of the directory to be backed up.
@@ -31,7 +31,7 @@ The program will check for the latest previous backup which contains the file.
 If the file has been modified since that backup, the file is copied, otherwise it is not copied. (If there are no previous backups, all files are copied.)  
 Note that if you change files' last write times, or mess with the system clock, this application may not work as expected.
 
-Please see [BackupFormat.md](BackupFormat.md) for specific technical information on how the backups are stored.
+Please see [BackupFormat.md](./BackupFormat.md) for specific technical information on how the backups are stored.
 
 ## Path Exclude Patterns
 
@@ -82,3 +82,10 @@ Here are some of the fatal error cases:
 The command is designed to fail securely.
 The backup manifest is written to file last, and without a valid manifest a backup will not be considered during future backup operations.
 Therefore, at worst, files will be copied but the backup won't be used by this application.
+
+### Program Exit Codes
+
+- 0 - The operation completed successfully, possibly with some warnings (i.e. nonfatal errors).
+- 1 - The command line arguments are invalid.
+- 2 - The operation could not be completed due to a fatal runtime error.
+- -1 - The operation was aborted due to a programmer error - sorry in advance.

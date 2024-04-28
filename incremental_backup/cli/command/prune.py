@@ -46,6 +46,7 @@ class PruneCommand(Command):
             help="If not specified, don't delete anything.",
         )
         prune_modes_parser = parser.add_argument_group("Prune modes")
+        # TODO: (breaking) replace underscore with hypen in flag name
         prune_modes_parser.add_argument(
             "--delete_empty",
             action="store_true",
