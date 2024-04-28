@@ -5,7 +5,7 @@ This command is used to restore files previously backed up with the `backup` com
 ## Usage
 
 ```
-python3 -m incremental_backup restore <backup_target_dir> <destination_dir> [<backup_or_time>]
+python -m incremental_backup restore <backup_target_dir> <destination_dir> [<backup_or_time>]
 ```
 
 `<backup_target_dir>` - The path of the directory containing the backups to restore.
