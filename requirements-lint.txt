@@ -1,0 +1,3 @@
+# Requirements for linting.
+
+ruff~=0.3.5
