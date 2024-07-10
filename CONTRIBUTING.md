@@ -86,16 +86,12 @@ Important files and directories:
 
 ## Running tests
 
-Tests use pytest. Tox is set up to handle dependencies and testing over multiple Python versions.
+Unit tests use pytest. There are also linting checks with ruff. Running of both is handled by tox.
 
-To run tests with Tox:
+To run linting and unit tests with tox:
 
 ```
 tox
 ```
 
-Or, run them directly, which is much faster:
-
-```
-python -m pytest
-```
+By default, unit tests run locally with tox use Python 3.9 only, for performance reasons. On GitHub Actions, unit tests run on more Python versions to validate compatibility.
