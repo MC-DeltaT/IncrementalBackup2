@@ -7,6 +7,10 @@ Private entities begin with a single underscore (e.g. modules, functions, class 
 
 TODO: update when making changes.
 
+## 1.2.2 - 2024/07/10
+
+Improve and unify test setup.
+
 ## 1.2.1 - 2024/04/28
 
 Improve documentation.
