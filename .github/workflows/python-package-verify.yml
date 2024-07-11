@@ -3,6 +3,9 @@ name: Verify Python Package Publish
 on:
   schedule:
     - cron: "0 0 * * *"
+  push:
+    branches:
+      - "package-verify-action"
 
 jobs:
   deploy:
