@@ -3,10 +3,6 @@ name: Verify Python Package Publish
 on:
   schedule:
     - cron: "0 0 * * *"
-  # TODO: remove
-  push:
-    branches:
-      - "package-verify-action"
 
 jobs:
   verify:
