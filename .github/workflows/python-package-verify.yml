@@ -22,9 +22,15 @@ jobs:
       run: python -m pip install --upgrade pip
     - name: Install package
       run: pip install --no-cache-dir incremental-backup
-    - name: Test package
+    - name: Test package via module
       run: |
         python -m incremental_backup --help
         python -m incremental_backup backup --help
         python -m incremental_backup restore --help
         python -m incremental_backup prune --help
+    - name: Test package via script
+      run: |
+        incremental_backup --help
+        incremental_backup backup --help
+        incremental_backup restore --help
+        incremental_backup prune --help
