@@ -7,6 +7,11 @@ Private entities begin with a single underscore (e.g. modules, functions, class 
 
 TODO: update when making changes.
 
+## 1.3.0 - 2024/08/01
+
+Add script entrypoint for package install.  
+Use setuptools_scm for package versioning.
+
 ## 1.2.2 - 2024/07/10
 
 Improve and unify test setup.
