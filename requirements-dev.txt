@@ -3,3 +3,7 @@ pre-commit~=3.7.0
 -r requirements-tox.txt
 -r requirements-unittest.txt
 -r requirements-lint.txt
+
+# Install our package in editable mode so it's usable in the Python interpreter without installing (handy for testing).
+# Note the path must be relative to the project root directory.
+-e .

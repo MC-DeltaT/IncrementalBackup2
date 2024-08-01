@@ -23,6 +23,10 @@ classifiers = [
 Homepage = "https://github.com/MC-DeltaT/IncrementalBackup2"
 Issues = "https://github.com/MC-DeltaT/IncrementalBackup2/issues"
 
+[project.scripts]
+incremental-backup = "incremental_backup.cli:cli_entrypoint"
+incremental_backup = "incremental_backup.cli:cli_entrypoint"
+
 [tool.ruff]
 line-length = 120
 lint.extend-select = ["I"]
